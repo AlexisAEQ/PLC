@@ -1,0 +1,13 @@
+{
+  "machine name": "RessortRoyal2_Production_01",
+  "user target": 50000,
+  "return position": 10000,
+  "go and back": true,
+  "jog speed": 750,
+  "cycle speed": 1500,
+  "number of cycles to do": 100,
+  "number of cycles made": 0,
+  "total cycles": 0,
+  "full torque": false,
+  "initial torque [%]": 60
+}

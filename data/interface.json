@@ -1,0 +1,329 @@
+{
+    "pages": [
+        {
+            "PageName": "Page principale",
+            "sections": [
+                {
+                    "SectionName": "Opération",
+                    "orientation": "horizontal",
+                    "NodesList": [
+                        {
+                            "name": "Position cible",
+                            "component": "tx-numeric",
+                            "unit": "pulses",
+                            "hash": 645363011
+                        },
+                        {
+                            "name": "Position retour",
+                            "component": "tx-numeric",
+                            "unit": "pulses",
+                            "hash": 396324830
+                        },
+                        {
+                            "name": "Nombre de cycles du job",
+                            "component": "tx-numeric",
+                            "hash": 3526906192
+                        },
+                        {
+                            "name": "Réinitialiser compteur",
+                            "component": "tx-button-hold",
+                            "color": "warning",
+                            "hash": 3294789918
+                        },
+                        {
+                            "name": "Free Run",
+                            "component": "tx-bool",
+                            "color": "primary",
+                            "hash": 2015677485
+                        },
+                        {
+                            "name": "Go And Back",
+                            "component": "tx-bool",
+                            "color": "success",
+                            "hash": 1078009035
+                        },
+                        {
+                            "name": "Reset défauts",
+                            "component": "tx-button-hold",
+                            "color": "warning",
+                            "hash": 1726752376
+                        },
+                        {
+                            "name": "Alarme Servo",
+                            "component": "rx-indicator",
+                            "color": "red",
+                            "hash": 1036420395
+                        },
+                        {
+                            "name": "Machine d'états",
+                            "component": "rx-label",
+                            "color": "neutral",
+                            "hash": 1218981442
+                        },
+                        {
+                            "name": "Cycles du job effectués",
+                            "hash": 3822078925,
+                            "component": "rx-level-bar",
+                            "isLabelAlarmWarningOn": false,
+                            "orientation": "horizontal",
+                            //"barLength": "400px",
+                            "max": 100,
+                            "min": 0
+                        },
+                        {
+                            "name": "Position actuelle [pulses]",
+                            "component": "rx-numeric",
+                            "unit": "pulses",
+                            "hash": 1168588921
+                        },
+                        {
+                            "name": "Horloge",
+                            "component": "rx-label",
+                            "state": "success",
+                            "isBlinking": false,
+                            "tooltip": "Shows the local time, updated only when IDLE",
+                            "getState": false,
+                            "hash": 4007601654
+                        }
+                    ]
+                },
+                {
+                    "SectionName": "Jog",
+                    "orientation": "horizontal",
+                    "NodesList": [
+                        {
+                            "name": "Jog Mode",
+                            "component": "tx-bool",
+                            "hash": 627952477
+                        },
+                        {
+                            "name": "Jog +",
+                            "component": "tx-button-hold",
+                            "color": "warning",
+                            "hash": 936928435
+                        },
+                        {
+                            "component": "tx-slider",
+                            "low": 0,
+                            "high": 3000, 
+                            "tooltip": "Vitesse du jog",
+                            "name": "Vitesse du jog",
+                            "disable": false,
+                            "getState": false,
+                            "hash": 2984797290
+                        },
+                        {
+                            "name": "Jog -",
+                            "component": "tx-button-hold",
+                            "color": "warning",
+                            "hash": 2405696470
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "PageName": "Monitoring",
+            "sections": [
+                {
+                    "SectionName": "États du servo",
+                    "orientation": "horizontal",
+                    "NodesList": [
+                        {
+                            "name": "Start cycle physique",
+                            "component": "rx-indicator",
+                            "color": "green",
+                            "hash": 2693195903
+                        },
+                        {
+                            "name": "Servo Ready",
+                            "component": "rx-indicator",
+                            "color": "green",
+                            "hash": 1578545169
+                        },
+                        {
+                            "name": "Servo Activé",
+                            "component": "rx-indicator",
+                            "color": "green",
+                            "hash": 1878960780
+                        },
+                        {
+                            "name": "Vitesse Zéro",
+                            "component": "rx-indicator",
+                            "color": "green",
+                            "hash": 3381240120
+                        },
+                        {
+                            "name": "Vitesse Cible Atteinte",
+                            "component": "rx-indicator",
+                            "color": "yellow",
+                            "hash": 204382134
+                        },
+                        {
+                            "name": "Position cible atteinte",
+                            "component": "rx-indicator",
+                            "color": "green",
+                            "hash": 2857997314
+                        },
+                        {
+                            "name": "Home effectué",
+                            "component": "rx-indicator",
+                            "color": "green",
+                            "hash": 3171404866
+                        }
+                    ]
+                },
+                {
+                    "SectionName": "Alarmes",
+                    "orientation": "horizontal",
+                    "NodesList": [
+                        {
+                            "name": "Alarme Servo",
+                            "component": "rx-indicator",
+                            "color": "red",
+                            "hash": 1036420395
+                        },
+                        {
+                            "name": "Position Absolue Perdue",
+                            "component": "rx-indicator",
+                            "color": "red",
+                            "hash": 1845100150
+                        },
+                        {
+                            "name": "Alarme Batterie",
+                            "component": "rx-indicator",
+                            "color": "yellow",
+                            "hash": 1229514833
+                        },
+                        {
+                            "name": "Overflow Tours Multiples",
+                            "component": "rx-indicator",
+                            "color": "yellow",
+                            "hash": 4013941733
+                        },
+                        {
+                            "name": "Overflow PUU",
+                            "component": "rx-indicator",
+                            "color": "yellow",
+                            "hash": 3738696056
+                        },
+                        {
+                            "name": "Coordonnées Absolues Non Définies",
+                            "component": "rx-indicator",
+                            "color": "red",
+                            "hash": 2023813836
+                        },
+                        {
+                            "name": "Erreur Modbus",
+                            "component": "rx-indicator",
+                            "color": "red",
+                            "hash": 460376054
+                        }
+                    ]
+                },
+                {
+                    "SectionName": "États du système",
+                    "orientation": "horizontal",
+                    "NodesList": [
+                        {
+                            "name": "Drive Initialisé",
+                            "component": "rx-indicator",
+                            "color": "green",
+                            "hash": 714661227
+                        },
+                        {
+                            "name": "E stop A",
+                            "component": "rx-indicator",
+                            "color": "red",
+                            "hash": 721063196
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "PageName": "Configuration",
+            "password": "1111",
+            "sections": [
+                {
+                    "SectionName": "Paramètres de cycle",
+                    "orientation": "horizontal",
+                    "NodesList": [
+                        {
+                            "name": "Mettre à jour l'horloge",
+                            "component": "tx-button-hold",
+                            "color": "warning",
+                            "hash": 59448638
+                        }
+
+                    ]
+                },
+                {
+                    "SectionName": "Vitesses et couple",
+                    "orientation": "horizontal",
+                    "NodesList": [
+                        {
+                           "component": "tx-slider",
+                            "low": 1,
+                            "high": 15, 
+                            "name": "Vitesse du cycle",
+                            "tooltip": "Vitesse du cycle",
+                            "disable": false,
+                            "getState": false,
+                            "hash": 1951357668
+                        },
+                        {
+                            "component": "tx-slider",
+                            "low": 0,
+                            "high": 3000, 
+                            "tooltip": "Vitesse du jog",
+                            "name": "Vitesse du jog",
+                            "disable": false,
+                            "getState": false,
+                            "hash": 2984797290
+                        },
+                        {
+                            "name": "Full torque",
+                            "component": "tx-bool",
+                            "color": "green",
+                            "tooltip": "Spécifie le couple du servo: réduit ou 100%",
+                            "hash": 313736047
+                        },
+                        {
+                            "name": "Position [pulses]",
+                            "component": "rx-numeric",
+                            "unit": "pulses",
+                            "hash": 1168588921
+                        },
+                        {
+                            "component": "tx-slider",
+                            "low": 0,
+                            "high": 100, 
+                            "tooltip": "Torque",
+                            "name": "Couple",
+                            "disable": false,
+                            "getState": false,
+                            "hash": 3018797200
+                        }
+                    ]
+                },
+                {
+                    "SectionName": "Tests",
+                    "orientation": "horizontal",
+                    "NodesList": [
+                        {
+                            "name": "Jog Mode",
+                            "component": "tx-bool",
+                            "hash": 627952477
+                        },
+                        {
+                            "name": "Servo on",
+                            "component": "tx-bool",
+                            "hash": 623257485
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

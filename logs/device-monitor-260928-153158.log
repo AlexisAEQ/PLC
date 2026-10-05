@@ -1,0 +1,2436 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x17 (SPI_FAST_FLASH_BOOT)
+configsip: 153911750, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:4660
+load:0x40078000,len:15568
+ho 0 tail 12 room 4
+load:0x40080400,len:4
+load:0x40080404,len:3152
+entry 0x400805a0
+E (615) esp_core_dump_flash: No co�fx dump partition found!
+E (615) esp_core_dump_flash: No core dump partition found!
+=== VERSION CHECK ===
+Arduino-ESP32 version: 3.2.0
+ESP-IDF version: 5.4.1
+====================
+Will start BorneUniverselle library...
+[TaskInfo] Number of tasks: 7 at 1 s
+📋 PLC_Tools::initialize() - Initialisation des sous-systèmes
+✅ diagnosticMutex créé avec succès
+PSRAM check: Hardware not found
+📋 Buffer diagnostic: 4 KB (RAM)
+========================================
+📊 Système de diagnostic initialisé:
+  - Mutex: ✅ OK
+  - Buffer: ✅ OK (4 KB)
+========================================
+✅ PLC_Tools::initialize() - Terminé
+Start at 1078 ms, tasks: 7, heap: 227688, stack free: 25920
+
+=== Flash Stats [BorneUniverselle constructor] ===
+Flash Chip Size (physique): 16777216 bytes (16.00 MB)
+Sketch Size: 1568416 bytes (1.50 MB)
+Free Sketch Space: 0 bytes (0.00 MB)
+App Partition Usage: 100.0% (partition app: 1568416 bytes)
+========================
+
+Initializing configuration...
+=== LittleFS Status ===
+  Total : 1310720 bytes (1280.0 KB)
+  Used  : 1257472 bytes (1228.0 KB)
+  Free  : 53248 bytes (52.0 KB)
+  --- Files ---
+  [RessortRoyal2.json] 317 bytes
+  [assets] 0 bytes
+  [component-manifest.json] 16070 bytes
+  [config.json] 11402 bytes
+  [config.v1.json] 11402 bytes
+  [diagnostic.txt] 47 bytes
+  [hardware] 0 bytes
+  [index.html] 1300 bytes
+  [index.js] 960311 bytes
+  [interface.json] 13521 bytes
+  [reboot_log.json] 142 bytes
+  [renderers.json] 3202 bytes
+  [styles.min.css] 37516 bytes
+======================
+Do not suspend PLC: client is not connected
+
+2206:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2227:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2236:: ⚠️ Do not resume suspended PLC: client is not connected
+
+============ JOURNAL DE DIAGNOSTIC ============
+Nombre d'entrées: 1
+
++0000004425ms: PLC is up - RessortRoyal2 ready
+
+============= FIN DU JOURNAL DE DIAGNOSTIC =============
+2257:: Lecture JSON depuis le fichier: /config.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+2291:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2344:: ⚠️ Do not resume suspended PLC: client is not connected
+Will parse config
+Project name: ressort_royal
+The key filteredMessages is not found, no message will be filtered
+PLC_Tools: 0 motif(s) de filtrage de messages charge(s)
+Do not suspend PLC: client is not connected
+
+2376:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2541:: ⚠️ Do not resume suspended PLC: client is not connected
+Sauvegarde créée: /config.v1.json (version 1)
+Created backup of config.json before applying changes
+Project version: 2.00
+Configuration WiFi: EDMG_Thierry
+Mode WiFi: station
+WifiManagment Singleton créé
+Configuration WiFi ajoutée: EDMG_Thierry (mode: station)
+  SSID: Ella, DHCP: OUI
+Configuration WiFi: Access Point RessortRoyal
+Mode WiFi: access_point
+Configuration WiFi ajoutée: Access Point RessortRoyal (mode: access_point)
+  AP Name: RS- AP3, IP: 192.168.4.3
+ota_url: truc
+Section name: Direct outputs
+hardware: Kincony_KC868_A8S
+type: tx-bool
+2882:: Lecture JSON depuis le fichier: /hardware/Kincony_KC868_A8S.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+2923:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2951:: ⚠️ Do not resume suspended PLC: client is not connected
+I2c bus initialised
+[RTC] Initialisation service d'horodatage...
+[RTC] Aucune horloge matérielle détectée (DS3231/PCF85063ATL)
+[RTC] Mode fallback millis() activé
+I2C bus is initialised
+Bus I2C initialized
+Try to initialise Modbus
+RS485 speed: 115000, rx pin: 32, tx pin: 33, mode: SERIAL_8E1
+RS485 bus is initialised
+Modbus RTU timeout: 101
+MyModbus timeout: 101 ms
+MyModbus marque comme initialise
+Modbus initialised
+Modbus initialized
+Will set pin 2 as output
+Node Direct outputs/Buzzer created with succes (ESP32 pin 2) with type HardwareBooleanOutputNode and hash: 1711197005
+Section name: Inputs Kincony
+hardware: Kincony_KC868_A8S
+type: PF8574_rx-bool
+3013:: Lecture JSON depuis le fichier: /hardware/Kincony_KC868_A8S.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3054:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3083:: ⚠️ Do not resume suspended PLC: client is not connected
+I2C bus is initialised
+Bus I2C initialized
+Modbus initialized
+🔧 Initializing PCF8574 at 0x22...
+✅ PCF8574 initialized successfully at 0x22
+Node Inputs Kincony/EStopA created with succes with type PF8574BooleanInputNode and hash: 721063196, inverted: false, refresh interval: 0, web refresh interval: 0
+ℹ️  PCF8574 at 0x22 already initialized, reusing
+Node Inputs Kincony/StartCycle created with succes with type PF8574BooleanInputNode and hash: 2693195903, inverted: false, refresh interval: 0, web refresh interval: 0
+Section name: Outputs
+hardware: Kincony_KC868_A8S
+type: PF8574_tx-bool
+3131:: Lecture JSON depuis le fichier: /hardware/Kincony_KC868_A8S.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3182:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3211:: ⚠️ Do not resume suspended PLC: client is not connected
+I2C bus is initialised
+Bus I2C initialized
+Modbus initialized
+🔧 Initializing PCF8574 at 0x24...
+✅ PCF8574 initialized successfully at 0x24
+✅ Output node servoOn created (pin 0 on PCF8574 at 0x24)
+Node Outputs/servoOn created with succes with type PF8574BooleanOutputNode and hash: 1927398708
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node triggerPR created (pin 1 on PCF8574 at 0x24)
+Node Outputs/triggerPR created with succes with type PF8574BooleanOutputNode and hash: 4235117271
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node immediatStop created (pin 3 on PCF8574 at 0x24)
+Node Outputs/immediatStop created with succes with type PF8574BooleanOutputNode and hash: 973196112
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node alarmsReset created (pin 4 on PCF8574 at 0x24)
+Node Outputs/alarmsReset created with succes with type PF8574BooleanOutputNode and hash: 4138453966
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node free run created (pin 5 on PCF8574 at 0x24)
+Node Outputs/free run created with succes with type PF8574BooleanOutputNode and hash: 2015677485
+Section name: Jog
+hardware: virtual
+type: rx-bool
+Node Jog/jog created (VirtualBooleanInputNode) with succes, hash: 627952477
+Node Jog/fwd created (VirtualBooleanInputNode) with succes, hash: 936928435
+Node Jog/rwd created (VirtualBooleanInputNode) with succes, hash: 2405696470
+Node Jog/Full torque created (VirtualBooleanInputNode) with succes, hash: 313736047
+Section name: Status
+hardware: virtual
+type: tx-bool
+Node Status/servoReady created (VirtualBooleanOutputNode) with succes, hash: 1578545169
+Node Status/servoActivated created (VirtualBooleanOutputNode) with succes, hash: 1878960780
+Node Status/zeroSpeed created (VirtualBooleanOutputNode) with succes, hash: 3381240120
+Node Status/targetSpeedRated created (VirtualBooleanOutputNode) with succes, hash: 204382134
+Node Status/AtTarget created (VirtualBooleanOutputNode) with succes, hash: 2857997314
+Node Status/servoAlarm created (VirtualBooleanOutputNode) with succes, hash: 1036420395
+Node Status/absolutPositionLost created (VirtualBooleanOutputNode) with succes, hash: 1845100150
+Node Status/batteryAlarm created (VirtualBooleanOutputNode) with succes, hash: 1229514833
+Node Status/multipleTurnsOverflow created (VirtualBooleanOutputNode) with succes, hash: 4013941733
+Node Status/puuOverflow created (VirtualBooleanOutputNode) with succes, hash: 3738696056
+Node Status/absoluteCoordonateNotSet created (VirtualBooleanOutputNode) with succes, hash: 2023813836
+Node Status/homeDone created (VirtualBooleanOutputNode) with succes, hash: 3171404866
+Node Status/modbusError created (VirtualBooleanOutputNode) with succes, hash: 460376054
+Node Status/driveInitialised created (VirtualBooleanOutputNode) with succes, hash: 714661227
+Section name: Inputs
+hardware: virtual
+type: tx-uint32
+Node Inputs/user target created (VirtualUint32OutputNode) with succes, hash: 645363011
+Node Inputs/return Pos created (VirtualUint32OutputNode) with succes, hash: 396324830
+Node Inputs/vjog speed created (VirtualUint32OutputNode) with succes, hash: 2984797290
+Node Inputs/vcycle speed created (VirtualUint32OutputNode) with succes, hash: 1951357668
+Node Inputs/number of cycles to do created (VirtualUint32OutputNode) with succes, hash: 3526906192
+Node Inputs/number of cycles made created (VirtualUint32OutputNode) with succes, hash: 3822078925
+Node Inputs/v_position created (VirtualUint32OutputNode) with succes, hash: 1168588921
+Node Inputs/v_torque created (VirtualUint32OutputNode) with succes, hash: 3018797200
+Section name: Servo read holding register
+hardware: SureServo
+type: ModbusReadHoldingRegister
+3535:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3575:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3603:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Servo read holding register/status created with succes with type ModbusReadHoldingRegister, hash: 4137233651, address: 127, offset: 92, refresh interval: 200, web refresh interval 0
+Node Servo read holding register/absolute coordonate system status created with succes with type ModbusReadHoldingRegister, hash: 4098304980, address: 127, offset: 100, refresh interval: 1000, web refresh interval 0
+Node Servo read holding register/alarms created with succes with type ModbusReadHoldingRegister, hash: 4126332617, address: 127, offset: 2, refresh interval: 1000, web refresh interval 0
+Section name: Servo write holding register
+hardware: SureServo
+type: ModbusWriteHoldingRegister
+3669:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3709:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3736:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Servo write holding register/aux_function created with succes with type ModbusWriteHoldingRegister, hash: 2308213873, address: 127, offset: 572
+Node Servo write holding register/trigger created with succes with type ModbusWriteHoldingRegister, hash: 748480285, address: 127, offset: 1294
+Node Servo write holding register/jog speed created with succes with type ModbusWriteHoldingRegister, hash: 3187488644, address: 127, offset: 1034
+Node Servo write holding register/maxTorque created with succes with type ModbusWriteHoldingRegister, hash: 3740987040, address: 127, offset: 370
+Section name: Num Status
+hardware: SureServo
+type: ModbusReadDobbleHoldingRegister
+3794:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3844:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3871:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Num Status/position created with succes with type ModbusReadDoubleHoldingRegisters, hash: 4045003206, address: 127, offset: 22, refresh interval: 250, web refresh interval 0
+Section name: Servo write doubble holding registers
+hardware: SureServo
+type: ModbusWriteDobbleHoldingRegister
+3905:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3944:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3972:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Servo write doubble holding registers/target A created with succes with type ModbusWriteDoubleHoldingRegister, hash: 715974120, address: 127, offset: 1542
+Node Servo write doubble holding registers/target B created with succes with type ModbusWriteDoubleHoldingRegister, hash: 1732568463, address: 127, offset: 1546
+Node Servo write doubble holding registers/PR1 speed created with succes with type ModbusWriteDoubleHoldingRegister, hash: 3939244141, address: 127, offset: 1540
+Node Servo write doubble holding registers/PR2 speed created with succes with type ModbusWriteDoubleHoldingRegister, hash: 4237616449, address: 127, offset: 1544
+Node Servo write doubble holding registers/PR3 speed created with succes with type ModbusWriteDoubleHoldingRegister, hash: 1897666723, address: 127, offset: 1548
+Node Servo write doubble holding registers/PR3 data created with succes with type ModbusWriteDoubleHoldingRegister, hash: 1022630084, address: 127, offset: 1550
+Section name: Virtual bool inputs
+hardware: virtual
+type: rx-bool
+Node Virtual bool inputs/v_immediatStop created (VirtualBooleanInputNode) with succes, hash: 2701507160
+Node Virtual bool inputs/nb cycles clear created (VirtualBooleanInputNode) with succes, hash: 3294789918
+Node Virtual bool inputs/v_servoOn created (VirtualBooleanInputNode) with succes, hash: 623257485
+Node Virtual bool inputs/go and back created (VirtualBooleanInputNode) with succes, hash: 1078009035
+Node Virtual bool inputs/Full torque created (VirtualBooleanInputNode) with succes, hash: 2324654663
+Node Virtual bool inputs/clear all notifications created (VirtualBooleanInputNode) with succes, hash: 4128250470
+Node Virtual bool inputs/v_alarmsReset created (VirtualBooleanInputNode) with succes, hash: 1726752376
+Node Virtual bool inputs/v_rtc_set_time created (VirtualBooleanInputNode) with succes, hash: 59448638
+Section name: Textes
+hardware: virtual
+type: tx-text
+Node Textes/machine d'états created (VirtualTextOutputNode) with succes, hash: 1218981442
+Node Textes/clock created (VirtualTextOutputNode) with succes, hash: 4007601654
+Do not suspend PLC: client is not connected
+
+4169:: ⚠️ Do not resume suspended PLC: client is not connected
+4169:: Lecture JSON depuis le fichier: /reboot_log.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4194:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4208:: ⚠️ Do not resume suspended PLC: client is not connected
+=== Reset reason: 1 ===
+Do not suspend PLC: client is not connected
+
+PLC_Persistence: Sauvegarde JSON vers /reboot_log.json (285 octets estimés)
+PLC_Persistence: JSON sérialisé (285 octets réels)
+4428:: ⚠️ Do not resume suspended PLC: client is not connected
+[PLC_Tools] ✓ Reboot logged: +0000004162ms (Power-on)
+Reboot history
+*************
+Do not suspend PLC: client is not connected
+
+4445:: ⚠️ Do not resume suspended PLC: client is not connected
+4446:: Lecture JSON depuis le fichier: /reboot_log.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4472:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4487:: ⚠️ Do not resume suspended PLC: client is not connected
+Journal des redémarrages :
+------------------------
+Redémarrage #1:
+  Mémoire libre: 236264 octets
+  PSRAM libre: 0 octets
+  Type: initial
+
+Redémarrage #2:
+  Mémoire libre: 235852 octets
+  PSRAM libre: 0 octets
+  Type: normal
+
+
+End of reboot history
+
+PLC_InterfaceMenu initialized
+Will parse the interface file
+4520:: Lecture JSON depuis le fichier: /interface.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4567:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4623:: ⚠️ Do not resume suspended PLC: client is not connected
+Page: Page principale
+Found 12 nodes in section Opération
+Found 4 nodes in section Jog
+Page: Monitoring
+Found 7 nodes in section États du servo
+Found 7 nodes in section Alarmes
+Found 2 nodes in section États du système
+Page: Configuration
+Found 1 nodes in section Paramètres de cycle
+Found 5 nodes in section Vitesses et couple
+Found 2 nodes in section Tests
+Interface file parsed with success
+List of files in the root directory:
+RessortRoyal2.json
+component-manifest.json
+config.json
+config.v1.json
+diagnostic.txt
+index.html
+index.js
+interface.json
+reboot_log.json
+renderers.json
+styles.min.css
+Configuration initialized successfully
+Pre-validate callback registered successfully
+BorneUniverselle: Pre-validate callback registered
+PLC_Persistence: Save callback registered
+BorneUniverselle: Post-save callback registered
+Borne Universelle 2.2.2
+BorneUniverselle constructed, nodesMap size: 58
+Before check plc broken
+Before check map empty
+Before printTaskInfo
+[TaskInfo] Number of tasks: 7 at 4 s
+========================================
+Creating RessortRoyal2 instance...
+========================================
+✅ RessortRoyal2 size: 596 bytes
+Before RessortRoyal2 constructor, checking heap integrity...
+RessortRoyal2() VERSION 2.0 étape 1: constructeur BusinessLogic
+RessortRoyal2() étape 1.1: constructeur BusinessLogic
+RessortRoyal2() étape 1.2: constructeur BusinessLogic
+RessortRoyal2() étape 2: callback MemoryMonitor
+Memory monitor callback registration
+RessortRoyal2() étape 3: get BorneUniverselle
+RessortRoyal2() étape 4: register callback
+RessortRoyal2() etape 5: register deferred save
+PLC_Persistence: [/RessortRoyal2.json] sauvegarde differee enregistree
+========================================
+RessortRoyal2::readDedicacedConfigFile - Début
+========================================
+4989:: Lecture JSON depuis le fichier: /RessortRoyal2.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+5034:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+5064:: ⚠️ Do not resume suspended PLC: client is not connected
+✅ Fichier RessortRoyal2.json lu avec succès
+
+========================================
+RessortRoyal2::extractMachineParameters
+========================================
+  machineName      : RessortRoyal2_Production_01
+  numberOfCyclesToDo  : 100
+  numberOfCyclesMade  : 0
+  nbTotalCycles       : 0
+  userTarget       : 50000 [pulses] 
+  returnPos        : 10000 [pulses] 
+  goAndBack        : true 
+  jogSpeed         : 750 
+  cycleSpeed       : 1500 
+  fullTorque       : false 
+  initialTorque    : 60% 
+========================================
+OK: Extraction des parametres terminee
+========================================
+========================================
+RessortRoyal2::readDedicacedConfigFile - Terminé
+========================================
+Fichier de configuration dédié au projet lu avec succès
+Fin du constructeur RessortRoyal2
+Registering BusinessLogic with BorneUniverselle...
+✅ BusinessLogic registered with callback
+Appel à initializePointers
+========================================
+RessortRoyal2::initializePointers - Début (main::setup)
+========================================
+Render::node Paramètres de cycle/Mettre à jour l'horloge OK
+Render::node Opération/Horloge OK
+
+Render: unable to send text to client
+[ClockDisplay] Aucune horloge matérielle détectée : champ horloge masqué
+=== CRÉATION SURESERVO ===
+=== INITIALISATION SURESERVO ===
+Limite physique: 1000000.00" = 1000000 PUU
+=== INITIALISATION SURESERVO ===
+Position interne: pas encore fiable - utilisation nodes
+Pulses per unit: 1.0000
+5194:: setValue for node: Servo write doubble holding registers/PR1 speed: 8
+5205:: setValue for node: Servo write doubble holding registers/PR2 speed: 8
+5215:: setValue for node: Servo write doubble holding registers/PR3 speed: 8
+5215::setValue for node: Servo write holding register/jog speed, with value: 0
+5226::setValue for node: Servo write holding register/aux_function, with value: 5
+5236::setValue for node: Servo write holding register/trigger, with value: 0
+5236:: setValue for node: Servo write doubble holding registers/target A: 0
+5247:: setValue for node: Servo write doubble holding registers/target B: 0
+5257:: setValue for node: Servo write doubble holding registers/PR3 data: 0
+Nodes obligatoires: OK (17)
+Nodes optionnels: 13 configurés
+Nodes optionnels disponibles:
+  - servoReady
+  - servoActivated
+  - zeroSpeed
+  - targetSpeedRated
+  - targetPositionReached
+  - servoAlarm
+  - homeDone
+  - modbusError
+  - driveInitialised
+  - absolutePositionLost
+  - batteryAlarm
+  - multipleTurnsOverflow
+  - puuOverflow
+  - absoluteCoordonateNotSet
+Status initial: 0x0000
+Alarms initial: 0x0000
+Coord system initial: 0x0000
+Position initiale: 0 PUU
+INFO: Servo pas encore prêt - initialisation requise
+5310::setValue for node: Servo write holding register/aux_function, with value: 5
+EEPROM: Auto-save désactivé (valeur: 5)
+Configuration EEPROM initialisée (auto-save désactivé)
+=== SURESERVO INITIALISÉ ===
+✅ SureServo créé avec succès
+=== CONFIGURATION SERVO MOTOR ===
+Pulses per unit: 1.0000
+Nodes required: OK
+Nodes optional: 13 configurés
+================================
+Render::node Opération/Cycles du job effectués OK
+RessortRoyal2::applyParametersToNodes - Début
+5352:: setValue for node: Opération/Position cible: 50000
+  User target: 50000
+5353:: setValue for node: Opération/Position retour: 10000
+  Return position: 10000
+5363:: VirtualBooleanInputNode::setValue for node Opération/Go And Back, value: true
+  Go and back mode: true
+5374:: setValue for node: Vitesses et couple/Vitesse du jog: 750
+  Jog speed: 750
+5384:: setValue for node: Vitesses et couple/Vitesse du cycle: 15
+  Cycle speed: 15
+5384:: setValue for node: Opération/Nombre de cycles du job: 100
+  Cycles to do: 100
+5395:: setValue for node: Opération/Cycles du job effectués: 0
+  Cycles made: 0
+  Full torque: false
+5405::setValue for node: Servo write holding register/maxTorque, with value: 60
+5415:: setValue for node: Vitesses et couple/Couple: 60
+  Max torque: 60%
+RessortRoyal2::applyParametersToNodes - Terminé
+RessortRoyal2::initializePointers - Fin avec succès
+========================================
+========================================
+Starting state machine...
+========================================
+RessortRoyal2::startStateMachine()
+Initialisation des paramètres
+------------------------------
+immediateStop hideValue au démarrage: false
+🔄 Transition: UNDEFINED -> INITIALIZING, Context: Normal
+5458:: 🚨Transition from UNDEFINED to INITIALIZING
+Sortie de l'état: UNDEFINED
+5468:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: INITIALIZING
+⚙️ Entrée en état INITIALIZING
+Transition complète: UNDEFINED -> INITIALIZING
+RessortRoyal2::startStateMachine() - Durée démarrage: 32 ms
+🔄 Première connexion WiFi...
+Will get next wifi
+Current network ID: 0/1
+Returning wifi: EDMG_Thierry (index: 0), next will be: 1
+=== WifiManagment::connectWifi ===
+📶 Connexion au réseau: EDMG_Thierry...
+Will try to connect to: EDMG_Thierry, SSID: Ella, PWD: Oceanne1, DHCP: YES
+Wifi is with DHCP
+Mode défini: station
+WifiManagment::setWifiConnected appelé avec status=false
+WiFi déconnecté
+🔴 WiFi déconnecté
+⏰ Reconnexion dans 1000ms (via loop)
+E (17319) wifi:Set status to INIT
+WifiManagment::setWifiConnected appelé avec status=false
+WiFi déconnecté
+🔴 WiFi déconnecté
+⏰ Reconnexion dans 2000ms (via loop)
+8536:: ✅ Connected to AP successfully
+   📡 SSID: Ella
+   📶 Signal: -76 dBm
+   📍 BSSID: 1C:61:B4:1E:3C:6E
+   📡 Channel: 4
+   ⏳ Waiting for IP assignment...
+WiFi ERROR: Succès - Connexion réussie
+✅ CONNEXION RÉUSSIE: 192.168.1.66
+----------------------------------------------SERVER
+Setting up server...
+Server started
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Help
+-----------
+Version du firmware: RessortRoyal2 v1.0, date de compilation: Sep 28 2026 15:27:01
+=== STATUS WIFI DÉTAILLÉ ===
+WiFi.isConnected(): true
+wificonnected (local): false
+WiFi.status(): 3
+⚠️ WiFi non connecté ou état incohérent
+   INCOHÉRENCE: Hardware=connecté, Local=déconnecté
+WifiManagment::setWifiConnected appelé avec status=true
+Mode actuel: station
+Mode Station: IP = 192.168.1.66, SSID = Ella, RSSI = -76 dBm
+===========================
+Tapez sur 'A' ou 'a' pour effacer les réseaux wifi
+Tapez sur 'B' pour forcer la copie du JSON par défaut dans la config
+Tapez sur 'C' pour imprimer le fichier de config
+Tapez sur 'D' pour envoyer un message de test
+Tapez sur 'E' pour notifier le client web
+Tapez sur 'F' pour imprimer le fichier de persistance
+Tapez sur 'G' pour afficher la mémoire de manière cyclique
+Tapez sur 'H' pour imprimer la liste des fichiers
+Tapez sur 'Y' pour faire un reset
+Tapez sur 'Z' pour afficher modifier les logs
+Tapez sur '?' pour afficher l'aide
+10335:: Setup complete - normal WebSocket processing enabled
+========================================
+10336:: RessortRoyal2::setup() finished !
+========================================
++0000007392ms: PLC is up - RessortRoyal2 ready
+WifiManagment::setWifiConnected appelé avec status=true
+Mode actuel: station
+Mode Station: IP = 192.168.1.66, SSID = Ella, RSSI = -76 dBm
+MDNS responder started with name ressort_royal
+Web server started !
+
+████████████████████████████████████████████████████████████████
+█                    WIFI CONNECTÉ AVEC SUCCÈS                 █
+████████████████████████████████████████████████████████████████
+📡 Réseau WiFi    : Ella
+📍 Adresse IP     : 192.168.1.66
+🚪 Passerelle     : 192.168.1.254
+🔍 DNS            : 192.168.1.107
+🎭 Masque         : 255.255.255.0
+📶 Force signal   : -76 dBm
+📍 MAC Address    : C8:2E:18:77:CF:40
+🌐 Interface web  : http://192.168.1.66
+🏷️  mDNS          : http://ressort_royal.local
+████████████████████████████████████████████████████████████████
+
+10458:: VirtualUint32OutputNode::node: Opération/Position retour, new value: 10000
+10458:: VirtualUint32OutputNode::node: Opération/Position cible, new value: 50000
+10470:: node: États du système/E stop A, new value: true
+10470:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: INITIALIZING
+10487:: Uint32OutputNode::node: Servo write doubble holding registers/PR3 speed, new value: 8
+10487:: VirtualUint32OutputNode::node: Vitesses et couple/Vitesse du cycle, new value: 15
+10502:: Uint16OutputNode::node: Servo write holding register/aux_function, new value: 5
+10503:: VirtualUint32OutputNode::node: Vitesses et couple/Vitesse du jog, new value: 750
+10515:: VirtualUint32OutputNode::node: Vitesses et couple/Couple, new value: 60
+10515:: VirtualUint32OutputNode::node: Opération/Nombre de cycles du job, new value: 100
+10531:: Uint16OutputNode::node: Servo write holding register/maxTorque, new value: 60
+10542:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 8
+10552:: node: Num Status/position, new value: 4294967295
+10582:: node: Servo read holding register/status, new value: 5
+10592:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 8
+10639:: ✅ All hardware inputs read once! Logic executor can start.
+Do not suspend PLC: client is not connected
+
+10667:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+10690:: ⚠️ Do not resume suspended PLC: client is not connected
+🔄 Performance globale: 462.5 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=294ms
+   Refresh: avg=2ms, min=1ms, max=136ms
+   Logic:   avg=0ms, min=0ms, max=1ms
+🔄 Performance globale: 460.2 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=294ms
+   Refresh: avg=2ms, min=1ms, max=136ms
+   Logic:   avg=0ms, min=0ms, max=1ms
+80258:: Page not found !, requested url: /favicon.ico
+⏱️ Refresh lent: États du servo/Start cycle physique 733ms
+80659:: New WebSocket client connected: 1
+80660:: [ETAPE 2] Connection lock acquired for client 1
+80660:: [ETAPE 1] Accepting new client (attempt #0)
+80671:: [ETAPE 1] Client 1 accepted and registered
+80671:: ✅ Heartbeat timers initialized:
+  - lastHeartbeatSend: 80671
+  - heartbeatTimeout: 90671 (dans 10000 ms)
+80681:: [ETAPE 2] Connection lock released (held for 21 ms)
+⏱️ Modbus lent addr:127 Servo read holding register/absolute coordonate system status 386ms OK
+⚠️ 80713::Total refresh time: 1247 ms
+80719:: ✅ JavaScript resume request - already resumed, acknowledging
+80780:: ⏱️ Message processing took 65 ms
+BorneUniverselle::processMessage: Tab change detected -> Page principale
+BusinessLogic::onTabChange: Page principale (default handler, no action)
+BorneUniverselle::processMessage: receive get all states request
+80806:: 🔧 PLC requests suspend for: get all values
+80806:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+80817:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+80831:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+80832:: Node notify (uint32 output): Opération/Position retour new value: 10000
+80843:: Node notify: Alarmes/Erreur Modbus new value: false
+80843:: Node notify (uint32 output): Opération/Position cible new value: 50000
+80853:: Node notify: États du système/Drive Initialisé new value: false
+80854:: Node notify (uint32 output): Servo write doubble holding registers/target A new value: 0
+80864:: Node notify: États du système/E stop A new value: true
+80875:: Node notify (Uint16OutputNode): Servo write holding register/trigger new value: 0
+80876:: Node notify: Outputs/immediatStop new value: false
+80886:: Node notify (uint32 output): Servo write doubble holding registers/PR3 data new value: 0
+80897:: Node notify: Alarmes/Alarme Servo new value: false
+80897:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 0
+80991:: Node notify: Opération/Machine d'états new value: INITIALIZING
+80992:: Node notify: Alarmes/Alarme Batterie new value: false
+81004:: Node notify: États du servo/Servo Ready new value: false
+81004:: Node notify: Direct outputs/Buzzer new value: false
+81015:: Node notify (uint32 output): Servo write doubble holding registers/target B new value: 0
+81015:: Node notify: Alarmes/Position Absolue Perdue new value: false
+81026:: Node notify: États du servo/Servo Activé new value: false
+81036:: Node notify (uint32 output): Servo write doubble holding registers/PR3 speed new value: 8
+81037:: Node notify: Outputs/servoOn new value: false
+81047:: Node notify (uint32 output): Vitesses et couple/Vitesse du cycle new value: 15
+81048:: Node notify: Opération/Free Run new value: false
+81058:: Node notify: Alarmes/Coordonnées Absolues Non Définies new value: false
+81069:: Node notify (Uint16OutputNode): Servo write holding register/aux_function new value: 5
+81069:: Node notify: États du servo/Start cycle physique new value: false
+81080:: Node notify: États du servo/Position cible atteinte new value: false
+81090:: Node notify (uint32 output): Vitesses et couple/Vitesse du jog new value: 750
+81091:: Node notify (uint32 output): Vitesses et couple/Couple new value: 60
+81101:: Node notify: États du servo/Home effectué new value: false
+81102:: Node notify (Uint16OutputNode): Servo write holding register/jog speed new value: 0
+81112:: Node notify: États du servo/Vitesse Zéro new value: false
+81123:: Node notify (uint32 output): Opération/Nombre de cycles du job new value: 100
+81123:: Node notify: Alarmes/Overflow PUU new value: false
+81134:: Node notify (Uint16OutputNode): Servo write holding register/maxTorque new value: 60
+81144:: Node notify (uint32 output): Opération/Cycles du job effectués new value: 0
+81145:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 8
+81155:: Node notify: Opération/Horloge new value: 
+81166:: Node notify: Alarmes/Overflow Tours Multiples new value: false
+81166:: Node notify: Num Status/position (Uint32InputNode) new value: 4294967295
+81177:: Node notify (Uint16InputNode): Servo read holding register/absolute coordonate system status new value: 0
+81187:: Node notify (Uint16InputNode): Servo read holding register/alarms new value: 0
+81198:: Node notify (Uint16InputNode): Servo read holding register/status new value: 5
+81198:: Node notify: Outputs/alarmsReset new value: false
+81209:: Node notify: Outputs/triggerPR new value: false
+81209:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 8
+
+81224:: End notifyWebClient all states: duration: 394
+81224:: 🔧 PLC releases suspend
+81225:: 🟢 PLC SUSPENSION RELEASED (duration: 408 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+81240:: ⏱️ Message processing took 436 ms
+BorneUniverselle::processMessage: initial state loaded
+🌐 NEW CLIENT CONNECTED AND LOADED!
+========================================
+RessortRoyal2::initialStateLoadedHandler - Début
+========================================
+ServoOn state synchronized: OFF
+Jog initialized to false
+[31m81274:: ERROR: Arrêt immédiat actif - E_STOP ou problème servo drive[0m
++0000078320ms: Arrêt immédiat actif - E_STOP ou problème servo drive
+81285:: 🔧 PLC requests suspend for: Persistence: getFileSize
+81295:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+81296:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+81326:: 🔧 PLC releases suspend
+81327:: 🟢 PLC SUSPENSION RELEASED (duration: 32 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+81341:: 🔧 PLC requests suspend for: Persistence: appendToFile
+81342:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+81352:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+81736:: 🔧 PLC releases suspend
+81736:: 🟢 PLC SUSPENSION RELEASED (duration: 394 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+Client notified: Immediate stop active
+Applying persistent parameters to nodes...
+RessortRoyal2::applyParametersToNodes - Début
+81752:: setValue for node: Opération/Position cible: 50000
+  User target: 50000
+81763:: setValue for node: Opération/Position retour: 10000
+  Return position: 10000
+  Go and back mode: true
+81774:: setValue for node: Vitesses et couple/Vitesse du jog: 750
+  Jog speed: 750
+81784:: setValue for node: Vitesses et couple/Vitesse du cycle: 15
+  Cycle speed: 15
+81784:: setValue for node: Opération/Nombre de cycles du job: 100
+  Cycles to do: 100
+81795:: setValue for node: Opération/Cycles du job effectués: 0
+  Cycles made: 0
+  Full torque: false
+81806::setValue for node: Servo write holding register/maxTorque, with value: 60
+81816:: setValue for node: Vitesses et couple/Couple: 60
+  Max torque: 60%
+RessortRoyal2::applyParametersToNodes - Terminé
+✅ Parameters applied successfully
+⚠️ No hardware clock detected, PLC clock features will be unavailable
+
+✅ Interface enabled successfully
+========================================
+RessortRoyal2::initialStateLoadedHandler - Terminé en 588 ms
+========================================
+81854:: forceUpdateVirtualInputNodes - Début du parcours (client nouvellement connecté)
+  - Node virtuel input mis à jour: Paramètres de cycle/Mettre à jour l'horloge (hash: 59448638)
+  - Node virtuel input mis à jour: Vitesses et couple/Full torque (hash: 313736047)
+  - Node virtuel input mis à jour: Tests/Servo on (hash: 623257485)
+  - Node virtuel input mis à jour: Tests/Jog Mode (hash: 627952477)
+  - Node virtuel input mis à jour: Jog/Jog + (hash: 936928435)
+  - Node virtuel input mis à jour: Opération/Go And Back (hash: 1078009035)
+  - Node virtuel input mis à jour: Opération/Reset défauts (hash: 1726752376)
+  - Node virtuel input mis à jour: Virtual bool inputs/Full torque (hash: 2324654663)
+  - Node virtuel input mis à jour: Jog/Jog - (hash: 2405696470)
+  - Node virtuel input mis à jour: Virtual bool inputs/v_immediatStop (hash: 2701507160)
+  - Node virtuel input mis à jour: Opération/Réinitialiser compteur (hash: 3294789918)
+  - Node virtuel input mis à jour: Virtual bool inputs/clear all notifications (hash: 4128250470)
+81939:: forceUpdateVirtualInputNodes - Terminé. 12 nodes virtuels trouvés, 12 mis à jour
+Calling notifyWebClient after initialStateLoadedHandler
+81961:: Node notify: Paramètres de cycle/Mettre à jour l'horloge new value: false
+81961:: Node notify: Vitesses et couple/Full torque new value: false
+81972:: Node notify: Tests/Servo on new value: false
+81972:: Node notify: Tests/Jog Mode new value: false
+81982:: Node notify: Jog/Jog + new value: false
+81983:: Node notify: Opération/Go And Back new value: true
+81993:: Node notify: Opération/Reset défauts new value: false
+81994:: Node notify: Virtual bool inputs/Full torque new value: false
+82004:: Node notify: Jog/Jog - new value: false
+82005:: Node notify: Virtual bool inputs/v_immediatStop new value: false
+82015:: Node notify: Opération/Réinitialiser compteur new value: false
+82016:: Node notify: Virtual bool inputs/clear all notifications new value: false
+82030:: ⏱️ Message processing took 779 ms
+82052:: ✅ handleWebSocketMessage EXIT (queue empty): processed 11 messages
+🔄 Servo redevenu ready - Reset conditions resync
+[34m82053:: INFO: 82053:: servoOn:: true
+[0m
+82064:: setValue for node: Vitesses et couple/Position [pulses]: 4294967295
+ÉTAT: INITIALIZING (état précédent: UNDEFINED, temps dans l'état: 76596 ms)
+🔧 SureServo::startInitialize() - DÉBUT
+✅ SureServo: alarmsReset forcé à false (démarrage)
+✅ SureServo: Initialisation normale démarrée (phase=0)
+⚠️ Long loop time: 2623
+82093:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 4294967295
+PF8574BooleanOutputNode::setNewValue for node: Outputs/servoOn, pin: 0, new value: true82104:: OutputNode::node: Outputs/servoOn, new value: up
+82152:: node: Servo read holding register/status, new value: 135
+PF8574BooleanOutputNode::setNewValue for node: Outputs/alarmsReset, pin: 4, new value: false82164:: OutputNode::node: Outputs/alarmsReset, new value: down
+Initialisation : Position marquee NON fiable (demarrage)
+SureServo Init Phase 0: Configuration
+82176::setValue for node: Servo write holding register/aux_function, with value: 5
+82188:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 4294967295
+82188:: Node notify: États du servo/Servo Ready new value: true
+82199:: Node notify: Outputs/servoOn new value: true
+82199:: Node notify: États du servo/Vitesse Zéro new value: true
+82210:: Node notify (Uint16InputNode): Servo read holding register/status new value: 135
+82210:: Node notify: Outputs/alarmsReset new value: false
+82231:: Node notify: États du servo/Servo Activé new value: true
+SureServo Init Phase 1: Verification etat
+SureServo: Initialisation reussie
+HomeDone=false - Homing necessaire
+82273::setValue for node: Servo write holding register/maxTorque, with value: 60
+✅ SureServo: Couple max défini à 60%
+New user speed: 8, ramp: 0. Will set register with value 0x00080002
+82284:: setValue for node: Servo write doubble holding registers/PR1 speed: 524290
+82295:: setValue for node: Servo write doubble holding registers/PR2 speed: 524290
+82305:: setValue for node: Servo write doubble holding registers/PR3 speed: 524290
+Vitesse PR définie: 8, rampe: 0 (table servo drive)
+SureServo: Initialisation complete avec succes
+[SURE_SERVO] ✅ Initialisation terminée avec succès
+[32m82326:: SUCCESS: Servo drive initialisé avec succès[0m
+Success messages are disabled, skipping notification
+82337:: setValue for node: Servo write doubble holding registers/PR1 speed: 983043
+82337:: setValue for node: Servo write doubble holding registers/target A: 50000
+✅ configurePR: PR1 target=50000 SPD_IDX=15 chain=AUTO config=0x000F0003
+82358:: setValue for node: Servo write doubble holding registers/PR2 speed: 983042
+82358:: setValue for node: Servo write doubble holding registers/target B: 10000
+✅ configurePR: PR2 target=10000 SPD_IDX=15 chain=SINGLE config=0x000F0002
+✅ Post-init: PR1+PR2 configurés (mode go-and-back)
+🔄 Transition: INITIALIZING -> STOP, Context: Normal
+82389:: 🚨Transition from INITIALIZING to STOP
+Sortie de l'état: INITIALIZING
+82390:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: STOP
+🛑 Entrée en état STOP
+Transition complète: INITIALIZING -> STOP
+82419:: Uint32OutputNode::node: Servo write doubble holding registers/target A, new value: 50000
+82420:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: STOP
+82436:: Uint32OutputNode::node: Servo write doubble holding registers/target B, new value: 10000
+82446:: Uint32OutputNode::node: Servo write doubble holding registers/PR3 speed, new value: 524290
+82456:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 983043
+82486:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 983042
+ÉTAT: STOP (état précédent: INITIALIZING, temps dans l'état: 98 ms)
+82500:: Node notify: États du système/Drive Initialisé new value: true
+82501:: Node notify (uint32 output): Servo write doubble holding registers/target A new value: 50000
+82511:: Node notify: Opération/Machine d'états new value: STOP
+82512:: Node notify (uint32 output): Servo write doubble holding registers/target B new value: 10000
+82522:: Node notify (uint32 output): Servo write doubble holding registers/PR3 speed new value: 524290
+82533:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 983043
+82543:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 983042
+🔄 Performance globale: 191.6 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=2623ms
+   Refresh: avg=2ms, min=1ms, max=1248ms
+   Logic:   avg=0ms, min=0ms, max=139ms
+91959:: VirtualBooleanInputNode::setValue for node Tests/Jog Mode, value: true
+Node: Tests/Jog Mode new value: true
+🔄 Transition: STOP -> JOGGING, Context: Avant utilitaire
+91972:: 🚨Transition from STOP to JOGGING
+Sortie de l'état: STOP
+91973:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: JOGGING
+🎛️ Entrée en état JOGGING
+🎛️ Définition vitesse jog via SureServo...
+91993::setValue for node: Servo write holding register/jog speed, with value: 750
+Vitesse jog définie: 750
+[32m91994:: SUCCESS: ✅ Vitesse jog définie via SureServo: 750 t/min[0m
+Success messages are disabled, skipping notification
+dirty for ket: /RessortRoyal2.json registred
+[32m92015:: SUCCESS: Vitesse jog mise à jour et sauvegardée[0m
+Success messages are disabled, skipping notification
+Transition complète: STOP -> JOGGING
+92026:: Node notify: Tests/Jog Mode new value: true
+92041:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: JOGGING
+92049:: Uint16OutputNode::node: Servo write holding register/jog speed, new value: 750
+ÉTAT: JOGGING (état précédent: STOP, temps dans l'état: 88 ms)
+92062:: Node notify: Opération/Machine d'états new value: JOGGING
+92063:: Node notify (Uint16OutputNode): Servo write holding register/jog speed new value: 750
+95313:: setValue for node: Vitesses et couple/Vitesse du jog: 1978
+Node: Vitesses et couple/Vitesse du jog new value: 1978
+🎛️ Définition vitesse jog via SureServo...
+95326::setValue for node: Servo write holding register/jog speed, with value: 1978
+Vitesse jog définie: 1978
+[32m95327:: SUCCESS: ✅ Vitesse jog définie via SureServo: 1978 t/min[0m
+Success messages are disabled, skipping notification
+dirty for ket: /RessortRoyal2.json registred
+[32m95347:: SUCCESS: Vitesse jog mise à jour et sauvegardée[0m
+Success messages are disabled, skipping notification
+95363:: VirtualUint32OutputNode::node: Vitesses et couple/Vitesse du jog, new value: 1978
+95370:: Uint16OutputNode::node: Servo write holding register/jog speed, new value: 1978
+95377:: Node notify (uint32 output): Vitesses et couple/Vitesse du jog new value: 1978
+95378:: Node notify (Uint16OutputNode): Servo write holding register/jog speed new value: 1978
+BorneUniverselle::processMessage: Tab change detected -> Monitoring
+PLC_Persistence::flushAll() - Sauvegarde forcée de tous les fichiers dirty
+PLC_Persistence::flushAll: [/RessortRoyal2.json] sauvegarde forcée
+
+========================================
+Enregistrement du fichier de paramètres machine
+========================================
+RessortRoyal2::saveRessortRoyalConfigInternal - Début
+BusinessLogic::markInternalSave: Enregistré '/RessortRoyal2.json' (timestamp: 99495)
+99495:: 🔧 PLC requests suspend for: Persistence: saveJsonToFile
+99505:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+99516:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+PLC_Persistence: Sauvegarde JSON vers /RessortRoyal2.json (259 octets estimés)
+PLC_Persistence: JSON sérialisé (259 octets réels)
+SIMULATION: reset entre backup et rename
+99615:: Client 1 disconnected
+WifiManagment::setWifiConnected appelé avec status=false
+WiFi déconnecté
+🔴 WiFi déconnecté
+99615:: Ignoring disconnect from non-active client 1
+⏰ Reconnexion dans 1000ms (via loop)
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x17 (SPI_FAST_FLASH_BOOT)
+configsip: 153911750, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:4660
+load:0x40078000,len:15568
+ho 0 tail 12 room 4
+load:0x40080400,len:4
+load:0x40080404,len:3152
+entry 0x400805a0
+E (614) esp_core_dump_flash: No co�fx dump partition found!
+E (615) esp_core_dump_flash: No core dump partition found!
+=== VERSION CHECK ===
+Arduino-ESP32 version: 3.2.0
+ESP-IDF version: 5.4.1
+====================
+Will start BorneUniverselle library...
+[TaskInfo] Number of tasks: 7 at 1 s
+📋 PLC_Tools::initialize() - Initialisation des sous-systèmes
+✅ diagnosticMutex créé avec succès
+PSRAM check: Hardware not found
+📋 Buffer diagnostic: 4 KB (RAM)
+========================================
+📊 Système de diagnostic initialisé:
+  - Mutex: ✅ OK
+  - Buffer: ✅ OK (4 KB)
+========================================
+✅ PLC_Tools::initialize() - Terminé
+Start at 1078 ms, tasks: 7, heap: 227688, stack free: 25920
+
+=== Flash Stats [BorneUniverselle constructor] ===
+Flash Chip Size (physique): 16777216 bytes (16.00 MB)
+Sketch Size: 1568416 bytes (1.50 MB)
+Free Sketch Space: 0 bytes (0.00 MB)
+App Partition Usage: 100.0% (partition app: 1568416 bytes)
+========================
+
+Initializing configuration...
+=== LittleFS Status ===
+  Total : 1310720 bytes (1280.0 KB)
+  Used  : 1257472 bytes (1228.0 KB)
+  Free  : 53248 bytes (52.0 KB)
+  --- Files ---
+  ⚠️ RECOVERY: /RessortRoyal2.json absent -> restauré depuis /RessortRoyal2.json.backup
+  [RessortRoyal2.json.tmp] 259 bytes  ← ORPHAN
+  ✓ Supprimé: /RessortRoyal2.json.tmp
+  [RessortRoyal2.json] 317 bytes
+  [assets] 0 bytes
+  [component-manifest.json] 16070 bytes
+  [config.json] 11402 bytes
+  [config.v1.json] 11402 bytes
+  [diagnostic.txt] 166 bytes
+  [hardware] 0 bytes
+  [index.html] 1300 bytes
+  [index.js] 960311 bytes
+  [interface.json] 13521 bytes
+  [reboot_log.json] 285 bytes
+  [renderers.json] 3202 bytes
+  [styles.min.css] 37516 bytes
+  Orphelins nettoyés: 259 bytes récupérés
+  Free après nettoyage: 53248 bytes (52.0 KB)
+======================
+Do not suspend PLC: client is not connected
+
+2410:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2429:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2446:: ⚠️ Do not resume suspended PLC: client is not connected
+
+============ JOURNAL DE DIAGNOSTIC ============
+Nombre d'entrées: 3
+
++0000004425ms: PLC is up - RessortRoyal2 ready
++0000007392ms: PLC is up - RessortRoyal2 ready
++0000078320ms: Arrêt immédiat actif - E_STOP ou problème servo drive
+
+============= FIN DU JOURNAL DE DIAGNOSTIC =============
+2467:: Lecture JSON depuis le fichier: /config.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+2510:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2562:: ⚠️ Do not resume suspended PLC: client is not connected
+Will parse config
+Project name: ressort_royal
+The key filteredMessages is not found, no message will be filtered
+PLC_Tools: 0 motif(s) de filtrage de messages charge(s)
+Do not suspend PLC: client is not connected
+
+2593:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2749:: ⚠️ Do not resume suspended PLC: client is not connected
+Sauvegarde créée: /config.v1.json (version 1)
+Created backup of config.json before applying changes
+Project version: 2.00
+Configuration WiFi: EDMG_Thierry
+Mode WiFi: station
+WifiManagment Singleton créé
+Configuration WiFi ajoutée: EDMG_Thierry (mode: station)
+  SSID: Ella, DHCP: OUI
+Configuration WiFi: Access Point RessortRoyal
+Mode WiFi: access_point
+Configuration WiFi ajoutée: Access Point RessortRoyal (mode: access_point)
+  AP Name: RS- AP3, IP: 192.168.4.3
+ota_url: truc
+Section name: Direct outputs
+hardware: Kincony_KC868_A8S
+type: tx-bool
+3083:: Lecture JSON depuis le fichier: /hardware/Kincony_KC868_A8S.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3123:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3151:: ⚠️ Do not resume suspended PLC: client is not connected
+I2c bus initialised
+[RTC] Initialisation service d'horodatage...
+[RTC] Aucune horloge matérielle détectée (DS3231/PCF85063ATL)
+[RTC] Mode fallback millis() activé
+I2C bus is initialised
+Bus I2C initialized
+Try to initialise Modbus
+RS485 speed: 115000, rx pin: 32, tx pin: 33, mode: SERIAL_8E1
+RS485 bus is initialised
+Modbus RTU timeout: 101
+MyModbus timeout: 101 ms
+MyModbus marque comme initialise
+Modbus initialised
+Modbus initialized
+Will set pin 2 as output
+Node Direct outputs/Buzzer created with succes (ESP32 pin 2) with type HardwareBooleanOutputNode and hash: 1711197005
+Section name: Inputs Kincony
+hardware: Kincony_KC868_A8S
+type: PF8574_rx-bool
+3213:: Lecture JSON depuis le fichier: /hardware/Kincony_KC868_A8S.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3253:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3282:: ⚠️ Do not resume suspended PLC: client is not connected
+I2C bus is initialised
+Bus I2C initialized
+Modbus initialized
+🔧 Initializing PCF8574 at 0x22...
+✅ PCF8574 initialized successfully at 0x22
+Node Inputs Kincony/EStopA created with succes with type PF8574BooleanInputNode and hash: 721063196, inverted: false, refresh interval: 0, web refresh interval: 0
+ℹ️  PCF8574 at 0x22 already initialized, reusing
+Node Inputs Kincony/StartCycle created with succes with type PF8574BooleanInputNode and hash: 2693195903, inverted: false, refresh interval: 0, web refresh interval: 0
+Section name: Outputs
+hardware: Kincony_KC868_A8S
+type: PF8574_tx-bool
+3330:: Lecture JSON depuis le fichier: /hardware/Kincony_KC868_A8S.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3380:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3408:: ⚠️ Do not resume suspended PLC: client is not connected
+I2C bus is initialised
+Bus I2C initialized
+Modbus initialized
+🔧 Initializing PCF8574 at 0x24...
+✅ PCF8574 initialized successfully at 0x24
+✅ Output node servoOn created (pin 0 on PCF8574 at 0x24)
+Node Outputs/servoOn created with succes with type PF8574BooleanOutputNode and hash: 1927398708
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node triggerPR created (pin 1 on PCF8574 at 0x24)
+Node Outputs/triggerPR created with succes with type PF8574BooleanOutputNode and hash: 4235117271
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node immediatStop created (pin 3 on PCF8574 at 0x24)
+Node Outputs/immediatStop created with succes with type PF8574BooleanOutputNode and hash: 973196112
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node alarmsReset created (pin 4 on PCF8574 at 0x24)
+Node Outputs/alarmsReset created with succes with type PF8574BooleanOutputNode and hash: 4138453966
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node free run created (pin 5 on PCF8574 at 0x24)
+Node Outputs/free run created with succes with type PF8574BooleanOutputNode and hash: 2015677485
+Section name: Jog
+hardware: virtual
+type: rx-bool
+Node Jog/jog created (VirtualBooleanInputNode) with succes, hash: 627952477
+Node Jog/fwd created (VirtualBooleanInputNode) with succes, hash: 936928435
+Node Jog/rwd created (VirtualBooleanInputNode) with succes, hash: 2405696470
+Node Jog/Full torque created (VirtualBooleanInputNode) with succes, hash: 313736047
+Section name: Status
+hardware: virtual
+type: tx-bool
+Node Status/servoReady created (VirtualBooleanOutputNode) with succes, hash: 1578545169
+Node Status/servoActivated created (VirtualBooleanOutputNode) with succes, hash: 1878960780
+Node Status/zeroSpeed created (VirtualBooleanOutputNode) with succes, hash: 3381240120
+Node Status/targetSpeedRated created (VirtualBooleanOutputNode) with succes, hash: 204382134
+Node Status/AtTarget created (VirtualBooleanOutputNode) with succes, hash: 2857997314
+Node Status/servoAlarm created (VirtualBooleanOutputNode) with succes, hash: 1036420395
+Node Status/absolutPositionLost created (VirtualBooleanOutputNode) with succes, hash: 1845100150
+Node Status/batteryAlarm created (VirtualBooleanOutputNode) with succes, hash: 1229514833
+Node Status/multipleTurnsOverflow created (VirtualBooleanOutputNode) with succes, hash: 4013941733
+Node Status/puuOverflow created (VirtualBooleanOutputNode) with succes, hash: 3738696056
+Node Status/absoluteCoordonateNotSet created (VirtualBooleanOutputNode) with succes, hash: 2023813836
+Node Status/homeDone created (VirtualBooleanOutputNode) with succes, hash: 3171404866
+Node Status/modbusError created (VirtualBooleanOutputNode) with succes, hash: 460376054
+Node Status/driveInitialised created (VirtualBooleanOutputNode) with succes, hash: 714661227
+Section name: Inputs
+hardware: virtual
+type: tx-uint32
+Node Inputs/user target created (VirtualUint32OutputNode) with succes, hash: 645363011
+Node Inputs/return Pos created (VirtualUint32OutputNode) with succes, hash: 396324830
+Node Inputs/vjog speed created (VirtualUint32OutputNode) with succes, hash: 2984797290
+Node Inputs/vcycle speed created (VirtualUint32OutputNode) with succes, hash: 1951357668
+Node Inputs/number of cycles to do created (VirtualUint32OutputNode) with succes, hash: 3526906192
+Node Inputs/number of cycles made created (VirtualUint32OutputNode) with succes, hash: 3822078925
+Node Inputs/v_position created (VirtualUint32OutputNode) with succes, hash: 1168588921
+Node Inputs/v_torque created (VirtualUint32OutputNode) with succes, hash: 3018797200
+Section name: Servo read holding register
+hardware: SureServo
+type: ModbusReadHoldingRegister
+3733:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3771:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3799:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Servo read holding register/status created with succes with type ModbusReadHoldingRegister, hash: 4137233651, address: 127, offset: 92, refresh interval: 200, web refresh interval 0
+Node Servo read holding register/absolute coordonate system status created with succes with type ModbusReadHoldingRegister, hash: 4098304980, address: 127, offset: 100, refresh interval: 1000, web refresh interval 0
+Node Servo read holding register/alarms created with succes with type ModbusReadHoldingRegister, hash: 4126332617, address: 127, offset: 2, refresh interval: 1000, web refresh interval 0
+Section name: Servo write holding register
+hardware: SureServo
+type: ModbusWriteHoldingRegister
+3865:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3904:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3931:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Servo write holding register/aux_function created with succes with type ModbusWriteHoldingRegister, hash: 2308213873, address: 127, offset: 572
+Node Servo write holding register/trigger created with succes with type ModbusWriteHoldingRegister, hash: 748480285, address: 127, offset: 1294
+Node Servo write holding register/jog speed created with succes with type ModbusWriteHoldingRegister, hash: 3187488644, address: 127, offset: 1034
+Node Servo write holding register/maxTorque created with succes with type ModbusWriteHoldingRegister, hash: 3740987040, address: 127, offset: 370
+Section name: Num Status
+hardware: SureServo
+type: ModbusReadDobbleHoldingRegister
+3989:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4037:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4064:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Num Status/position created with succes with type ModbusReadDoubleHoldingRegisters, hash: 4045003206, address: 127, offset: 22, refresh interval: 250, web refresh interval 0
+Section name: Servo write doubble holding registers
+hardware: SureServo
+type: ModbusWriteDobbleHoldingRegister
+4098:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4136:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4163:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Servo write doubble holding registers/target A created with succes with type ModbusWriteDoubleHoldingRegister, hash: 715974120, address: 127, offset: 1542
+Node Servo write doubble holding registers/target B created with succes with type ModbusWriteDoubleHoldingRegister, hash: 1732568463, address: 127, offset: 1546
+Node Servo write doubble holding registers/PR1 speed created with succes with type ModbusWriteDoubleHoldingRegister, hash: 3939244141, address: 127, offset: 1540
+Node Servo write doubble holding registers/PR2 speed created with succes with type ModbusWriteDoubleHoldingRegister, hash: 4237616449, address: 127, offset: 1544
+Node Servo write doubble holding registers/PR3 speed created with succes with type ModbusWriteDoubleHoldingRegister, hash: 1897666723, address: 127, offset: 1548
+Node Servo write doubble holding registers/PR3 data created with succes with type ModbusWriteDoubleHoldingRegister, hash: 1022630084, address: 127, offset: 1550
+Section name: Virtual bool inputs
+hardware: virtual
+type: rx-bool
+Node Virtual bool inputs/v_immediatStop created (VirtualBooleanInputNode) with succes, hash: 2701507160
+Node Virtual bool inputs/nb cycles clear created (VirtualBooleanInputNode) with succes, hash: 3294789918
+Node Virtual bool inputs/v_servoOn created (VirtualBooleanInputNode) with succes, hash: 623257485
+Node Virtual bool inputs/go and back created (VirtualBooleanInputNode) with succes, hash: 1078009035
+Node Virtual bool inputs/Full torque created (VirtualBooleanInputNode) with succes, hash: 2324654663
+Node Virtual bool inputs/clear all notifications created (VirtualBooleanInputNode) with succes, hash: 4128250470
+Node Virtual bool inputs/v_alarmsReset created (VirtualBooleanInputNode) with succes, hash: 1726752376
+Node Virtual bool inputs/v_rtc_set_time created (VirtualBooleanInputNode) with succes, hash: 59448638
+Section name: Textes
+hardware: virtual
+type: tx-text
+Node Textes/machine d'états created (VirtualTextOutputNode) with succes, hash: 1218981442
+Node Textes/clock created (VirtualTextOutputNode) with succes, hash: 4007601654
+Do not suspend PLC: client is not connected
+
+4363:: ⚠️ Do not resume suspended PLC: client is not connected
+4363:: Lecture JSON depuis le fichier: /reboot_log.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4394:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4413:: ⚠️ Do not resume suspended PLC: client is not connected
+=== Reset reason: 3 ===
+Do not suspend PLC: client is not connected
+
+PLC_Persistence: Sauvegarde JSON vers /reboot_log.json (434 octets estimés)
+PLC_Persistence: JSON sérialisé (434 octets réels)
+4874:: ⚠️ Do not resume suspended PLC: client is not connected
+[PLC_Tools] ✓ Reboot logged: +0000004354ms (Software reset)
+Reboot history
+*************
+Do not suspend PLC: client is not connected
+
+4889:: ⚠️ Do not resume suspended PLC: client is not connected
+4890:: Lecture JSON depuis le fichier: /reboot_log.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4909:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4920:: ⚠️ Do not resume suspended PLC: client is not connected
+Journal des redémarrages :
+------------------------
+Redémarrage #1:
+  Mémoire libre: 236264 octets
+  PSRAM libre: 0 octets
+  Type: initial
+
+Redémarrage #2:
+  Mémoire libre: 235852 octets
+  PSRAM libre: 0 octets
+  Type: normal
+
+Redémarrage #3:
+  Mémoire libre: 235716 octets
+  PSRAM libre: 0 octets
+  Type: normal
+
+
+End of reboot history
+
+PLC_InterfaceMenu initialized
+Will parse the interface file
+4954:: Lecture JSON depuis le fichier: /interface.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4976:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+5014:: ⚠️ Do not resume suspended PLC: client is not connected
+Page: Page principale
+Found 12 nodes in section Opération
+Found 4 nodes in section Jog
+Page: Monitoring
+Found 7 nodes in section États du servo
+Found 7 nodes in section Alarmes
+Found 2 nodes in section États du système
+Page: Configuration
+Found 1 nodes in section Paramètres de cycle
+Found 5 nodes in section Vitesses et couple
+Found 2 nodes in section Tests
+Interface file parsed with success
+List of files in the root directory:
+RessortRoyal2.json
+component-manifest.json
+config.json
+config.v1.json
+diagnostic.txt
+index.html
+index.js
+interface.json
+reboot_log.json
+renderers.json
+styles.min.css
+Configuration initialized successfully
+Pre-validate callback registered successfully
+BorneUniverselle: Pre-validate callback registered
+PLC_Persistence: Save callback registered
+BorneUniverselle: Post-save callback registered
+Borne Universelle 2.2.2
+BorneUniverselle constructed, nodesMap size: 58
+Before check plc broken
+Before check map empty
+Before printTaskInfo
+[TaskInfo] Number of tasks: 7 at 5 s
+========================================
+Creating RessortRoyal2 instance...
+========================================
+✅ RessortRoyal2 size: 596 bytes
+Before RessortRoyal2 constructor, checking heap integrity...
+RessortRoyal2() VERSION 2.0 étape 1: constructeur BusinessLogic
+RessortRoyal2() étape 1.1: constructeur BusinessLogic
+RessortRoyal2() étape 1.2: constructeur BusinessLogic
+RessortRoyal2() étape 2: callback MemoryMonitor
+Memory monitor callback registration
+RessortRoyal2() étape 3: get BorneUniverselle
+RessortRoyal2() étape 4: register callback
+RessortRoyal2() etape 5: register deferred save
+PLC_Persistence: [/RessortRoyal2.json] sauvegarde differee enregistree
+========================================
+RessortRoyal2::readDedicacedConfigFile - Début
+========================================
+5241:: Lecture JSON depuis le fichier: /RessortRoyal2.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+5261:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+5271:: ⚠️ Do not resume suspended PLC: client is not connected
+✅ Fichier RessortRoyal2.json lu avec succès
+
+========================================
+RessortRoyal2::extractMachineParameters
+========================================
+  machineName      : RessortRoyal2_Production_01
+  numberOfCyclesToDo  : 100
+  numberOfCyclesMade  : 0
+  nbTotalCycles       : 0
+  userTarget       : 50000 [pulses] 
+  returnPos        : 10000 [pulses] 
+  goAndBack        : true 
+  jogSpeed         : 750 
+  cycleSpeed       : 1500 
+  fullTorque       : false 
+  initialTorque    : 60% 
+========================================
+OK: Extraction des parametres terminee
+========================================
+========================================
+RessortRoyal2::readDedicacedConfigFile - Terminé
+========================================
+Fichier de configuration dédié au projet lu avec succès
+Fin du constructeur RessortRoyal2
+Registering BusinessLogic with BorneUniverselle...
+✅ BusinessLogic registered with callback
+Appel à initializePointers
+========================================
+RessortRoyal2::initializePointers - Début (main::setup)
+========================================
+Render::node Paramètres de cycle/Mettre à jour l'horloge OK
+Render::node Opération/Horloge OK
+
+Render: unable to send text to client
+[ClockDisplay] Aucune horloge matérielle détectée : champ horloge masqué
+=== CRÉATION SURESERVO ===
+=== INITIALISATION SURESERVO ===
+Limite physique: 1000000.00" = 1000000 PUU
+=== INITIALISATION SURESERVO ===
+Position interne: pas encore fiable - utilisation nodes
+Pulses per unit: 1.0000
+5402:: setValue for node: Servo write doubble holding registers/PR1 speed: 8
+5412:: setValue for node: Servo write doubble holding registers/PR2 speed: 8
+5423:: setValue for node: Servo write doubble holding registers/PR3 speed: 8
+5423::setValue for node: Servo write holding register/jog speed, with value: 0
+5433::setValue for node: Servo write holding register/aux_function, with value: 5
+5444::setValue for node: Servo write holding register/trigger, with value: 0
+5444:: setValue for node: Servo write doubble holding registers/target A: 0
+5454:: setValue for node: Servo write doubble holding registers/target B: 0
+5464:: setValue for node: Servo write doubble holding registers/PR3 data: 0
+Nodes obligatoires: OK (17)
+Nodes optionnels: 13 configurés
+Nodes optionnels disponibles:
+  - servoReady
+  - servoActivated
+  - zeroSpeed
+  - targetSpeedRated
+  - targetPositionReached
+  - servoAlarm
+  - homeDone
+  - modbusError
+  - driveInitialised
+  - absolutePositionLost
+  - batteryAlarm
+  - multipleTurnsOverflow
+  - puuOverflow
+  - absoluteCoordonateNotSet
+Status initial: 0x0000
+Alarms initial: 0x0000
+Coord system initial: 0x0000
+Position initiale: 0 PUU
+INFO: Servo pas encore prêt - initialisation requise
+5517::setValue for node: Servo write holding register/aux_function, with value: 5
+EEPROM: Auto-save désactivé (valeur: 5)
+Configuration EEPROM initialisée (auto-save désactivé)
+=== SURESERVO INITIALISÉ ===
+✅ SureServo créé avec succès
+=== CONFIGURATION SERVO MOTOR ===
+Pulses per unit: 1.0000
+Nodes required: OK
+Nodes optional: 13 configurés
+================================
+Render::node Opération/Cycles du job effectués OK
+RessortRoyal2::applyParametersToNodes - Début
+5560:: setValue for node: Opération/Position cible: 50000
+  User target: 50000
+5560:: setValue for node: Opération/Position retour: 10000
+  Return position: 10000
+5571:: VirtualBooleanInputNode::setValue for node Opération/Go And Back, value: true
+  Go and back mode: true
+5581:: setValue for node: Vitesses et couple/Vitesse du jog: 750
+  Jog speed: 750
+5591:: setValue for node: Vitesses et couple/Vitesse du cycle: 15
+  Cycle speed: 15
+5592:: setValue for node: Opération/Nombre de cycles du job: 100
+  Cycles to do: 100
+5602:: setValue for node: Opération/Cycles du job effectués: 0
+  Cycles made: 0
+  Full torque: false
+5613::setValue for node: Servo write holding register/maxTorque, with value: 60
+5623:: setValue for node: Vitesses et couple/Couple: 60
+  Max torque: 60%
+RessortRoyal2::applyParametersToNodes - Terminé
+RessortRoyal2::initializePointers - Fin avec succès
+========================================
+========================================
+Starting state machine...
+========================================
+RessortRoyal2::startStateMachine()
+Initialisation des paramètres
+------------------------------
+immediateStop hideValue au démarrage: false
+🔄 Transition: UNDEFINED -> INITIALIZING, Context: Normal
+5665:: 🚨Transition from UNDEFINED to INITIALIZING
+Sortie de l'état: UNDEFINED
+5675:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: INITIALIZING
+⚙️ Entrée en état INITIALIZING
+Transition complète: UNDEFINED -> INITIALIZING
+RessortRoyal2::startStateMachine() - Durée démarrage: 32 ms
+🔄 Première connexion WiFi...
+Will get next wifi
+Current network ID: 0/1
+Returning wifi: EDMG_Thierry (index: 0), next will be: 1
+=== WifiManagment::connectWifi ===
+📶 Connexion au réseau: EDMG_Thierry...
+Will try to connect to: EDMG_Thierry, SSID: Ella, PWD: Oceanne1, DHCP: YES
+Wifi is with DHCP
+Mode défini: station
+6490:: ✅ Connected to AP successfully
+   📡 SSID: Ella
+   📶 Signal: -77 dBm
+   📍 BSSID: 1C:61:B4:1E:3C:6E
+   📡 Channel: 4
+   ⏳ Waiting for IP assignment...
+WiFi ERROR: Succès - Connexion réussie
+✅ CONNEXION RÉUSSIE: 192.168.1.66
+----------------------------------------------SERVER
+Setting up server...
+Server started
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Help
+-----------
+Version du firmware: RessortRoyal2 v1.0, date de compilation: Sep 28 2026 15:27:01
+=== STATUS WIFI DÉTAILLÉ ===
+WiFi.isConnected(): true
+wificonnected (local): false
+WiFi.status(): 3
+⚠️ WiFi non connecté ou état incohérent
+   INCOHÉRENCE: Hardware=connecté, Local=déconnecté
+WifiManagment::setWifiConnected appelé avec status=true
+Mode actuel: station
+Mode Station: IP = 192.168.1.66, SSID = Ella, RSSI = -77 dBm
+===========================
+Tapez sur 'A' ou 'a' pour effacer les réseaux wifi
+Tapez sur 'B' pour forcer la copie du JSON par défaut dans la config
+Tapez sur 'C' pour imprimer le fichier de config
+Tapez sur 'D' pour envoyer un message de test
+Tapez sur 'E' pour notifier le client web
+Tapez sur 'F' pour imprimer le fichier de persistance
+Tapez sur 'G' pour afficher la mémoire de manière cyclique
+Tapez sur 'H' pour imprimer la liste des fichiers
+Tapez sur 'Y' pour faire un reset
+Tapez sur 'Z' pour afficher modifier les logs
+Tapez sur '?' pour afficher l'aide
+8042:: Setup complete - normal WebSocket processing enabled
+========================================
+8043:: RessortRoyal2::setup() finished !
+========================================
++0000004900ms: PLC is up - RessortRoyal2 ready
+WifiManagment::setWifiConnected appelé avec status=true
+Mode actuel: station
+Mode Station: IP = 192.168.1.66, SSID = Ella, RSSI = -77 dBm
+MDNS responder started with name ressort_royal
+Web server started !
+
+████████████████████████████████████████████████████████████████
+█                    WIFI CONNECTÉ AVEC SUCCÈS                 █
+████████████████████████████████████████████████████████████████
+📡 Réseau WiFi    : Ella
+📍 Adresse IP     : 192.168.1.66
+🚪 Passerelle     : 192.168.1.254
+🔍 DNS            : 192.168.1.107
+🎭 Masque         : 255.255.255.0
+📶 Force signal   : -77 dBm
+📍 MAC Address    : C8:2E:18:77:CF:40
+🌐 Interface web  : http://192.168.1.66
+🏷️  mDNS          : http://ressort_royal.local
+████████████████████████████████████████████████████████████████
+
+8164:: VirtualUint32OutputNode::node: Opération/Position retour, new value: 10000
+8165:: VirtualUint32OutputNode::node: Opération/Position cible, new value: 50000
+8187:: node: États du système/E stop A, new value: true
+8188:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: INITIALIZING
+8193:: New WebSocket client connected: 1
+8198:: [ETAPE 2] Connection lock acquired for client 1
+8209:: [ETAPE 1] Accepting new client (attempt #0)
+8209:: [ETAPE 1] Client 1 accepted and registered
+8209:: ✅ Heartbeat timers initialized:
+  - lastHeartbeatSend: 8209
+  - heartbeatTimeout: 18209 (dans 10000 ms)
+8220:: [ETAPE 2] Connection lock released (held for 22 ms)
+8206:: Uint32OutputNode::node: Servo write doubble holding registers/PR3 speed, new value: 8
+8232:: VirtualUint32OutputNode::node: Vitesses et couple/Vitesse du cycle, new value: 15
+8249:: Uint16OutputNode::node: Servo write holding register/aux_function, new value: 5
+8250:: VirtualUint32OutputNode::node: Vitesses et couple/Vitesse du jog, new value: 750
+8260:: VirtualUint32OutputNode::node: Vitesses et couple/Couple, new value: 60
+8271:: VirtualUint32OutputNode::node: Opération/Nombre de cycles du job, new value: 100
+8276:: Uint16OutputNode::node: Servo write holding register/maxTorque, new value: 60
+8287:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 8
+8297:: node: Num Status/position, new value: 4294967295
+8327:: node: Servo read holding register/status, new value: 5
+8338:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 8
+8385:: ✅ All hardware inputs read once! Logic executor can start.
+8388:: ✅ JavaScript resume request - already resumed, acknowledging
+8394:: Node notify (uint32 output): Opération/Position retour new value: 10000
+8395:: Node notify (uint32 output): Opération/Position cible new value: 50000
+8405:: Node notify: États du système/E stop A new value: true
+8416:: Node notify: Opération/Go And Back new value: true
+8417:: Node notify: Opération/Machine d'états new value: INITIALIZING
+8427:: Node notify (uint32 output): Servo write doubble holding registers/PR3 speed new value: 8
+8428:: Node notify (uint32 output): Vitesses et couple/Vitesse du cycle new value: 15
+8438:: Node notify (Uint16OutputNode): Servo write holding register/aux_function new value: 5
+8449:: Node notify (uint32 output): Vitesses et couple/Vitesse du jog new value: 750
+8449:: Node notify (uint32 output): Vitesses et couple/Couple new value: 60
+8460:: Node notify (uint32 output): Opération/Nombre de cycles du job new value: 100
+8470:: Node notify (Uint16OutputNode): Servo write holding register/maxTorque new value: 60
+8481:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 8
+8481:: Node notify: Num Status/position (Uint32InputNode) new value: 4294967295
+8492:: Node notify (Uint16InputNode): Servo read holding register/status new value: 5
+8503:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 8
+8506:: 🔧 PLC requests suspend for: Persistence: getFileSize
+8517:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+8528:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+8543:: 🔧 PLC releases suspend
+8543:: 🟢 PLC SUSPENSION RELEASED (duration: 26 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+8557:: 🔧 PLC requests suspend for: Persistence: appendToFile
+8558:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+8569:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+8586:: 🔧 PLC releases suspend
+8587:: 🟢 PLC SUSPENSION RELEASED (duration: 29 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+BorneUniverselle::processMessage: receive get all states request
+8628:: 🔧 PLC requests suspend for: get all values
+8629:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+8639:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+8653:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+8654:: Node notify (uint32 output): Opération/Position retour new value: 10000
+8665:: Node notify: Alarmes/Erreur Modbus new value: false
+8665:: Node notify (uint32 output): Opération/Position cible new value: 50000
+8676:: Node notify: États du système/Drive Initialisé new value: false
+8676:: Node notify (uint32 output): Servo write doubble holding registers/target A new value: 0
+8687:: Node notify: États du système/E stop A new value: true
+8697:: Node notify (Uint16OutputNode): Servo write holding register/trigger new value: 0
+8698:: Node notify: Outputs/immediatStop new value: false
+8709:: Node notify (uint32 output): Servo write doubble holding registers/PR3 data new value: 0
+8719:: Node notify: Alarmes/Alarme Servo new value: false
+8719:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 0
+8730:: Node notify: Opération/Machine d'états new value: INITIALIZING
+8731:: Node notify: Alarmes/Alarme Batterie new value: false
+8741:: Node notify: États du servo/Servo Ready new value: false
+8741:: Node notify: Direct outputs/Buzzer new value: false
+8752:: Node notify (uint32 output): Servo write doubble holding registers/target B new value: 0
+8762:: Node notify: Alarmes/Position Absolue Perdue new value: false
+8763:: Node notify: États du servo/Servo Activé new value: false
+8773:: Node notify (uint32 output): Servo write doubble holding registers/PR3 speed new value: 8
+8784:: Node notify: Outputs/servoOn new value: false
+8784:: Node notify (uint32 output): Vitesses et couple/Vitesse du cycle new value: 15
+8795:: Node notify: Opération/Free Run new value: false
+8795:: Node notify: Alarmes/Coordonnées Absolues Non Définies new value: false
+8806:: Node notify (Uint16OutputNode): Servo write holding register/aux_function new value: 5
+8816:: Node notify: États du servo/Start cycle physique new value: false
+8817:: Node notify: États du servo/Position cible atteinte new value: false
+8827:: Node notify (uint32 output): Vitesses et couple/Vitesse du jog new value: 750
+8828:: Node notify (uint32 output): Vitesses et couple/Couple new value: 60
+8838:: Node notify: États du servo/Home effectué new value: false
+8849:: Node notify (Uint16OutputNode): Servo write holding register/jog speed new value: 0
+8849:: Node notify: États du servo/Vitesse Zéro new value: false
+8860:: Node notify (uint32 output): Opération/Nombre de cycles du job new value: 100
+8870:: Node notify: Alarmes/Overflow PUU new value: false
+8871:: Node notify (Uint16OutputNode): Servo write holding register/maxTorque new value: 60
+8882:: Node notify (uint32 output): Opération/Cycles du job effectués new value: 0
+8882:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 8
+8892:: Node notify: Opération/Horloge new value: 
+8903:: Node notify: Alarmes/Overflow Tours Multiples new value: false
+8903:: Node notify: Num Status/position (Uint32InputNode) new value: 4294967295
+8914:: Node notify (Uint16InputNode): Servo read holding register/absolute coordonate system status new value: 0
+8924:: Node notify (Uint16InputNode): Servo read holding register/alarms new value: 0
+8935:: Node notify (Uint16InputNode): Servo read holding register/status new value: 5
+8935:: Node notify: Outputs/alarmsReset new value: false
+8946:: Node notify: Outputs/triggerPR new value: false
+8946:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 8
+
+8960:: End notifyWebClient all states: duration: 308
+8961:: 🔧 PLC releases suspend
+8961:: 🟢 PLC SUSPENSION RELEASED (duration: 322 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+8976:: ⏱️ Message processing took 350 ms
+BorneUniverselle::processMessage: initial state loaded
+🌐 NEW CLIENT CONNECTED AND LOADED!
+========================================
+RessortRoyal2::initialStateLoadedHandler - Début
+========================================
+ServoOn state synchronized: OFF
+Jog initialized to false
+[31m9006:: ERROR: Arrêt immédiat actif - E_STOP ou problème servo drive[0m
++0000005863ms: Arrêt immédiat actif - E_STOP ou problème servo drive
+Client notified: Immediate stop active
+Applying persistent parameters to nodes...
+RessortRoyal2::applyParametersToNodes - Début
+9027:: setValue for node: Opération/Position cible: 50000
+  User target: 50000
+9037:: setValue for node: Opération/Position retour: 10000
+  Return position: 10000
+  Go and back mode: true
+9048:: setValue for node: Vitesses et couple/Vitesse du jog: 750
+  Jog speed: 750
+9048:: setValue for node: Vitesses et couple/Vitesse du cycle: 15
+  Cycle speed: 15
+9059:: setValue for node: Opération/Nombre de cycles du job: 100
+  Cycles to do: 100
+9069:: setValue for node: Opération/Cycles du job effectués: 0
+  Cycles made: 0
+  Full torque: false
+9080::setValue for node: Servo write holding register/maxTorque, with value: 60
+9080:: setValue for node: Vitesses et couple/Couple: 60
+  Max torque: 60%
+RessortRoyal2::applyParametersToNodes - Terminé
+✅ Parameters applied successfully
+⚠️ No hardware clock detected, PLC clock features will be unavailable
+
+✅ Interface enabled successfully
+========================================
+RessortRoyal2::initialStateLoadedHandler - Terminé en 120 ms
+========================================
+9118:: forceUpdateVirtualInputNodes - Début du parcours (client nouvellement connecté)
+  - Node virtuel input mis à jour: Paramètres de cycle/Mettre à jour l'horloge (hash: 59448638)
+  - Node virtuel input mis à jour: Vitesses et couple/Full torque (hash: 313736047)
+  - Node virtuel input mis à jour: Tests/Servo on (hash: 623257485)
+  - Node virtuel input mis à jour: Tests/Jog Mode (hash: 627952477)
+  - Node virtuel input mis à jour: Jog/Jog + (hash: 936928435)
+  - Node virtuel input mis à jour: Opération/Go And Back (hash: 1078009035)
+  - Node virtuel input mis à jour: Opération/Reset défauts (hash: 1726752376)
+  - Node virtuel input mis à jour: Virtual bool inputs/Full torque (hash: 2324654663)
+  - Node virtuel input mis à jour: Jog/Jog - (hash: 2405696470)
+  - Node virtuel input mis à jour: Virtual bool inputs/v_immediatStop (hash: 2701507160)
+  - Node virtuel input mis à jour: Opération/Réinitialiser compteur (hash: 3294789918)
+  - Node virtuel input mis à jour: Virtual bool inputs/clear all notifications (hash: 4128250470)
+9214:: forceUpdateVirtualInputNodes - Terminé. 12 nodes virtuels trouvés, 12 mis à jour
+Calling notifyWebClient after initialStateLoadedHandler
+9226:: Node notify: Paramètres de cycle/Mettre à jour l'horloge new value: false
+9239:: Client 1 disconnected
+9239:: Ignoring disconnect from non-active client 1
+9241:: Node notify: Vitesses et couple/Full torque new value: false
+9252:: Node notify: Tests/Servo on new value: false
+9252:: Node notify: Tests/Jog Mode new value: false
+9253:: Node notify: Jog/Jog + new value: false
+9326:: Node notify: Opération/Go And Back new value: true
+9327:: Node notify: Opération/Reset défauts new value: false
+9328:: Node notify: Virtual bool inputs/Full torque new value: false
+9347:: Node notify: Jog/Jog - new value: false
+9348:: Node notify: Virtual bool inputs/v_immediatStop new value: false
+9352:: New WebSocket client connected: 2
+9359:: [ETAPE 2] Connection lock acquired for client 2
+9359:: [ETAPE 1] Accepting new client (attempt #0)
+9369:: [ETAPE 1] Client 2 accepted and registered
+9369:: ✅ Heartbeat timers initialized:
+  - lastHeartbeatSend: 9369
+  - heartbeatTimeout: 19369 (dans 10000 ms)
+9380:: [ETAPE 2] Connection lock released (held for 21 ms)
+9359:: Node notify: Opération/Réinitialiser compteur new value: false
+9391:: Node notify: Virtual bool inputs/clear all notifications new value: false
+9406:: ⏱️ Message processing took 424 ms
+9410:: ✅ JavaScript resume request - already resumed, acknowledging
+🔄 Servo redevenu ready - Reset conditions resync
+[34m9416:: INFO: 9415:: servoOn:: true
+[0m
+9416:: setValue for node: Vitesses et couple/Position [pulses]: 4294967295
+ÉTAT: INITIALIZING (état précédent: UNDEFINED, temps dans l'état: 3752 ms)
+🔧 SureServo::startInitialize() - DÉBUT
+✅ SureServo: alarmsReset forcé à false (démarrage)
+✅ SureServo: Initialisation normale démarrée (phase=0)
+9449:: 🔧 PLC requests suspend for: Persistence: getFileSize
+9449:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+9460:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+9488:: 🔧 PLC releases suspend
+9489:: 🟢 PLC SUSPENSION RELEASED (duration: 30 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+9503:: 🔧 PLC requests suspend for: Persistence: appendToFile
+9504:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+9515:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+9534:: 🔧 PLC releases suspend
+9535:: 🟢 PLC SUSPENSION RELEASED (duration: 31 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+9560:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 4294967295
+PF8574BooleanOutputNode::setNewValue for node: Outputs/servoOn, pin: 0, new value: true9572:: OutputNode::node: Outputs/servoOn, new value: up
+9610:: node: Servo read holding register/status, new value: 135
+PF8574BooleanOutputNode::setNewValue for node: Outputs/alarmsReset, pin: 4, new value: false9623:: OutputNode::node: Outputs/alarmsReset, new value: down
+9624:: 🔴 handleWebSocketMessage ENTER: queue size = 14
+9624:: 📨 Processing msg #1 (age: 203 ms): {initialStatesLoaded:true}
+BorneUniverselle::processMessage: initial state loaded
+🌐 NEW CLIENT CONNECTED AND LOADED!
+========================================
+RessortRoyal2::initialStateLoadedHandler - Début
+========================================
+ServoOn state synchronized: ON
+Jog initialized to false
+[31m9658:: ERROR: Arrêt immédiat actif - E_STOP ou problème servo drive[0m
+Client notified: Immediate stop active
+Applying persistent parameters to nodes...
+RessortRoyal2::applyParametersToNodes - Début
+9679:: setValue for node: Opération/Position cible: 50000
+  User target: 50000
+9690:: setValue for node: Opération/Position retour: 10000
+  Return position: 10000
+  Go and back mode: true
+9690:: setValue for node: Vitesses et couple/Vitesse du jog: 750
+  Jog speed: 750
+9701:: setValue for node: Vitesses et couple/Vitesse du cycle: 15
+  Cycle speed: 15
+9711:: setValue for node: Opération/Nombre de cycles du job: 100
+  Cycles to do: 100
+9722:: setValue for node: Opération/Cycles du job effectués: 0
+  Cycles made: 0
+  Full torque: false
+9722::setValue for node: Servo write holding register/maxTorque, with value: 60
+9732:: setValue for node: Vitesses et couple/Couple: 60
+  Max torque: 60%
+RessortRoyal2::applyParametersToNodes - Terminé
+✅ Parameters applied successfully
+⚠️ No hardware clock detected, PLC clock features will be unavailable
+
+✅ Interface enabled successfully
+========================================
+RessortRoyal2::initialStateLoadedHandler - Terminé en 121 ms
+========================================
+9772:: forceUpdateVirtualInputNodes - Début du parcours (client nouvellement connecté)
+  - Node virtuel input mis à jour: Paramètres de cycle/Mettre à jour l'horloge (hash: 59448638)
+  - Node virtuel input mis à jour: Vitesses et couple/Full torque (hash: 313736047)
+  - Node virtuel input mis à jour: Tests/Servo on (hash: 623257485)
+  - Node virtuel input mis à jour: Tests/Jog Mode (hash: 627952477)
+  - Node virtuel input mis à jour: Jog/Jog + (hash: 936928435)
+  - Node virtuel input mis à jour: Opération/Go And Back (hash: 1078009035)
+  - Node virtuel input mis à jour: Opération/Reset défauts (hash: 1726752376)
+  - Node virtuel input mis à jour: Virtual bool inputs/Full torque (hash: 2324654663)
+  - Node virtuel input mis à jour: Jog/Jog - (hash: 2405696470)
+  - Node virtuel input mis à jour: Virtual bool inputs/v_immediatStop (hash: 2701507160)
+  - Node virtuel input mis à jour: Opération/Réinitialiser compteur (hash: 3294789918)
+  - Node virtuel input mis à jour: Virtual bool inputs/clear all notifications (hash: 4128250470)
+9858:: forceUpdateVirtualInputNodes - Terminé. 12 nodes virtuels trouvés, 12 mis à jour
+Calling notifyWebClient after initialStateLoadedHandler
+9879:: Node notify: Paramètres de cycle/Mettre à jour l'horloge new value: false
+9880:: Node notify: Vitesses et couple/Full torque new value: false
+9890:: Node notify: Tests/Servo on new value: false
+9891:: Node notify: Tests/Jog Mode new value: false
+9901:: Node notify: Jog/Jog + new value: false
+9902:: Node notify: Opération/Go And Back new value: true
+9902:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 4294967295
+9913:: Node notify: États du servo/Servo Ready new value: true
+9923:: Node notify: Opération/Reset défauts new value: false
+9924:: Node notify: Outputs/servoOn new value: true
+9934:: Node notify: Virtual bool inputs/Full torque new value: false
+9935:: Node notify: Jog/Jog - new value: false
+9945:: Node notify: Virtual bool inputs/v_immediatStop new value: false
+9946:: Node notify: Opération/Réinitialiser compteur new value: false
+9956:: Node notify: États du servo/Vitesse Zéro new value: true
+9957:: Node notify: Virtual bool inputs/clear all notifications new value: false
+9967:: Node notify (Uint16InputNode): Servo read holding register/status new value: 135
+9978:: Node notify: Outputs/alarmsReset new value: false
+9982:: ⏱️ Message processing took 347 ms
+9984:: 📨 Processing msg #2 (age: 551 ms): {heartbeat:'disable'}
+9988:: ⏱️ Message processing took 3 ms
+9989:: 📨 Processing msg #3 (age: 553 ms): {allStatesRequest:true}
+BorneUniverselle::processMessage: receive get all states request
+10002:: 🔧 PLC requests suspend for: get all values
+10012:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+10023:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+10026:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+10026:: Node notify (uint32 output): Opération/Position retour new value: 10000
+10037:: Node notify: Alarmes/Erreur Modbus new value: false
+10048:: Node notify (uint32 output): Opération/Position cible new value: 50000
+10048:: Node notify: États du système/Drive Initialisé new value: false
+10059:: Node notify (uint32 output): Servo write doubble holding registers/target A new value: 0
+10069:: Node notify: États du système/E stop A new value: true
+10070:: Node notify (Uint16OutputNode): Servo write holding register/trigger new value: 0
+10080:: Node notify: Outputs/immediatStop new value: false
+10080:: Node notify (uint32 output): Servo write doubble holding registers/PR3 data new value: 0
+10091:: Node notify: Alarmes/Alarme Servo new value: false
+10102:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 4294967295
+10102:: Node notify: Opération/Machine d'états new value: INITIALIZING
+10113:: Node notify: Alarmes/Alarme Batterie new value: false
+10113:: Node notify: États du servo/Servo Ready new value: true
+10124:: Node notify: Direct outputs/Buzzer new value: false
+10124:: Node notify (uint32 output): Servo write doubble holding registers/target B new value: 0
+10134:: Node notify: Alarmes/Position Absolue Perdue new value: false
+10145:: Node notify: États du servo/Servo Activé new value: false
+10145:: Node notify (uint32 output): Servo write doubble holding registers/PR3 speed new value: 8
+10156:: Node notify: Outputs/servoOn new value: true
+10166:: Node notify (uint32 output): Vitesses et couple/Vitesse du cycle new value: 15
+10167:: Node notify: Opération/Free Run new value: false
+10177:: Node notify: Alarmes/Coordonnées Absolues Non Définies new value: false
+10178:: Node notify (Uint16OutputNode): Servo write holding register/aux_function new value: 5
+10188:: Node notify: États du servo/Start cycle physique new value: false
+10199:: Node notify: États du servo/Position cible atteinte new value: false
+10199:: Node notify (uint32 output): Vitesses et couple/Vitesse du jog new value: 750
+10210:: Node notify (uint32 output): Vitesses et couple/Couple new value: 60
+10220:: Node notify: États du servo/Home effectué new value: false
+10221:: Node notify (Uint16OutputNode): Servo write holding register/jog speed new value: 0
+10231:: Node notify: États du servo/Vitesse Zéro new value: true
+10242:: Node notify (uint32 output): Opération/Nombre de cycles du job new value: 100
+10242:: Node notify: Alarmes/Overflow PUU new value: false
+10253:: Node notify (Uint16OutputNode): Servo write holding register/maxTorque new value: 60
+10263:: Node notify (uint32 output): Opération/Cycles du job effectués new value: 0
+10264:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 8
+10274:: Node notify: Opération/Horloge new value: 
+10275:: Node notify: Alarmes/Overflow Tours Multiples new value: false
+10285:: Node notify: Num Status/position (Uint32InputNode) new value: 4294967295
+10296:: Node notify (Uint16InputNode): Servo read holding register/absolute coordonate system status new value: 0
+10306:: Node notify (Uint16InputNode): Servo read holding register/alarms new value: 0
+10307:: Node notify (Uint16InputNode): Servo read holding register/status new value: 135
+10317:: Node notify: Outputs/alarmsReset new value: false
+10318:: Node notify: Outputs/triggerPR new value: false
+10328:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 8
+
+10342:: End notifyWebClient all states: duration: 317
+10343:: 🔧 PLC releases suspend
+10343:: 🟢 PLC SUSPENSION RELEASED (duration: 331 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+10358:: ⏱️ Message processing took 358 ms
+10417:: ✅ handleWebSocketMessage EXIT (queue empty): processed 17 messages
+Initialisation : Position marquee NON fiable (demarrage)
+SureServo Init Phase 0: Configuration
+10428::setValue for node: Servo write holding register/aux_function, with value: 5
+10452:: Node notify: États du servo/Servo Activé new value: true
+SureServo Init Phase 1: Verification etat
+SureServo: Initialisation reussie
+HomeDone=false - Homing necessaire
+10526::setValue for node: Servo write holding register/maxTorque, with value: 60
+✅ SureServo: Couple max défini à 60%
+New user speed: 8, ramp: 0. Will set register with value 0x00080002
+10547:: setValue for node: Servo write doubble holding registers/PR1 speed: 524290
+10547:: setValue for node: Servo write doubble holding registers/PR2 speed: 524290
+10557:: setValue for node: Servo write doubble holding registers/PR3 speed: 524290
+Vitesse PR définie: 8, rampe: 0 (table servo drive)
+SureServo: Initialisation complete avec succes
+[SURE_SERVO] ✅ Initialisation terminée avec succès
+[32m10579:: SUCCESS: Servo drive initialisé avec succès[0m
+Success messages are disabled, skipping notification
+10589:: setValue for node: Servo write doubble holding registers/PR1 speed: 983043
+10599:: setValue for node: Servo write doubble holding registers/target A: 50000
+✅ configurePR: PR1 target=50000 SPD_IDX=15 chain=AUTO config=0x000F0003
+10610:: setValue for node: Servo write doubble holding registers/PR2 speed: 983042
+10610:: setValue for node: Servo write doubble holding registers/target B: 10000
+✅ configurePR: PR2 target=10000 SPD_IDX=15 chain=SINGLE config=0x000F0002
+✅ Post-init: PR1+PR2 configurés (mode go-and-back)
+🔄 Transition: INITIALIZING -> STOP, Context: Normal
+10642:: 🚨Transition from INITIALIZING to STOP
+Sortie de l'état: INITIALIZING
+10642:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: STOP
+🛑 Entrée en état STOP
+Transition complète: INITIALIZING -> STOP
+10671:: Uint32OutputNode::node: Servo write doubble holding registers/target A, new value: 50000
+10672:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: STOP
+10688:: Uint32OutputNode::node: Servo write doubble holding registers/target B, new value: 10000
+10699:: Uint32OutputNode::node: Servo write doubble holding registers/PR3 speed, new value: 524290
+10710:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 983043
+10761:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 983042
+ÉTAT: STOP (état précédent: INITIALIZING, temps dans l'état: 122 ms)
+10775:: Node notify: États du système/Drive Initialisé new value: true
+10776:: Node notify (uint32 output): Servo write doubble holding registers/target A new value: 50000
+10786:: Node notify: Opération/Machine d'états new value: STOP
+10787:: Node notify (uint32 output): Servo write doubble holding registers/target B new value: 10000
+10797:: Node notify (uint32 output): Servo write doubble holding registers/PR3 speed new value: 524290
+10808:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 983043
+10819:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 983042
+🔄 Performance globale: 184.6 cycles/sec
+   Loop:    avg=6ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.8 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 186.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+BorneUniverselle::processMessage: Tab change detected -> Page principale
+BusinessLogic::onTabChange: Page principale (default handler, no action)
+🔄 Performance globale: 184.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 189.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 186.8 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 186.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 194.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 191.8 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 187.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.5 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 186.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.5 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.9 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.8 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 187.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.8 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.9 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 188.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 190.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.1 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.5 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 191.2 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 187.8 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 187.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 182.7 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.9 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 189.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 186.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 182.3 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.1 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.8 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 184.2 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 191.6 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.8 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 185.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 186.0 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.9 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 183.7 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms
+🔄 Performance globale: 186.4 cycles/sec
+   Loop:    avg=5ms, min=3ms, max=954ms
+   Refresh: avg=2ms, min=2ms, max=175ms
+   Logic:   avg=1ms, min=0ms, max=138ms

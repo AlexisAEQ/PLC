@@ -1,0 +1,581 @@
+{
+  "tx-string": {
+    "name": "TX String",
+    "type": "input",
+    "info": "An input field for sending string values, with optional length validation.",
+    "doc": "/doc/components/tx-string.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Input label for text",
+        "required": true
+      },
+      "maxLength": {
+        "type": "number",
+        "description": "Maximum string length.",
+        "default": null
+      },
+      "minLength": {
+        "type": "number",
+        "description": "Minimum string length.",
+        "default": 0
+      },
+      "multiline": {
+        "type": "number",
+        "description": "If > 0, specifies the number of rows for a textarea. If 0, a single-line input is used.",
+        "default": 0
+      },
+      "buttonText": {
+        "type": "string",
+        "description": "Text for the send button.",
+        "default": "Send"
+      },
+      "hideButton": {
+        "type": "boolean",
+        "description": "If true, hides the send button and sends value on change.",
+        "default": false
+      },
+      "buttonColor": {
+        "type": "string",
+        "enum": [
+          "primary",
+          "success",
+          "warning",
+          "danger",
+          "neutral"
+        ],
+        "description": "Color variant for the send button.",
+        "default": "primary"
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the input",
+        "default": false
+      }
+    }
+  },
+  "tx-slider": {
+    "name": "TX Slider",
+    "type": "input",
+    "info": "A slider for selecting a numeric value within a defined range.",
+    "doc": "/doc/components/tx-slider.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Slider label",
+        "required": true
+      },
+      "low": {
+        "type": "number",
+        "description": "Minimum value",
+        "default": 0
+      },
+      "high": {
+        "type": "number",
+        "description": "Maximum value",
+        "default": 100
+      },
+      "step": {
+        "type": "number",
+        "description": "The increment/decrement step of the slider.",
+        "default": 1
+      },
+      "value": {
+        "type": "number",
+        "description": "Initial value",
+        "default": 0
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the slider",
+        "default": false
+      }
+    }
+  },
+  "tx-qr": {
+    "name": "TX QR Scanner",
+    "type": "input",
+    "info": "A button that opens a modal to scan a QR code via camera or file upload.",
+    "doc": "/doc/components/tx-qr.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Label for the button that opens the scanner.",
+        "required": true
+      },
+      "color": {
+        "type": "string",
+        "enum": [
+          "primary",
+          "success",
+          "warning",
+          "danger",
+          "neutral"
+        ],
+        "description": "Color variant for the open button.",
+        "default": "primary"
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on the open button.",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the open button.",
+        "default": false
+      }
+    }
+  },
+  "tx-numeric": {
+    "name": "TX Numeric",
+    "type": "input",
+    "info": "An input field for sending numeric values, with optional limits and a send button.",
+    "doc": "/doc/components/tx-numeric.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Input label",
+        "required": true
+      },
+      "high": {
+        "type": "number",
+        "description": "Maximum allowed value.",
+        "default": null
+      },
+      "low": {
+        "type": "number",
+        "description": "Minimum allowed value.",
+        "default": null
+      },
+      "buttonText": {
+        "type": "string",
+        "description": "Text for the send button.",
+        "default": "Send"
+      },
+      "hideButton": {
+        "type": "boolean",
+        "description": "If true, hides the send button and sends value on change.",
+        "default": false
+      },
+      "buttonColor": {
+        "type": "string",
+        "enum": [
+          "primary",
+          "success",
+          "warning",
+          "danger",
+          "neutral"
+        ],
+        "description": "Color variant for the send button.",
+        "default": "primary"
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the input",
+        "default": false
+      }
+    }
+  },
+  "tx-modal": {
+    "name": "TX Modal",
+    "type": "container",
+    "info": "A button that opens a modal dialog, which can contain other components.",
+    "doc": "/doc/components/tx-modal.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Label for the button that opens the modal.",
+        "required": true
+      },
+      "color": {
+        "type": "string",
+        "enum": [
+          "primary",
+          "success",
+          "warning",
+          "danger",
+          "neutral"
+        ],
+        "description": "Color variant for the open button.",
+        "default": "primary"
+      },
+      "nodes": {
+        "type": "array",
+        "description": "A list of component descriptors to be rendered inside the modal.",
+        "items": {
+          "type": "object"
+        },
+        "default": []
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on the open button.",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the open button.",
+        "default": false
+      }
+    }
+  },
+  "tx-dropdowngraph": {
+    "name": "TX Dropdown Graph",
+    "type": "input",
+    "info": "A special dropdown that finds components from config.json and adds them to a graph.",
+    "doc": "/doc/components/tx-dropdowngraph.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Dropdown button label.",
+        "required": true,
+        "default": "Select Component"
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the dropdown",
+        "default": false
+      }
+    }
+  },
+  "tx-dropdown": {
+    "name": "TX Dropdown",
+    "type": "input",
+    "info": "A dropdown menu that sends the selected string value.",
+    "doc": "/doc/components/tx-dropdown.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Dropdown label",
+        "required": true
+      },
+      "items": {
+        "type": "array",
+        "description": "List of dropdown options",
+        "items": {
+          "type": "string"
+        },
+        "default": []
+      },
+      "default": {
+        "type": "string",
+        "description": "Default selected value from the 'items' list",
+        "default": ""
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the dropdown",
+        "default": false
+      }
+    }
+  },
+  "tx-button-hold": {
+    "name": "TX Button (Hold)",
+    "type": "input",
+    "info": "A button that sends 'true' on press and 'false' on release. Can also act as a standard click button.",
+    "doc": "/doc/components/tx-button-hold.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Button label",
+        "required": true
+      },
+      "color": {
+        "type": "string",
+        "enum": [
+          "primary",
+          "success",
+          "warning",
+          "danger",
+          "neutral"
+        ],
+        "description": "Button color variant",
+        "default": "primary"
+      },
+      "loadable": {
+        "type": "boolean",
+        "description": "If true, button shows a loading spinner on click and acts as a standard click button instead of a hold button.",
+        "default": false
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the button",
+        "default": false
+      }
+    }
+  },
+  "tx-bool": {
+    "name": "TX Boolean",
+    "type": "input",
+    "info": "Sends a boolean value when a toggle switch is changed.",
+    "doc": "/doc/components/tx-bool.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Switch label",
+        "required": true
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the switch",
+        "default": false
+      }
+    }
+  },
+  "rx-numeric": {
+    "name": "RX Numeric",
+    "type": "display",
+    "info": "Displays a numeric value in a styled input field.",
+    "doc": "/doc/components/rx-numeric.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Label for the numeric display",
+        "required": true
+      },
+      "nb_digits_ap": {
+        "type": "number",
+        "description": "Number of digits to display after the decimal point for non-integers.",
+        "default": 2
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the component",
+        "default": false
+      }
+    }
+  },
+  "rx-level-bar": {
+    "name": "RX Level Bar",
+    "type": "display",
+    "info": "Displays a numeric value as a vertical or horizontal bar with alarm/warning thresholds.",
+    "doc": "/doc/components/rx-level-bar.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Title for the level bar",
+        "required": true
+      },
+      "orientation": {
+        "type": "string",
+        "enum": [
+          "vertical",
+          "horizontal"
+        ],
+        "description": "Orientation of the bar",
+        "default": "vertical"
+      },
+      "barLength": {
+        "type": "string",
+        "description": "Custom length for the level indicator bar (e.g., '500px')",
+        "default": "200px"
+      },
+      "unit": {
+        "type": "string",
+        "description": "Unit of measurement",
+        "default": ""
+      },
+      "max": {
+        "type": "number",
+        "description": "Maximum displayable value",
+        "default": 100
+      },
+      "min": {
+        "type": "number",
+        "description": "Minimum displayable value",
+        "default": 0
+      },
+      "isLabelAlarmWarningOn": {
+        "type": "boolean",
+        "description": "Display the alarm and warning labels",
+        "default": false
+      },
+      "alarmHigh": {
+        "type": "number",
+        "description": "Offset from 'consigne' for the high alarm threshold.",
+        "default": null
+      },
+      "warningHigh": {
+        "type": "number",
+        "description": "Offset from 'consigne' for the high warning threshold.",
+        "default": null
+      },
+      "consigne": {
+        "type": "number",
+        "description": "The target value or setpoint from which alarm/warning offsets are calculated.",
+        "default": 0
+      },
+      "warningLow": {
+        "type": "number",
+        "description": "Offset from 'consigne' for the low warning threshold.",
+        "default": null
+      },
+      "alarmLow": {
+        "type": "number",
+        "description": "Offset from 'consigne' for the low alarm threshold.",
+        "default": null
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the component",
+        "default": false
+      }
+    }
+  },
+  "rx-label": {
+    "name": "RX Label",
+    "type": "display",
+    "info": "Displays a text value with different states (colors) and optional blinking.",
+    "doc": "/doc/components/rx-label.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Label text to display above the value",
+        "required": true
+      },
+      "state": {
+        "type": "string",
+        "enum": [
+          "neutral",
+          "success",
+          "warning",
+          "danger"
+        ],
+        "description": "Visual state of the label, affects text color.",
+        "default": "neutral"
+      },
+      "isBlinking": {
+        "type": "boolean",
+        "description": "Whether the label value should blink",
+        "default": false
+      },
+      "alignment": {
+        "type": "string",
+        "enum": [
+          "left",
+          "center",
+          "right"
+        ],
+        "description": "Text alignment for the value.",
+        "default": "center"
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the component",
+        "default": false
+      }
+    }
+  },
+  "rx-indicator": {
+    "name": "RX Indicator",
+    "type": "display",
+    "info": "Displays a boolean value as a colored, blinking dot.",
+    "doc": "/doc/components/rx-indicator.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Indicator label",
+        "required": true
+      },
+      "color": {
+        "type": "string",
+        "description": "Color when active (e.g., 'lime', 'red', 'blue')",
+        "default": "lime"
+      },
+      "blink": {
+        "type": "boolean",
+        "description": "Whether the indicator should blink when active",
+        "default": false
+      },
+      "inverse": {
+        "type": "boolean",
+        "description": "Invert the logic (true shows as off, false shows as on)",
+        "default": false
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the component",
+        "default": false
+      }
+    }
+  },
+  "rx-bool": {
+    "name": "RX Boolean",
+    "type": "display",
+    "info": "Displays a boolean value as a toggle switch.",
+    "doc": "/doc/components/rx-bool.md",
+    "props": {
+      "name": {
+        "type": "string",
+        "description": "Label for the boolean display",
+        "required": true
+      },
+      "tooltip": {
+        "type": "string",
+        "description": "Tooltip text to display on hover",
+        "default": ""
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the component",
+        "default": false
+      }
+    }
+  }
+}

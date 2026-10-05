@@ -1,0 +1,41 @@
+{
+    
+    "hardware": "Waveshare_8AI",
+    "registersOffset": 0,
+
+    "ModbusReadInputRegister": 
+    [
+        {
+            "id": 1,
+            "offset": 0
+        },
+        {
+            "id": 2,
+            "offset": 1
+        },
+        {
+            "id": 3,
+            "offset": 2
+        },
+        {
+            "id": 4,
+            "offset": 3
+        },
+        {  
+            "id": 5,
+            "offset": 4
+        },
+        {  
+            "id": 6,
+            "offset": 5
+        },
+        {
+            "id": 7,
+            "offset": 6
+        },
+        {
+            "id": 8,
+            "offset": 7
+        }
+    ]  
+}

@@ -1,0 +1,1618 @@
+{
+  "machine": "Formaca scie",
+  "home": 700,
+  "reference": 3101409,
+  "overall length": 96,
+  "park offset": 0.5,
+  "wast length": 6,
+  "right stop": 97,
+  "recettes": [
+    {
+      "longLength": 11.875,
+      "angle": 45,
+      "name": "11 7/8",
+      "width": 3.5
+    },
+    {
+      "longLength": 9.405,
+      "angle": 33,
+      "name": "9.405",
+      "width": 3.2
+    },
+    {
+      "longLength": 7.837,
+      "angle": 50,
+      "name": "7.837",
+      "width": 3.5
+    },
+    {
+      "longLength": 16.141,
+      "angle": 42,
+      "name": "16.141",
+      "width": 6.2
+    },
+    {
+      "longLength": 15.653,
+      "angle": 16,
+      "name": "15.653",
+      "width": 7
+    },
+    {
+      "longLength": 12.317,
+      "angle": 51,
+      "name": "12.317",
+      "width": 3.5
+    },
+    {
+      "longLength": 24.317,
+      "angle": 62,
+      "name": "24.317",
+      "width": 3.5
+    },
+    {
+      "longLength": 12.747,
+      "angle": 43,
+      "name": "12 3/4",
+      "width": 3.7
+    },
+    {
+      "longLength": 21.628,
+      "angle": 55,
+      "name": "21 5/8",
+      "width": 6.9
+    },
+    {
+      "longLength": 20.056,
+      "angle": 33,
+      "name": "20.056",
+      "width": 4.2
+    },
+    {
+      "longLength": 9.317,
+      "angle": 40,
+      "name": "9.317",
+      "width": 6.4
+    },
+    {
+      "longLength": 23.963,
+      "angle": 30,
+      "name": "23.963",
+      "width": 5.6
+    },
+    {
+      "longLength": 9.596,
+      "angle": 64,
+      "name": "9.596",
+      "width": 3.7
+    },
+    {
+      "longLength": 23.259,
+      "angle": 25,
+      "name": "23 1/4",
+      "width": 5.1
+    },
+    {
+      "longLength": 9.021,
+      "angle": 15,
+      "name": "9.021",
+      "width": 3
+    },
+    {
+      "longLength": 9.965,
+      "angle": 39,
+      "name": "9.965",
+      "width": 4.4
+    },
+    {
+      "longLength": 20.334,
+      "angle": 27,
+      "name": "20.334",
+      "width": 6.6
+    },
+    {
+      "longLength": 11.351,
+      "angle": 51,
+      "name": "11.351",
+      "width": 6.4
+    },
+    {
+      "longLength": 6.893,
+      "angle": 36,
+      "name": "6.893",
+      "width": 2.4
+    },
+    {
+      "longLength": 22.298,
+      "angle": 60,
+      "name": "22.298",
+      "width": 3.7
+    },
+    {
+      "longLength": 15.674,
+      "angle": 30,
+      "name": "15.674",
+      "width": 5.8
+    },
+    {
+      "longLength": 8.453,
+      "angle": 23,
+      "name": "8.453",
+      "width": 3.7
+    },
+    {
+      "longLength": 20.452,
+      "angle": 23,
+      "name": "20.452",
+      "width": 3.6
+    },
+    {
+      "longLength": 16.598,
+      "angle": 73,
+      "name": "16.598",
+      "width": 5.5
+    },
+    {
+      "longLength": 8.44,
+      "angle": 72,
+      "name": "8.44",
+      "width": 2.3
+    },
+    {
+      "longLength": 9.115,
+      "angle": 59,
+      "name": "9 1/8",
+      "width": 5.6
+    },
+    {
+      "longLength": 24.302,
+      "angle": 44,
+      "name": "24.302",
+      "width": 5.6
+    },
+    {
+      "longLength": 5.733,
+      "angle": 17,
+      "name": "5.733",
+      "width": 3.9
+    },
+    {
+      "longLength": 14.776,
+      "angle": 32,
+      "name": "14.776",
+      "width": 4.5
+    },
+    {
+      "longLength": 9.37,
+      "angle": 28,
+      "name": "9 3/8",
+      "width": 5.1
+    },
+    {
+      "longLength": 23.684,
+      "angle": 52,
+      "name": "23.684",
+      "width": 3.1
+    },
+    {
+      "longLength": 6.788,
+      "angle": 22,
+      "name": "6.788",
+      "width": 4.3
+    },
+    {
+      "longLength": 14.873,
+      "angle": 73,
+      "name": "14 7/8",
+      "width": 7
+    },
+    {
+      "longLength": 11.731,
+      "angle": 70,
+      "name": "11.731",
+      "width": 6.3
+    },
+    {
+      "longLength": 7.973,
+      "angle": 31,
+      "name": "7.973",
+      "width": 4.7
+    },
+    {
+      "longLength": 17.877,
+      "angle": 37,
+      "name": "17 7/8",
+      "width": 4
+    },
+    {
+      "longLength": 9.947,
+      "angle": 41,
+      "name": "9.947",
+      "width": 3.5
+    },
+    {
+      "longLength": 23.686,
+      "angle": 60,
+      "name": "23.686",
+      "width": 4
+    },
+    {
+      "longLength": 8.412,
+      "angle": 69,
+      "name": "8.412",
+      "width": 3.5
+    },
+    {
+      "longLength": 8.642,
+      "angle": 70,
+      "name": "8.642",
+      "width": 3.3
+    },
+    {
+      "longLength": 8.307,
+      "angle": 52,
+      "name": "8.307",
+      "width": 2.6
+    },
+    {
+      "longLength": 24.306,
+      "angle": 29,
+      "name": "24.306",
+      "width": 2.6
+    },
+    {
+      "longLength": 17.059,
+      "angle": 42,
+      "name": "17.059",
+      "width": 2.1
+    },
+    {
+      "longLength": 24.975,
+      "angle": 40,
+      "name": "24.975",
+      "width": 4.7
+    },
+    {
+      "longLength": 10.206,
+      "angle": 26,
+      "name": "10.206",
+      "width": 3.7
+    },
+    {
+      "longLength": 10.476,
+      "angle": 48,
+      "name": "10.476",
+      "width": 6.1
+    },
+    {
+      "longLength": 23.892,
+      "angle": 30,
+      "name": "23.892",
+      "width": 5.5
+    },
+    {
+      "longLength": 18.642,
+      "angle": 22,
+      "name": "18.642",
+      "width": 4
+    },
+    {
+      "longLength": 14.38,
+      "angle": 74,
+      "name": "14 3/8",
+      "width": 6.2
+    },
+    {
+      "longLength": 13.9,
+      "angle": 57,
+      "name": "13.9",
+      "width": 5.2
+    },
+    {
+      "longLength": 14.64,
+      "angle": 54,
+      "name": "14.64",
+      "width": 4
+    },
+    {
+      "longLength": 15.309,
+      "angle": 18,
+      "name": "15.309",
+      "width": 5.4
+    },
+    {
+      "longLength": 10.974,
+      "angle": 33,
+      "name": "10.974",
+      "width": 7
+    },
+    {
+      "longLength": 12.658,
+      "angle": 18,
+      "name": "12.658",
+      "width": 2.5
+    },
+    {
+      "longLength": 20.912,
+      "angle": 38,
+      "name": "20.912",
+      "width": 4.7
+    },
+    {
+      "longLength": 17.078,
+      "angle": 20,
+      "name": "17.078",
+      "width": 3.5
+    },
+    {
+      "longLength": 24.685,
+      "angle": 41,
+      "name": "24.685",
+      "width": 2.3
+    },
+    {
+      "longLength": 15.61,
+      "angle": 46,
+      "name": "15.61",
+      "width": 6.5
+    },
+    {
+      "longLength": 11.724,
+      "angle": 54,
+      "name": "11.724",
+      "width": 3.3
+    },
+    {
+      "longLength": 14.011,
+      "angle": 39,
+      "name": "14.011",
+      "width": 3.1
+    },
+    {
+      "longLength": 10.9,
+      "angle": 38,
+      "name": "10.9",
+      "width": 2.7
+    },
+    {
+      "longLength": 18,
+      "angle": 53,
+      "name": "18",
+      "width": 6.8
+    },
+    {
+      "longLength": 24.97,
+      "angle": 22,
+      "name": "24.97",
+      "width": 2.6
+    },
+    {
+      "longLength": 18.36,
+      "angle": 21,
+      "name": "18.36",
+      "width": 6.8
+    },
+    {
+      "longLength": 24.668,
+      "angle": 27,
+      "name": "24.668",
+      "width": 4.3
+    },
+    {
+      "longLength": 20.934,
+      "angle": 40,
+      "name": "20.934",
+      "width": 3.3
+    },
+    {
+      "longLength": 6.508,
+      "angle": 36,
+      "name": "6 1/2",
+      "width": 6.9
+    },
+    {
+      "longLength": 14.647,
+      "angle": 48,
+      "name": "14.647",
+      "width": 4.6
+    },
+    {
+      "longLength": 21.444,
+      "angle": 70,
+      "name": "21.444",
+      "width": 5.2
+    },
+    {
+      "longLength": 10.696,
+      "angle": 39,
+      "name": "10.696",
+      "width": 4.6
+    },
+    {
+      "longLength": 18.864,
+      "angle": 30,
+      "name": "18.864",
+      "width": 6.5
+    },
+    {
+      "longLength": 21.935,
+      "angle": 56,
+      "name": "21.935",
+      "width": 4.3
+    },
+    {
+      "longLength": 8.354,
+      "angle": 25,
+      "name": "8.354",
+      "width": 3.6
+    },
+    {
+      "longLength": 17.871,
+      "angle": 58,
+      "name": "17 7/8",
+      "width": 3.5
+    },
+    {
+      "longLength": 7.198,
+      "angle": 35,
+      "name": "7.198",
+      "width": 5.8
+    },
+    {
+      "longLength": 24.652,
+      "angle": 49,
+      "name": "24.652",
+      "width": 5.3
+    },
+    {
+      "longLength": 15.97,
+      "angle": 47,
+      "name": "15.97",
+      "width": 4.6
+    },
+    {
+      "longLength": 24.5,
+      "angle": 53,
+      "name": "24 1/2",
+      "width": 6.2
+    },
+    {
+      "longLength": 23.853,
+      "angle": 49,
+      "name": "23.853",
+      "width": 2.3
+    },
+    {
+      "longLength": 17.311,
+      "angle": 29,
+      "name": "17.311",
+      "width": 6.8
+    },
+    {
+      "longLength": 16.737,
+      "angle": 69,
+      "name": "16.737",
+      "width": 2.6
+    },
+    {
+      "longLength": 24.341,
+      "angle": 49,
+      "name": "24.341",
+      "width": 3.5
+    },
+    {
+      "longLength": 22.008,
+      "angle": 56,
+      "name": "22.008",
+      "width": 3.5
+    },
+    {
+      "longLength": 11.789,
+      "angle": 25,
+      "name": "11.789",
+      "width": 6.2
+    },
+    {
+      "longLength": 19.978,
+      "angle": 72,
+      "name": "19.978",
+      "width": 3
+    },
+    {
+      "longLength": 16.803,
+      "angle": 15,
+      "name": "16.803",
+      "width": 4.9
+    },
+    {
+      "longLength": 19.777,
+      "angle": 53,
+      "name": "19.777",
+      "width": 3.2
+    },
+    {
+      "longLength": 15.073,
+      "angle": 56,
+      "name": "15.073",
+      "width": 6.3
+    },
+    {
+      "longLength": 16.958,
+      "angle": 28,
+      "name": "16.958",
+      "width": 2
+    },
+    {
+      "longLength": 16.399,
+      "angle": 22,
+      "name": "16.399",
+      "width": 6.1
+    },
+    {
+      "longLength": 16.773,
+      "angle": 32,
+      "name": "16.773",
+      "width": 2.8
+    },
+    {
+      "longLength": 12.736,
+      "angle": 51,
+      "name": "12.736",
+      "width": 4.1
+    },
+    {
+      "longLength": 8.832,
+      "angle": 46,
+      "name": "8.832",
+      "width": 5.7
+    },
+    {
+      "longLength": 9.392,
+      "angle": 74,
+      "name": "9.392",
+      "width": 4.9
+    },
+    {
+      "longLength": 22.282,
+      "angle": 69,
+      "name": "22.282",
+      "width": 6.2
+    },
+    {
+      "longLength": 16.746,
+      "angle": 22,
+      "name": "16 3/4",
+      "width": 6.9
+    },
+    {
+      "longLength": 20.711,
+      "angle": 31,
+      "name": "20.711",
+      "width": 3.9
+    },
+    {
+      "longLength": 8.949,
+      "angle": 22,
+      "name": "8.949",
+      "width": 2.3
+    },
+    {
+      "longLength": 9.07,
+      "angle": 16,
+      "name": "9.07",
+      "width": 4.2
+    },
+    {
+      "longLength": 20.538,
+      "angle": 29,
+      "name": "20.538",
+      "width": 2.5
+    },
+    {
+      "longLength": 9.395,
+      "angle": 36,
+      "name": "9.395",
+      "width": 4.1
+    },
+    {
+      "longLength": 8.592,
+      "angle": 47,
+      "name": "8.592",
+      "width": 5.1
+    },
+    {
+      "longLength": 16.12,
+      "angle": 68,
+      "name": "16 1/8",
+      "width": 5.9
+    },
+    {
+      "longLength": 11.588,
+      "angle": 49,
+      "name": "11.588",
+      "width": 5.3
+    },
+    {
+      "longLength": 14.265,
+      "angle": 34,
+      "name": "14.265",
+      "width": 3
+    },
+    {
+      "longLength": 20.508,
+      "angle": 73,
+      "name": "20 1/2",
+      "width": 5.3
+    },
+    {
+      "longLength": 9.91,
+      "angle": 41,
+      "name": "9.91",
+      "width": 2
+    },
+    {
+      "longLength": 13.231,
+      "angle": 62,
+      "name": "13.231",
+      "width": 5.2
+    },
+    {
+      "longLength": 13.317,
+      "angle": 61,
+      "name": "13.317",
+      "width": 4.9
+    },
+    {
+      "longLength": 7.692,
+      "angle": 21,
+      "name": "7.692",
+      "width": 2.6
+    },
+    {
+      "longLength": 23.525,
+      "angle": 21,
+      "name": "23.525",
+      "width": 4.3
+    },
+    {
+      "longLength": 12.248,
+      "angle": 59,
+      "name": "12 1/4",
+      "width": 4.5
+    },
+    {
+      "longLength": 5.928,
+      "angle": 63,
+      "name": "5.928",
+      "width": 5.8
+    },
+    {
+      "longLength": 18.092,
+      "angle": 70,
+      "name": "18.092",
+      "width": 5.9
+    },
+    {
+      "longLength": 9.777,
+      "angle": 41,
+      "name": "9.777",
+      "width": 3
+    },
+    {
+      "longLength": 22.178,
+      "angle": 70,
+      "name": "22.178",
+      "width": 4.3
+    },
+    {
+      "longLength": 6.238,
+      "angle": 40,
+      "name": "6.238",
+      "width": 3.9
+    },
+    {
+      "longLength": 6.686,
+      "angle": 27,
+      "name": "6.686",
+      "width": 5.7
+    },
+    {
+      "longLength": 21.661,
+      "angle": 39,
+      "name": "21.661",
+      "width": 3.2
+    },
+    {
+      "longLength": 20.146,
+      "angle": 35,
+      "name": "20.146",
+      "width": 6.4
+    },
+    {
+      "longLength": 22.041,
+      "angle": 17,
+      "name": "22.041",
+      "width": 6.7
+    },
+    {
+      "longLength": 8.866,
+      "angle": 50,
+      "name": "8 7/8",
+      "width": 7
+    },
+    {
+      "longLength": 22.441,
+      "angle": 29,
+      "name": "22.441",
+      "width": 5.7
+    },
+    {
+      "longLength": 5.686,
+      "angle": 54,
+      "name": "5.686",
+      "width": 5.6
+    },
+    {
+      "longLength": 19.196,
+      "angle": 71,
+      "name": "19.196",
+      "width": 2.5
+    },
+    {
+      "longLength": 8.641,
+      "angle": 66,
+      "name": "8.641",
+      "width": 5.6
+    },
+    {
+      "longLength": 6.775,
+      "angle": 53,
+      "name": "6.775",
+      "width": 2.7
+    },
+    {
+      "longLength": 10.026,
+      "angle": 69,
+      "name": "10.026",
+      "width": 5.3
+    },
+    {
+      "longLength": 15.883,
+      "angle": 67,
+      "name": "15 7/8",
+      "width": 3
+    },
+    {
+      "longLength": 22.924,
+      "angle": 67,
+      "name": "22.924",
+      "width": 3.3
+    },
+    {
+      "longLength": 17.232,
+      "angle": 23,
+      "name": "17.232",
+      "width": 2.4
+    },
+    {
+      "longLength": 12.796,
+      "angle": 71,
+      "name": "12.796",
+      "width": 4.4
+    },
+    {
+      "longLength": 22.441,
+      "angle": 53,
+      "name": "22.441",
+      "width": 6.8
+    },
+    {
+      "longLength": 13.535,
+      "angle": 49,
+      "name": "13.535",
+      "width": 2
+    },
+    {
+      "longLength": 16.361,
+      "angle": 26,
+      "name": "16.361",
+      "width": 2.4
+    },
+    {
+      "longLength": 16.427,
+      "angle": 47,
+      "name": "16.427",
+      "width": 2.5
+    },
+    {
+      "longLength": 14.255,
+      "angle": 45,
+      "name": "14 1/4",
+      "width": 3.2
+    },
+    {
+      "longLength": 11.243,
+      "angle": 60,
+      "name": "11 1/4",
+      "width": 2.4
+    },
+    {
+      "longLength": 19.436,
+      "angle": 62,
+      "name": "19.436",
+      "width": 3.1
+    },
+    {
+      "longLength": 9.052,
+      "angle": 73,
+      "name": "9.052",
+      "width": 4.8
+    },
+    {
+      "longLength": 20.29,
+      "angle": 46,
+      "name": "20.29",
+      "width": 6.4
+    },
+    {
+      "longLength": 20.908,
+      "angle": 30,
+      "name": "20.908",
+      "width": 5.6
+    },
+    {
+      "longLength": 22.706,
+      "angle": 44,
+      "name": "22.706",
+      "width": 2.9
+    },
+    {
+      "longLength": 5.939,
+      "angle": 30,
+      "name": "5.939",
+      "width": 6.3
+    },
+    {
+      "longLength": 22.057,
+      "angle": 74,
+      "name": "22.057",
+      "width": 5.2
+    },
+    {
+      "longLength": 9.036,
+      "angle": 45,
+      "name": "9.036",
+      "width": 3.1
+    },
+    {
+      "longLength": 7.889,
+      "angle": 21,
+      "name": "7.889",
+      "width": 3.3
+    },
+    {
+      "longLength": 14.73,
+      "angle": 65,
+      "name": "14.73",
+      "width": 4.3
+    },
+    {
+      "longLength": 8.588,
+      "angle": 61,
+      "name": "8.588",
+      "width": 2.7
+    },
+    {
+      "longLength": 8.039,
+      "angle": 71,
+      "name": "8.039",
+      "width": 5.8
+    },
+    {
+      "longLength": 7.885,
+      "angle": 62,
+      "name": "7 7/8",
+      "width": 3.6
+    },
+    {
+      "longLength": 8.073,
+      "angle": 51,
+      "name": "8.073",
+      "width": 6.8
+    },
+    {
+      "longLength": 5.702,
+      "angle": 53,
+      "name": "5.702",
+      "width": 2.5
+    },
+    {
+      "longLength": 18.457,
+      "angle": 70,
+      "name": "18.457",
+      "width": 5.7
+    },
+    {
+      "longLength": 11.233,
+      "angle": 31,
+      "name": "11.233",
+      "width": 6.8
+    },
+    {
+      "longLength": 12.129,
+      "angle": 73,
+      "name": "12 1/8",
+      "width": 4.5
+    },
+    {
+      "longLength": 14.866,
+      "angle": 37,
+      "name": "14 7/8",
+      "width": 6.9
+    },
+    {
+      "longLength": 19.464,
+      "angle": 30,
+      "name": "19.464",
+      "width": 6.1
+    },
+    {
+      "longLength": 15.689,
+      "angle": 38,
+      "name": "15.689",
+      "width": 3.8
+    },
+    {
+      "longLength": 20.869,
+      "angle": 20,
+      "name": "20 7/8",
+      "width": 4
+    },
+    {
+      "longLength": 17.881,
+      "angle": 42,
+      "name": "17 7/8",
+      "width": 6.8
+    },
+    {
+      "longLength": 14.147,
+      "angle": 49,
+      "name": "14.147",
+      "width": 6.4
+    },
+    {
+      "longLength": 5.922,
+      "angle": 38,
+      "name": "5.922",
+      "width": 5.1
+    },
+    {
+      "longLength": 12.063,
+      "angle": 65,
+      "name": "12.063",
+      "width": 5.3
+    },
+    {
+      "longLength": 15.801,
+      "angle": 67,
+      "name": "15.801",
+      "width": 3.5
+    },
+    {
+      "longLength": 22.079,
+      "angle": 66,
+      "name": "22.079",
+      "width": 4.5
+    },
+    {
+      "longLength": 11.298,
+      "angle": 40,
+      "name": "11.298",
+      "width": 5.2
+    },
+    {
+      "longLength": 7.346,
+      "angle": 41,
+      "name": "7.346",
+      "width": 4.6
+    },
+    {
+      "longLength": 23.168,
+      "angle": 30,
+      "name": "23.168",
+      "width": 5.3
+    },
+    {
+      "longLength": 14.018,
+      "angle": 61,
+      "name": "14.018",
+      "width": 4.1
+    },
+    {
+      "longLength": 23.805,
+      "angle": 34,
+      "name": "23.805",
+      "width": 6
+    },
+    {
+      "longLength": 15.201,
+      "angle": 62,
+      "name": "15.201",
+      "width": 2.1
+    },
+    {
+      "longLength": 23.42,
+      "angle": 42,
+      "name": "23.42",
+      "width": 6.4
+    },
+    {
+      "longLength": 21.438,
+      "angle": 17,
+      "name": "21.438",
+      "width": 4.8
+    },
+    {
+      "longLength": 16.828,
+      "angle": 59,
+      "name": "16.828",
+      "width": 2.7
+    },
+    {
+      "longLength": 14.63,
+      "angle": 57,
+      "name": "14 5/8",
+      "width": 5.5
+    },
+    {
+      "longLength": 22.986,
+      "angle": 32,
+      "name": "22.986",
+      "width": 6.7
+    },
+    {
+      "longLength": 23.508,
+      "angle": 52,
+      "name": "23 1/2",
+      "width": 5.1
+    },
+    {
+      "longLength": 10.038,
+      "angle": 73,
+      "name": "10.038",
+      "width": 3.5
+    },
+    {
+      "longLength": 6.079,
+      "angle": 28,
+      "name": "6.079",
+      "width": 5.6
+    },
+    {
+      "longLength": 21.195,
+      "angle": 27,
+      "name": "21.195",
+      "width": 5.2
+    },
+    {
+      "longLength": 23.561,
+      "angle": 61,
+      "name": "23.561",
+      "width": 3.2
+    },
+    {
+      "longLength": 10.058,
+      "angle": 20,
+      "name": "10.058",
+      "width": 3.4
+    },
+    {
+      "longLength": 17.225,
+      "angle": 72,
+      "name": "17.225",
+      "width": 5
+    },
+    {
+      "longLength": 10.537,
+      "angle": 62,
+      "name": "10.537",
+      "width": 3.2
+    },
+    {
+      "longLength": 15.659,
+      "angle": 43,
+      "name": "15.659",
+      "width": 6.8
+    },
+    {
+      "longLength": 20.46,
+      "angle": 27,
+      "name": "20.46",
+      "width": 5
+    },
+    {
+      "longLength": 17.585,
+      "angle": 56,
+      "name": "17.585",
+      "width": 2.1
+    },
+    {
+      "longLength": 18.369,
+      "angle": 23,
+      "name": "18 3/8",
+      "width": 2.5
+    },
+    {
+      "longLength": 8.037,
+      "angle": 30,
+      "name": "8.037",
+      "width": 4.6
+    },
+    {
+      "longLength": 14.408,
+      "angle": 73,
+      "name": "14.408",
+      "width": 3.8
+    },
+    {
+      "longLength": 6.865,
+      "angle": 16,
+      "name": "6 7/8",
+      "width": 2.3
+    },
+    {
+      "longLength": 5.46,
+      "angle": 43,
+      "name": "5.46",
+      "width": 5.7
+    },
+    {
+      "longLength": 12.919,
+      "angle": 17,
+      "name": "12.919",
+      "width": 3.8
+    },
+    {
+      "longLength": 8.873,
+      "angle": 38,
+      "name": "8 7/8",
+      "width": 4.4
+    },
+    {
+      "longLength": 8.197,
+      "angle": 18,
+      "name": "8.197",
+      "width": 4.8
+    },
+    {
+      "longLength": 9.614,
+      "angle": 38,
+      "name": "9.614",
+      "width": 4.8
+    },
+    {
+      "longLength": 7.025,
+      "angle": 60,
+      "name": "7.025",
+      "width": 5.8
+    },
+    {
+      "longLength": 18.719,
+      "angle": 38,
+      "name": "18.719",
+      "width": 4.6
+    },
+    {
+      "longLength": 7.976,
+      "angle": 64,
+      "name": "7.976",
+      "width": 3.5
+    },
+    {
+      "longLength": 12.222,
+      "angle": 30,
+      "name": "12.222",
+      "width": 2
+    },
+    {
+      "longLength": 14.897,
+      "angle": 44,
+      "name": "14.897",
+      "width": 3.7
+    },
+    {
+      "longLength": 8.138,
+      "angle": 41,
+      "name": "8.138",
+      "width": 2
+    },
+    {
+      "longLength": 11.505,
+      "angle": 26,
+      "name": "11 1/2",
+      "width": 4.3
+    },
+    {
+      "longLength": 11.575,
+      "angle": 28,
+      "name": "11.575",
+      "width": 5.1
+    },
+    {
+      "longLength": 18.472,
+      "angle": 16,
+      "name": "18.472",
+      "width": 5.1
+    },
+    {
+      "longLength": 9.354,
+      "angle": 19,
+      "name": "9.354",
+      "width": 4
+    },
+    {
+      "longLength": 14.63,
+      "angle": 67,
+      "name": "14 5/8",
+      "width": 5
+    },
+    {
+      "longLength": 22.806,
+      "angle": 32,
+      "name": "22.806",
+      "width": 6.5
+    },
+    {
+      "longLength": 20.887,
+      "angle": 52,
+      "name": "20.887",
+      "width": 6.2
+    },
+    {
+      "longLength": 11.574,
+      "angle": 26,
+      "name": "11.574",
+      "width": 3
+    },
+    {
+      "longLength": 22.555,
+      "angle": 73,
+      "name": "22.555",
+      "width": 3.4
+    },
+    {
+      "longLength": 5.889,
+      "angle": 16,
+      "name": "5.889",
+      "width": 6.6
+    },
+    {
+      "longLength": 14.995,
+      "angle": 65,
+      "name": "14.995",
+      "width": 5.5
+    },
+    {
+      "longLength": 15.354,
+      "angle": 64,
+      "name": "15.354",
+      "width": 4.3
+    },
+    {
+      "longLength": 13.035,
+      "angle": 36,
+      "name": "13.035",
+      "width": 4.3
+    },
+    {
+      "longLength": 8.701,
+      "angle": 39,
+      "name": "8.701",
+      "width": 3.3
+    },
+    {
+      "longLength": 7.125,
+      "angle": 19,
+      "name": "7 1/8",
+      "width": 3.9
+    },
+    {
+      "longLength": 13.559,
+      "angle": 45,
+      "name": "13.559",
+      "width": 3.7
+    },
+    {
+      "longLength": 19.197,
+      "angle": 55,
+      "name": "19.197",
+      "width": 4.4
+    },
+    {
+      "longLength": 19.133,
+      "angle": 19,
+      "name": "19 1/8",
+      "width": 3.6
+    },
+    {
+      "longLength": 8.878,
+      "angle": 17,
+      "name": "8 7/8",
+      "width": 5.7
+    },
+    {
+      "longLength": 12.533,
+      "angle": 29,
+      "name": "12.533",
+      "width": 2.8
+    },
+    {
+      "longLength": 19.661,
+      "angle": 61,
+      "name": "19.661",
+      "width": 2.5
+    },
+    {
+      "longLength": 15.24,
+      "angle": 73,
+      "name": "15 1/4",
+      "width": 6.9
+    },
+    {
+      "longLength": 21.538,
+      "angle": 73,
+      "name": "21.538",
+      "width": 4.9
+    },
+    {
+      "longLength": 22.208,
+      "angle": 28,
+      "name": "22.208",
+      "width": 6.6
+    },
+    {
+      "longLength": 8.784,
+      "angle": 68,
+      "name": "8.784",
+      "width": 6.1
+    },
+    {
+      "longLength": 5.73,
+      "angle": 36,
+      "name": "5.73",
+      "width": 3.7
+    },
+    {
+      "longLength": 16.533,
+      "angle": 73,
+      "name": "16.533",
+      "width": 2.1
+    },
+    {
+      "longLength": 16.641,
+      "angle": 44,
+      "name": "16.641",
+      "width": 4.1
+    },
+    {
+      "longLength": 18.906,
+      "angle": 61,
+      "name": "18.906",
+      "width": 3.4
+    },
+    {
+      "longLength": 6.927,
+      "angle": 19,
+      "name": "6.927",
+      "width": 4.3
+    },
+    {
+      "longLength": 22.2,
+      "angle": 74,
+      "name": "22.2",
+      "width": 3.4
+    },
+    {
+      "longLength": 24.832,
+      "angle": 26,
+      "name": "24.832",
+      "width": 6.5
+    },
+    {
+      "longLength": 23.259,
+      "angle": 44,
+      "name": "23 1/4",
+      "width": 3.6
+    },
+    {
+      "longLength": 5.48,
+      "angle": 15,
+      "name": "5.48",
+      "width": 2.7
+    },
+    {
+      "longLength": 24.347,
+      "angle": 57,
+      "name": "24.347",
+      "width": 5.7
+    },
+    {
+      "longLength": 22.76,
+      "angle": 56,
+      "name": "22.76",
+      "width": 2.8
+    },
+    {
+      "longLength": 24.703,
+      "angle": 39,
+      "name": "24.703",
+      "width": 4.3
+    },
+    {
+      "longLength": 24.962,
+      "angle": 19,
+      "name": "24.962",
+      "width": 5.9
+    },
+    {
+      "longLength": 20.505,
+      "angle": 24,
+      "name": "20 1/2",
+      "width": 2.8
+    },
+    {
+      "longLength": 20.523,
+      "angle": 55,
+      "name": "20.523",
+      "width": 3.1
+    },
+    {
+      "longLength": 5.113,
+      "angle": 71,
+      "name": "5.113",
+      "width": 2.6
+    },
+    {
+      "longLength": 21.231,
+      "angle": 65,
+      "name": "21.231",
+      "width": 3.3
+    },
+    {
+      "longLength": 8.321,
+      "angle": 67,
+      "name": "8.321",
+      "width": 2.1
+    },
+    {
+      "longLength": 11.652,
+      "angle": 66,
+      "name": "11.652",
+      "width": 6.8
+    },
+    {
+      "longLength": 6.349,
+      "angle": 63,
+      "name": "6.349",
+      "width": 4.8
+    },
+    {
+      "longLength": 22.796,
+      "angle": 68,
+      "name": "22.796",
+      "width": 7
+    },
+    {
+      "longLength": 11.178,
+      "angle": 67,
+      "name": "11.178",
+      "width": 3.3
+    },
+    {
+      "longLength": 22.501,
+      "angle": 25,
+      "name": "22 1/2",
+      "width": 3.2
+    },
+    {
+      "longLength": 12.516,
+      "angle": 51,
+      "name": "12.516",
+      "width": 3.9
+    },
+    {
+      "longLength": 22.909,
+      "angle": 71,
+      "name": "22.909",
+      "width": 3.4
+    },
+    {
+      "longLength": 18.906,
+      "angle": 51,
+      "name": "18.906",
+      "width": 2.5
+    },
+    {
+      "longLength": 24.118,
+      "angle": 17,
+      "name": "24 1/8",
+      "width": 4.9
+    },
+    {
+      "longLength": 20.201,
+      "angle": 37,
+      "name": "20.201",
+      "width": 3.4
+    }
+  ],
+  "current recette": "11 7/8"
+}
+
+Aperçu des premières recettes:
+[
+  {
+    "longLength": 11.875,
+    "angle": 45,
+    "name": "11 7/8",
+    "width": 3.5
+  },
+  {
+    "longLength": 9.405,
+    "angle": 33,
+    "name": "9.405",
+    "width": 3.2
+  },
+  {
+    "longLength": 7.837,
+    "angle": 50,
+    "name": "7.837",
+    "width": 3.5
+  },
+  {
+    "longLength": 16.141,
+    "angle": 42,
+    "name": "16.141",
+    "width": 6.2
+  },
+  {
+    "longLength": 15.653,
+    "angle": 16,
+    "name": "15.653",
+    "width": 7
+  }
+]
+
+Aperçu des dernières recettes:
+[
+  {
+    "longLength": 12.516,
+    "angle": 51,
+    "name": "12.516",
+    "width": 3.9
+  },
+  {
+    "longLength": 22.909,
+    "angle": 71,
+    "name": "22.909",
+    "width": 3.4
+  },
+  {
+    "longLength": 18.906,
+    "angle": 51,
+    "name": "18.906",
+    "width": 2.5
+  },
+  {
+    "longLength": 24.118,
+    "angle": 17,
+    "name": "24 1/8",
+    "width": 4.9
+  },
+  {
+    "longLength": 20.201,
+    "angle": 37,
+    "name": "20.201",
+    "width": 3.4
+  }
+]
+
+Nombre total de recettes: 256

@@ -1,0 +1,23 @@
+{
+    
+    "hardware": "Waveshare_8DIO",
+    "registersOffset": 0,
+
+    "ModbusWriteMultipleCoils": 
+    [
+        {
+            "id": 1,
+            "offset": 0,
+            "nb_values": 8
+        }
+    ],
+    
+    "ModbusReadMultipleInputsStatus":
+    [
+        { 
+            "id": 1,
+            "offset": 0,
+            "nb_values": 8 
+        }
+    ]
+}

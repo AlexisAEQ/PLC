@@ -1,0 +1,13 @@
+{
+    "hardware": "Waveshare_16DO",
+    "registersOffset": 0,
+
+    "ModbusWriteMultipleCoils": 
+    [
+        {
+            "id": 1,
+            "offset": 0,
+            "nb_values": 16
+        }
+    ]
+}

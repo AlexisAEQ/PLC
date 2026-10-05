@@ -1,0 +1,15 @@
+{
+    "states":[
+        {
+            "hash": 12,
+            "descriptor": {
+                "items": [
+                    "chocolat",
+                    "bonbon",
+                    "gateau"
+                ]
+            }
+
+        }
+    ]
+}

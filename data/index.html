@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniBorne</title>
+  <!-- STYLES -->
+  <link rel="stylesheet" href="./styles.min.css">
+  
+  
+  
+  <!-- SHOELACE STYLE-->
+  
+  <!-- CODEJAR AND PRISM CSS -->
+  <!-- https://github.com/PrismJS/prism-themes?tab=readme-ov-file -->
+  
+  
+  <!-- SCRIPT -->
+  <script async type="module" src="./index.js"></script>
+</head>
+
+<body class="sl-theme-dark">
+  <hw-notification></hw-notification>
+  <!-- HTML PAGE -->
+  <div class="container-fluid" id="root">
+    <div class="top-container">
+      <div class="tooltip-container">
+        <debug-drawer></debug-drawer>
+        <sl-badge variant="primary">
+          <strong id="version-display">Version: 1.3.17</strong>
+        </sl-badge><plc-status-icon></plc-status-icon>
+      </div>
+      <div class="tooltip-container right">
+        <notification-center></notification-center>
+        <interface-editor></interface-editor>
+      </div>
+    </div>
+    <hw-navbar></hw-navbar>
+    <div class="col h-100">
+      <hw-dynamic socket="" url="config.json"></hw-dynamic>
+    </div>
+    
+  </div>
+  
+</body>
+
+</html>

@@ -1,0 +1,4 @@
+Mettre tous les paramètres lu dans le fichier de config dans une structure commune.
+
+Introduire un nouveau paramètres dans le fichier de config qui permettera de sauvegarder les modifications de la valeur de certains nodes
+

@@ -1,0 +1,541 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x17 (SPI_FAST_FLASH_BOOT)
+configsip: 153911750, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:4660
+load:0x40078000,len:15568
+ho 0 tail 12 room 4
+load:0x40080400,len:4
+load:0x40080404,len:3152
+entry 0x400805a0
+E (855) esp_core_dump_f�f͡� No core dump partition found!
+E (855) esp_core_dump_flash: No core dump partition found!
+=== VERSION CHECK ===
+Arduino-ESP32 version: 3.2.0
+ESP-IDF version: 5.4.1
+====================
+Will start BorneUniverselle library...
+[TaskInfo] Number of tasks: 7 at 1 s
+📋 PLC_Tools::initialize() - Initialisation des sous-systèmes
+✅ diagnosticMutex créé avec succès
+✅ PSRAM check: Available and functional (Size: 2097152 bytes)
+📋 Buffer diagnostic: 16 KB (PSRAM)
+========================================
+📊 Système de diagnostic initialisé:
+  - Mutex: ✅ OK
+  - Buffer: ✅ OK (16 KB)
+========================================
+✅ PLC_Tools::initialize() - Terminé
+Start at 1065 ms, tasks: 7, heap: 234732, stack free: 26240
+Initializing configuration...
+=== LittleFS Status ===
+  Total : 4128768 bytes (4032.0 KB)
+  Used  : 1331200 bytes (1300.0 KB)
+  Free  : 2797568 bytes (2732.0 KB)
+  --- Files ---
+  [Fichier_de_recette.json] 863 bytes
+  [RotaryIndexingTable.json] 382 bytes
+  [assets] 0 bytes
+  [component-manifest.json] 16070 bytes
+  [config.json] 8457 bytes
+  [config.v1.json] 8457 bytes
+  [diagnostic.txt] 1928 bytes
+  [hardware] 0 bytes
+  [index.html] 1645 bytes
+  [index.js] 960741 bytes
+  [interface.json] 24069 bytes
+  [manifest.json] 969 bytes
+  [reboot_log.json] 303 bytes
+  [renderers.json] 3202 bytes
+  [styles.min.css] 37516 bytes
+======================
+Do not suspend PLC: client is not connected
+
+1489:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+1510:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+1542:: ⚠️ Do not resume suspended PLC: client is not connected
+
+============ JOURNAL DE DIAGNOSTIC ============
+Nombre d'entrées: 28
+
++0000007980ms: PLC is up - RotaryIndexingTable ready
++0001561846ms: Position de parking sauvegarée: 137.94, mode jog: YES
++0161873321ms: Position de parking sauvegarée: 85.92, mode jog: YES
++0450245426ms: ALARME 0x0030: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0450279959ms: 🚨 DRIVE EN ALARME AL048: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0450280260ms: Échec reset alarmes
++0450307295ms: 🚨 DRIVE EN ALARME AL048: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0450307772ms: Échec reset alarmes
++0450312339ms: 🚨 DRIVE EN ALARME AL048: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0482457557ms: Attention ! Machine en arrêt d'urgence
++0518728437ms: Attention ! Machine en arrêt d'urgence
++0518736766ms: Attention ! Machine en arrêt d'urgence
++0518772720ms: WEBSOCKET_CLIENT_DISCONNECT: Client 34 - Network error or server timeout
++0518773775ms: Attention ! Machine en arrêt d'urgence
++0518814860ms: WEBSOCKET_CLIENT_DISCONNECT: Client 37 - Network error or server timeout
++0518857053ms: Attention ! Machine en arrêt d'urgence
++0518863363ms: 🚨 DRIVE EN ALARME AL048: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0518863639ms: Échec reset alarmes
++0519736437ms: 🚨 DRIVE EN ALARME AL048: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0519736714ms: Échec reset alarmes
++0519744129ms: 🚨 DRIVE EN ALARME AL048: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0519744402ms: Échec reset alarmes
++0519750447ms: 🚨 DRIVE EN ALARME AL048: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0519751023ms: Échec reset alarmes
++0519758196ms: 🚨 DRIVE EN ALARME AL048: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0519758483ms: Échec reset alarmes
++0519778798ms: 🚨 DRIVE EN ALARME AL048: Blocage mécanique - Vérifier qu'il n'y a pas de blocage
++0519779095ms: Échec reset alarmes
+
+============= FIN DU JOURNAL DE DIAGNOSTIC =============
+1716:: Lecture JSON depuis le fichier: /config.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+1748:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+1790:: ⚠️ Do not resume suspended PLC: client is not connected
+Will parse config
+Project name: RessortRoyal_Table_Indexage
+The key filteredMessages is not found, no message will be filtered
+PLC_Tools: 0 motif(s) de filtrage de messages charge(s)
+Do not suspend PLC: client is not connected
+
+1816:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+1918:: ⚠️ Do not resume suspended PLC: client is not connected
+Sauvegarde créée: /config.v1.json (version 1)
+Created backup of config.json before applying changes
+Project version: 2.00
+Configuration WiFi: Access Point RessortRoyal
+Mode WiFi: access_point
+WifiManagment Singleton créé
+Configuration WiFi ajoutée: Access Point RessortRoyal (mode: access_point)
+  AP Name: RS-AP Indexeur, IP: 192.168.4.4
+ota_url: truc
+Section name: Direct outputs
+hardware: Kincony_KC868_A8S
+type: tx-bool
+2038:: Lecture JSON depuis le fichier: /hardware/Kincony_KC868_A8S.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+2073:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2095:: ⚠️ Do not resume suspended PLC: client is not connected
+I2c bus initialised
+[RTC] Initialisation service d'horodatage...
+[RTC] DS3231 non détecté
+[RTC] Mode fallback millis() activé
+I2C bus is initialised
+Bus I2C initialized
+Try to initialise Modbus
+RS485 speed: 115200, rx pin: 32, tx pin: 33, mode: SERIAL_8E1
+RS485 bus is initialised
+Modbus RTU timeout: 101
+MyModbus timeout: 101 ms
+MyModbus marque comme initialise
+Modbus initialised
+Modbus initialized
+Will set pin 2 as output
+Node Direct outputs/Buzzer created with succes (ESP32 pin 2) with type HardwareBooleanOutputNode and hash: 1711197005
+Section name: Inputs Kincony
+hardware: Kincony_KC868_A8S
+type: PF8574_rx-bool
+2151:: Lecture JSON depuis le fichier: /hardware/Kincony_KC868_A8S.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+2187:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2209:: ⚠️ Do not resume suspended PLC: client is not connected
+I2C bus is initialised
+Bus I2C initialized
+Modbus initialized
+🔧 Initializing PCF8574 at 0x22...
+✅ PCF8574 initialized successfully at 0x22
+Node Inputs Kincony/EStopA created with succes with type PF8574BooleanInputNode and hash: 721063196, inverted: true, refresh interval: 0, web refresh interval: 0
+ℹ️  PCF8574 at 0x22 already initialized, reusing
+Node Inputs Kincony/EStopB created with succes with type PF8574BooleanInputNode and hash: 998762341, inverted: true, refresh interval: 0, web refresh interval: 0
+ℹ️  PCF8574 at 0x22 already initialized, reusing
+Node Inputs Kincony/Entrée cassée sur la carte a Thierry created with succes with type PF8574BooleanInputNode and hash: 2189180045, inverted: false, refresh interval: 0, web refresh interval: 0
+ℹ️  PCF8574 at 0x22 already initialized, reusing
+Node Inputs Kincony/StartCycle created with succes with type PF8574BooleanInputNode and hash: 2986050054, inverted: false, refresh interval: 0, web refresh interval: 0
+Section name: Outputs
+hardware: Kincony_KC868_A8S
+type: PF8574_tx-bool
+2305:: Lecture JSON depuis le fichier: /hardware/Kincony_KC868_A8S.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+2341:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+2362:: ⚠️ Do not resume suspended PLC: client is not connected
+I2C bus is initialised
+Bus I2C initialized
+Modbus initialized
+🔧 Initializing PCF8574 at 0x24...
+✅ PCF8574 initialized successfully at 0x24
+✅ Output node servoOn created (pin 0 on PCF8574 at 0x24)
+Node Outputs/servoOn created with succes with type PF8574BooleanOutputNode and hash: 1927398708
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node immediatStop created (pin 3 on PCF8574 at 0x24)
+Node Outputs/immediatStop created with succes with type PF8574BooleanOutputNode and hash: 973196112
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node alarmsReset created (pin 4 on PCF8574 at 0x24)
+Node Outputs/alarmsReset created with succes with type PF8574BooleanOutputNode and hash: 4138453966
+ℹ️  PCF8574 at 0x24 already initialized, reusing
+✅ Output node free run created (pin 5 on PCF8574 at 0x24)
+Node Outputs/free run created with succes with type PF8574BooleanOutputNode and hash: 2015677485
+Section name: Jog
+hardware: virtual
+type: rx-bool
+Node Jog/jog created (VirtualBooleanInputNode) with succes, hash: 627952477
+Node Jog/fwd created (VirtualBooleanInputNode) with succes, hash: 936928435
+Node Jog/rwd created (VirtualBooleanInputNode) with succes, hash: 2405696470
+Node Jog/Go home created (VirtualBooleanInputNode) with succes, hash: 3099259876
+Node Jog/Go Pos Park created (VirtualBooleanInputNode) with succes, hash: 431233
+Node Jog/Calibrate !!! created (VirtualBooleanInputNode) with succes, hash: 3874886927
+Node Jog/v_servoOn created (VirtualBooleanInputNode) with succes, hash: 1581937258
+Node Jog/v_alarmsReset created (VirtualBooleanInputNode) with succes, hash: 1771340376
+Section name: Virtual rx-uint32
+hardware: virtual
+type: rx-uint32
+Node Virtual rx-uint32/Nb cycles voulus created (VirtualUint32InputNode) with succes, hash: 3672714888
+Node Virtual rx-uint32/vjog speed created (VirtualUint32InputNode) with succes, hash: 812643306
+Node Virtual rx-uint32/v_speed max created (VirtualUint32InputNode) with succes, hash: 3745334539
+Node Virtual rx-uint32/user target created (VirtualUint32InputNode) with succes, hash: 1041452911
+Node Virtual rx-uint32/acceleration / décélération created (VirtualUint32InputNode) with succes, hash: 3510761870
+Node Virtual rx-uint32/home timeout created (VirtualUint32InputNode) with succes, hash: 1002906860
+Node Virtual rx-uint32/move timeout created (VirtualUint32InputNode) with succes, hash: 3566572045
+Node Virtual rx-uint32/v_vitesse 1 created (VirtualUint32InputNode) with succes, hash: 836357449
+Node Virtual rx-uint32/v_vitesse 2 created (VirtualUint32InputNode) with succes, hash: 507008508
+Node Virtual rx-uint32/v_vitesse 3 created (VirtualUint32InputNode) with succes, hash: 4050314013
+Node Virtual rx-uint32/v_vitesse 4 created (VirtualUint32InputNode) with succes, hash: 468467327
+Node Virtual rx-uint32/v_vitesse 5 created (VirtualUint32InputNode) with succes, hash: 4106127518
+Node Virtual rx-uint32/v_vitesse 6 created (VirtualUint32InputNode) with succes, hash: 361792250
+Node Virtual rx-uint32/v_vitesse 7 created (VirtualUint32InputNode) with succes, hash: 4207031323
+Node Virtual rx-uint32/v_vitesse 8 created (VirtualUint32InputNode) with succes, hash: 272951673
+Node Virtual rx-uint32/v_vitesse 9 created (VirtualUint32InputNode) with succes, hash: 4279656344
+Node Virtual rx-uint32/v_vitesse 10 created (VirtualUint32InputNode) with succes, hash: 157940720
+Section name: Inputs
+hardware: virtual
+type: tx-uint32
+Node Inputs/Nombre de cycles faits created (VirtualUint32OutputNode) with succes, hash: 396324830
+Section name: Virtual bool inputs
+hardware: virtual
+type: rx-bool
+Node Virtual bool inputs/v_start created (VirtualBooleanInputNode) with succes, hash: 246216594
+Node Virtual bool inputs/v_immediatStop created (VirtualBooleanInputNode) with succes, hash: 2701507160
+Node Virtual bool inputs/nb cycles clear created (VirtualBooleanInputNode) with succes, hash: 3294789918
+Node Virtual bool inputs/v_servoOn created (VirtualBooleanInputNode) with succes, hash: 623257485
+Node Virtual bool inputs/Full torque created (VirtualBooleanInputNode) with succes, hash: 2324654663
+Node Virtual bool inputs/v_rtc_set_time created (VirtualBooleanInputNode) with succes, hash: 59448638
+Node Virtual bool inputs/Enchainement automatique created (VirtualBooleanInputNode) with succes, hash: 2887930100
+Section name: Virtual bool inputs pour recette
+hardware: virtual
+type: rx-bool
+Node Virtual bool inputs pour recette/v_pause_1 created (VirtualBooleanInputNode) with succes, hash: 426949739
+Node Virtual bool inputs pour recette/v_pause_2 created (VirtualBooleanInputNode) with succes, hash: 1113918846
+Node Virtual bool inputs pour recette/v_pause_3 created (VirtualBooleanInputNode) with succes, hash: 1956093325
+Node Virtual bool inputs pour recette/v_pause_4 created (VirtualBooleanInputNode) with succes, hash: 4098518868
+Node Virtual bool inputs pour recette/v_pause_5 created (VirtualBooleanInputNode) with succes, hash: 3266903975
+Node Virtual bool inputs pour recette/v_pause_6 created (VirtualBooleanInputNode) with succes, hash: 2578402994
+Node Virtual bool inputs pour recette/v_pause_7 created (VirtualBooleanInputNode) with succes, hash: 2942164545
+Node Virtual bool inputs pour recette/v_pause_8 created (VirtualBooleanInputNode) with succes, hash: 1130736961
+Node Virtual bool inputs pour recette/v_pause_9 created (VirtualBooleanInputNode) with succes, hash: 1972846002
+Node Virtual bool inputs pour recette/v_pause_10 created (VirtualBooleanInputNode) with succes, hash: 1591017964
+Node Virtual bool inputs pour recette/v_fin de cycle_1 created (VirtualBooleanInputNode) with succes, hash: 1747423519
+Node Virtual bool inputs pour recette/v_fin de cycle_2 created (VirtualBooleanInputNode) with succes, hash: 858791946
+Node Virtual bool inputs pour recette/v_fin de cycle_3 created (VirtualBooleanInputNode) with succes, hash: 96645369
+Node Virtual bool inputs pour recette/v_fin de cycle_4 created (VirtualBooleanInputNode) with succes, hash: 2233418272
+Node Virtual bool inputs pour recette/v_fin de cycle_5 created (VirtualBooleanInputNode) with succes, hash: 3018707667
+Node Virtual bool inputs pour recette/v_fin de cycle_6 created (VirtualBooleanInputNode) with succes, hash: 3908723654
+Node Virtual bool inputs pour recette/v_fin de cycle_7 created (VirtualBooleanInputNode) with succes, hash: 3725128501
+Node Virtual bool inputs pour recette/v_fin de cycle_8 created (VirtualBooleanInputNode) with succes, hash: 842039349
+Node Virtual bool inputs pour recette/v_fin de cycle_9 created (VirtualBooleanInputNode) with succes, hash: 79827142
+Node Virtual bool inputs pour recette/v_fin de cycle_10 created (VirtualBooleanInputNode) with succes, hash: 861139638
+Section name: Virtual float inputs pour recette
+hardware: virtual
+type: rx-float
+Node Virtual float inputs pour recette/v_position_1 created (VirtualFloatInputNode) with succes, hash: 827798892
+Node Virtual float inputs pour recette/v_position_2 created (VirtualFloatInputNode) with succes, hash: 1557251638
+Node Virtual float inputs pour recette/v_position_3 created (VirtualFloatInputNode) with succes, hash: 2018744064
+Node Virtual float inputs pour recette/v_position_4 created (VirtualFloatInputNode) with succes, hash: 2279350402
+Node Virtual float inputs pour recette/v_position_5 created (VirtualFloatInputNode) with succes, hash: 2740875700
+Node Virtual float inputs pour recette/v_position_6 created (VirtualFloatInputNode) with succes, hash: 3470295790
+Node Virtual float inputs pour recette/v_position_7 created (VirtualFloatInputNode) with succes, hash: 3931821016
+Node Virtual float inputs pour recette/v_position_8 created (VirtualFloatInputNode) with succes, hash: 3937856427
+Node Virtual float inputs pour recette/v_position_9 created (VirtualFloatInputNode) with succes, hash: 3459562141
+Node Virtual float inputs pour recette/v_position_10 created (VirtualFloatInputNode) with succes, hash: 1120699474
+Node Virtual float inputs pour recette/attente 1 created (VirtualFloatInputNode) with succes, hash: 197666366
+Node Virtual float inputs pour recette/attente 2 created (VirtualFloatInputNode) with succes, hash: 793409288
+Node Virtual float inputs pour recette/attente 3 created (VirtualFloatInputNode) with succes, hash: 3502620810
+Node Virtual float inputs pour recette/attente 4 created (VirtualFloatInputNode) with succes, hash: 4098331068
+Node Virtual float inputs pour recette/attente 5 created (VirtualFloatInputNode) with succes, hash: 2579587814
+Node Virtual float inputs pour recette/attente 6 created (VirtualFloatInputNode) with succes, hash: 3175298000
+Node Virtual float inputs pour recette/attente 7 created (VirtualFloatInputNode) with succes, hash: 3182365603
+Node Virtual float inputs pour recette/attente 8 created (VirtualFloatInputNode) with succes, hash: 2569886357
+Node Virtual float inputs pour recette/attente 9 created (VirtualFloatInputNode) with succes, hash: 3374299723
+Node Virtual float inputs pour recette/attente 10 created (VirtualFloatInputNode) with succes, hash: 3986549629
+Section name: Virtual float outputs 
+hardware: virtual
+type: tx-float
+Node Virtual float outputs /v_position created (VirtualFloatOutputNode) with succes, hash: 3252084598
+Node Virtual float outputs /position park created (VirtualFloatOutputNode) with succes, hash: 3073631819
+Section name: Textes
+hardware: virtual
+type: tx-text
+Node Textes/Phase du cycle created (VirtualTextOutputNode) with succes, hash: 2034250975
+Node Textes/machine d'états created (VirtualTextOutputNode) with succes, hash: 1218981442
+Node Textes/clock created (VirtualTextOutputNode) with succes, hash: 4007601654
+Section name: Drive Status
+hardware: virtual
+type: tx-bool
+Node Drive Status/servoReady created (VirtualBooleanOutputNode) with succes, hash: 1948505786
+Node Drive Status/servoActivated created (VirtualBooleanOutputNode) with succes, hash: 3387538036
+Node Drive Status/zeroSpeed created (VirtualBooleanOutputNode) with succes, hash: 343892977
+Node Drive Status/targetSpeedRated created (VirtualBooleanOutputNode) with succes, hash: 1762420137
+Node Drive Status/AtTarget created (VirtualBooleanOutputNode) with succes, hash: 3030039596
+Node Drive Status/servoAlarm created (VirtualBooleanOutputNode) with succes, hash: 3569748327
+Node Drive Status/absolutPositionLost created (VirtualBooleanOutputNode) with succes, hash: 773850583
+Node Drive Status/batteryAlarm created (VirtualBooleanOutputNode) with succes, hash: 1101239736
+Node Drive Status/multipleTurnsOverflow created (VirtualBooleanOutputNode) with succes, hash: 2620738621
+Node Drive Status/puuOverflow created (VirtualBooleanOutputNode) with succes, hash: 570368243
+Node Drive Status/absoluteCoordonateNotSet created (VirtualBooleanOutputNode) with succes, hash: 4234803574
+Node Drive Status/homeDone created (VirtualBooleanOutputNode) with succes, hash: 2166030126
+Node Drive Status/modbusError created (VirtualBooleanOutputNode) with succes, hash: 1552688811
+Node Drive Status/driveInitialised created (VirtualBooleanOutputNode) with succes, hash: 3779480165
+Section name: Servo read holding register
+hardware: SureServo
+type: ModbusReadHoldingRegister
+3336:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3370:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3392:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Servo read holding register/status created with succes with type ModbusReadHoldingRegister, hash: 4137233651, address: 127, offset: 92, refresh interval: 0, web refresh interval 0
+Node Servo read holding register/absolute coordonate system status created with succes with type ModbusReadHoldingRegister, hash: 4098304980, address: 127, offset: 100, refresh interval: 1000, web refresh interval 0
+Node Servo read holding register/alarms created with succes with type ModbusReadHoldingRegister, hash: 4126332617, address: 127, offset: 2, refresh interval: 1000, web refresh interval 0
+Node Servo read holding register/homing mode created with succes with type ModbusReadHoldingRegister, hash: 4069580704, address: 127, offset: 1288, refresh interval: 0, web refresh interval 0
+Section name: Servo write holding register
+hardware: SureServo
+type: ModbusWriteHoldingRegister
+3476:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3511:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3532:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Servo write holding register/aux_function created with succes with type ModbusWriteHoldingRegister, hash: 2308213873, address: 127, offset: 572
+Node Servo write holding register/trigger created with succes with type ModbusWriteHoldingRegister, hash: 748480285, address: 127, offset: 1294
+Node Servo write holding register/jog speed created with succes with type ModbusWriteHoldingRegister, hash: 3187488644, address: 127, offset: 1034
+Node Servo write holding register/Max torque created with succes with type ModbusWriteHoldingRegister, hash: 3740987040, address: 127, offset: 370
+Node Servo write holding register/homing mode created with succes with type ModbusWriteHoldingRegister, hash: 2079491532, address: 127, offset: 1288
+Section name: Num Status
+hardware: SureServo
+type: ModbusReadDobbleHoldingRegister
+3606:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3641:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3662:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Num Status/Position created with succes with type ModbusReadDoubleHoldingRegisters, hash: 4045003206, address: 127, offset: 22, refresh interval: 500, web refresh interval 0
+Section name: Servo write dobble holding registers
+hardware: SureServo
+type: ModbusWriteDobbleHoldingRegister
+3693:: Lecture JSON depuis le fichier: /hardware/SureServo.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3728:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3749:: ⚠️ Do not resume suspended PLC: client is not connected
+i2cInit:: key I2C is missing
+Modbus initialized
+Node Servo write dobble holding registers/target A created with succes with type ModbusWriteDoubleHoldingRegister, hash: 2532989225, address: 127, offset: 1542
+Node Servo write dobble holding registers/target B created with succes with type ModbusWriteDoubleHoldingRegister, hash: 3432736329, address: 127, offset: 1546
+Node Servo write dobble holding registers/PR1 speed created with succes with type ModbusWriteDoubleHoldingRegister, hash: 1282109782, address: 127, offset: 1540
+Node Servo write dobble holding registers/PR2 speed created with succes with type ModbusWriteDoubleHoldingRegister, hash: 2019104905, address: 127, offset: 1544
+Node Servo write dobble holding registers/PR3 speed created with succes with type ModbusWriteDoubleHoldingRegister, hash: 4171829142, address: 127, offset: 1548
+Node Servo write dobble holding registers/PR3 data created with succes with type ModbusWriteDoubleHoldingRegister, hash: 2731028726, address: 127, offset: 1550
+Do not suspend PLC: client is not connected
+
+3850:: ⚠️ Do not resume suspended PLC: client is not connected
+3850:: Lecture JSON depuis le fichier: /reboot_log.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+3874:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+3885:: ⚠️ Do not resume suspended PLC: client is not connected
+=== Reset reason: 1 ===
+Do not suspend PLC: client is not connected
+
+PLC_Persistence: Sauvegarde JSON vers /reboot_log.json (452 octets estimés)
+PLC_Persistence: JSON sérialisé (452 octets réels)
+4043:: ⚠️ Do not resume suspended PLC: client is not connected
+[PLC_Tools] ✓ Reboot logged: +0000003834ms (Power-on)
+Reboot history
+*************
+Do not suspend PLC: client is not connected
+
+4060:: ⚠️ Do not resume suspended PLC: client is not connected
+4060:: Lecture JSON depuis le fichier: /reboot_log.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4087:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4102:: ⚠️ Do not resume suspended PLC: client is not connected
+Journal des redémarrages :
+------------------------
+Redémarrage #1:
+  Mémoire libre: 252364 octets
+  PSRAM libre: 2046844 octets
+  Type: initial
+
+Redémarrage #2:
+  Mémoire libre: 253108 octets
+  PSRAM libre: 2045784 octets
+  Type: normal
+
+Redémarrage #3:
+  Mémoire libre: 252964 octets
+  PSRAM libre: 2045784 octets
+  Type: normal
+
+
+End of reboot history
+
+PLC_InterfaceMenu initialized
+Will parse the interface file
+4134:: Lecture JSON depuis le fichier: /interface.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4183:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4249:: ⚠️ Do not resume suspended PLC: client is not connected
+Page: Page principale
+Found 7 nodes in section Opération
+Found 5 nodes in section Jog
+Page: Monitoring
+Found 6 nodes in section États du servo
+Found 7 nodes in section Alarmes
+Found 2 nodes in section États du système
+Page: Configuration
+Found 2 nodes in section Contrôle du couple
+Found 4 nodes in section Paramètres de cycle
+Found 8 nodes in section Commandes de calibration
+Page: Recette
+Found 5 nodes in section Déplacement 1
+Found 5 nodes in section Déplacement 2
+Found 5 nodes in section Déplacement 3
+Found 5 nodes in section Déplacement 4
+Found 5 nodes in section Déplacement 5
+Found 5 nodes in section Déplacement 6
+Found 5 nodes in section Déplacement 7
+Found 5 nodes in section Déplacement 8
+Found 5 nodes in section Déplacement 9
+Found 5 nodes in section Déplacement 10
+Interface file parsed with success
+List of files in the root directory:
+Fichier_de_recette.json
+RotaryIndexingTable.json
+component-manifest.json
+config.json
+config.v1.json
+diagnostic.txt
+index.html
+index.js
+interface.json
+manifest.json
+reboot_log.json
+renderers.json
+styles.min.css
+Configuration initialized successfully
+Pre-validate callback registered successfully
+BorneUniverselle: Pre-validate callback registered
+PLC_Persistence: Save callback registered
+BorneUniverselle: Post-save callback registered
+Borne Universelle 2.2.2
+BorneUniverselle constructed, nodesMap size: 117
+Before check plc broken
+Before check map empty
+Before printTaskInfo
+[TaskInfo] Number of tasks: 7 at 4 s
+========================================
+Creating RotaryIndexingTable instance...
+========================================
+✅ RotaryIndexingTable size: 1352 bytes
+Before RotaryIndexingTable constructor, checking heap integrity...
+RotaryIndexingTable() étape 1: constructeur BusinessLogic
+RotaryIndexingTable() étape 1.1: constructeur BusinessLogic
+RotaryIndexingTable() étape 1.2: constructeur BusinessLogic
+RotaryIndexingTable() étape 2: callback MemoryMonitor
+Memory monitor callback registration
+RotaryIndexingTable() étape 2: callback MemoryMonitor
+RotaryIndexingTable() étape 3: get BorneUniverselle
+RotaryIndexingTable() étape 4: register callback
+RotaryIndexingTable() etape 5: register deferred save
+PLC_Persistence: [/RotaryIndexingTable.json] sauvegarde differee enregistree
+RotaryIndexingTable() étape 6: lectrure du fichier de configuration du projet
+========================================
+RotaryIndexingTable::readDedicacedConfigFile - Début
+========================================
+4656:: Lecture JSON depuis le fichier: /RotaryIndexingTable.json
+readJsonFromFile, will call fileExists
+Do not suspend PLC: client is not connected
+
+4695:: ⚠️ Do not resume suspended PLC: client is not connected
+Do not suspend PLC: client is not connected
+
+4717:: ⚠️ Do not resume suspended PLC: client is not connected
+✅ Fichier RotaryIndexingTable.json lu avec succès
+
+========================================
+RotaryIndexingTable::extractMachineParameters
+========================================
+Jog speed: 184
+Full torque: false
+Initial torque: 50
+Homing timeout: 60000 ms
+Move timeout: 60000 ms
+Chemin du fichier de recette: /Fichier_de_recette.json
+ATTENTION: Cle 'park position' n'est pas un entier, utilisation valeur par defaut 0
+ERREUR: Paramètre obligatoire 'park position' manquant ou invalide
+❌ Échec extraction paramètres machine
+[31m[1m4759:: FATAL: Plc is broken, context: Erreur lecture fichier de configuration dédié au projet[0m
+logDiagnostic (EARLY):: 4769: Plc is broken, context: Erreur lecture fichier de configuration dédié au projet
+Plc is broken, context: Erreur lecture fichier de configuration dédié au projet
+⛔ FATAL au boot : arret securise du PLC (pas de reboot). Corrigez la cause puis redemarrez.

@@ -1,0 +1,2 @@
+Il faut pouvoir supprimer l'allocation faite pour le setDescriptor lorsque l'on détruit le node (vérification de la config)
+Il faut surtout voir a quoi sert le descriptor !!!!

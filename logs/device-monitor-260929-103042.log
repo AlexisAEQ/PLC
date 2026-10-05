@@ -1,0 +1,717 @@
+Memory: Heap=157248, PSRAM=0
+17205377:: VirtualBooleanInputNode::setValue for node Opération/Go And Back, value: false
+Node: Opération/Go And Back new value: false
+dirty for ket: /RessortRoyal2.json registred
+17205391:: setValue for node: Servo write doubble holding registers/PR1 speed: 524290
+✅ clearPRConfig: PR1 restauré config=0x00080002 (SPD_IDX=8)
+17205401:: setValue for node: Servo write doubble holding registers/PR2 speed: 524290
+✅ clearPRConfig: PR2 restauré config=0x00080002 (SPD_IDX=8)
+17205412:: setValue for node: Servo write doubble holding registers/PR3 speed: 524290
+✅ clearPRConfig: PR3 restauré config=0x00080002 (SPD_IDX=8)
+✅ clearPRConfig: tous les PR restaurés
+✅ Mode simple: PR restaurés
+17205433:: Node notify: Opération/Go And Back new value: false
+17205456:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 524290
+17205467:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 524290
+17205471:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 524290
+17205481:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 524290
+17207965:: VirtualBooleanInputNode::setValue for node Opération/Go And Back, value: true
+Node: Opération/Go And Back new value: true
+dirty for ket: /RessortRoyal2.json registred
+17207979:: setValue for node: Servo write doubble holding registers/PR1 speed: 983043
+17207989:: setValue for node: Servo write doubble holding registers/target A: 3010000
+✅ configurePR: PR1 target=3010000 SPD_IDX=15 chain=AUTO config=0x000F0003
+17208000:: setValue for node: Servo write doubble holding registers/PR2 speed: 983042
+17208010:: setValue for node: Servo write doubble holding registers/target B: 1000000
+✅ configurePR: PR2 target=1000000 SPD_IDX=15 chain=SINGLE config=0x000F0002
+✅ Mode go-and-back: PR1+PR2 configurés
+17208022:: Node notify: Opération/Go And Back new value: true
+17208044:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 983043
+17208055:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 983042
+17208059:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 983043
+17208069:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 983042
+17210771:: VirtualBooleanInputNode::setValue for node Opération/Go And Back, value: false
+Node: Opération/Go And Back new value: false
+dirty for ket: /RessortRoyal2.json registred
+17210786:: setValue for node: Servo write doubble holding registers/PR1 speed: 524290
+✅ clearPRConfig: PR1 restauré config=0x00080002 (SPD_IDX=8)
+17210796:: setValue for node: Servo write doubble holding registers/PR2 speed: 524290
+✅ clearPRConfig: PR2 restauré config=0x00080002 (SPD_IDX=8)
+17210807:: setValue for node: Servo write doubble holding registers/PR3 speed: 524290
+✅ clearPRConfig: PR3 restauré config=0x00080002 (SPD_IDX=8)
+✅ clearPRConfig: tous les PR restaurés
+✅ Mode simple: PR restaurés
+17210828:: Node notify: Opération/Go And Back new value: false
+17210851:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 524290
+17210902:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 524290
+17210907:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 524290
+17210917:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 524290
+17211839:: VirtualBooleanInputNode::setValue for node Opération/Go And Back, value: true
+Node: Opération/Go And Back new value: true
+dirty for ket: /RessortRoyal2.json registred
+17211854:: setValue for node: Servo write doubble holding registers/PR1 speed: 983043
+17211864:: setValue for node: Servo write doubble holding registers/target A: 3010000
+✅ configurePR: PR1 target=3010000 SPD_IDX=15 chain=AUTO config=0x000F0003
+17211875:: setValue for node: Servo write doubble holding registers/PR2 speed: 983042
+17211885:: setValue for node: Servo write doubble holding registers/target B: 1000000
+✅ configurePR: PR2 target=1000000 SPD_IDX=15 chain=SINGLE config=0x000F0002
+✅ Mode go-and-back: PR1+PR2 configurés
+17211897:: Node notify: Opération/Go And Back new value: true
+17211920:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 983043
+17211970:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 983042
+17211975:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 983043
+17211986:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 983042
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 201.4 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+17229785:: node: États du servo/Start cycle physique, new value: true
+Mode go-and-back: Démarrage du cycle complet (aller-retour)
+🔄 Transition: IDLE -> CYCLING, Context: Demande utilisateur
+17229798:: 🚨Transition from IDLE to CYCLING
+Sortie de l'état: IDLE
+17229799:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: CYCLING
+🔄 Entrée en état CYCLING
+Transition complète: IDLE -> CYCLING
+17229820:: Node notify: États du servo/Start cycle physique new value: true
+17229826:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: CYCLING
+ÉTAT: CYCLING (état précédent: IDLE, temps dans l'état: 45 ms)
+17229844:: 🔄 Démarrage phase ALLER
+🔧 SureServo::startGoToPosition(1000000) - DÉBUT
+🔍 DEBUG chainedPR1Target=3010000, prevPos=1000000
+✅ SureServo: État IDLE - démarrage autorisé
+Retour de la position effective (resychro terminé)
+✅ Mouvement démarré vers TARGET
+17229866:: Node notify: Opération/Machine d'états new value: CYCLING
+🔧 SureServo Move Phase 0: Mode chaîné - target PR1 déjà configuré
+✅ SureServo: Target envoyé au PR1 - Attente 1 cycle PLC
+🔍 Re-sync conditions - zeroSpeed:OUI, homeDone:OUI, ready:OUI, resyncInProgress:NON
+🚀 SureServo Move Phase 1: Déclenchement trigger PR1
+17229901::setValue for node: Servo write holding register/trigger, with value: 1
+✅ SureServo: Trigger déclenché PR1 vers 1000000 PUU
+17229919:: Uint16OutputNode::node: Servo write holding register/trigger, new value: 1
+⏳ Attente début mouvement... (30 ms)
+17229932:: Node notify (Uint16OutputNode): Servo write holding register/trigger new value: 1
+17229944:: node: Servo read holding register/status, new value: 387
+✅ SureServo: Mouvement long - transition false détectée
+17229948:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+✅ SureServo: Position atteinte - Écart: 0 PUU (tolérance: 500)
+⏳ Attente target reached... (70 ms)
+17229973:: Node notify: États du servo/Position cible atteinte new value: false
+17229984:: Node notify: États du servo/Vitesse Zéro new value: false
+17229997:: node: Num Status/position, new value: 1058983
+17230008:: setValue for node: Vitesses et couple/Position [pulses]: 1058983
+17230010:: Node notify: Num Status/position (Uint32InputNode) new value: 1058983
+17230025:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1058983
+17230035:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1058983
+17230228:: node: Servo read holding register/status, new value: 395
+17230231:: Node notify (Uint16InputNode): Servo read holding register/status new value: 395
+17230243:: node: Servo read holding register/status, new value: 387
+17230246:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17230247:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17230269:: node: Num Status/position, new value: 2205049
+17230283:: setValue for node: Vitesses et couple/Position [pulses]: 2205049
+17230286:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17230297:: Node notify: Num Status/position (Uint32InputNode) new value: 2205049
+17230302:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 2205049
+17230309:: node: Servo read holding register/status, new value: 395
+17230316:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 2205049
+17230317:: Node notify (Uint16InputNode): Servo read holding register/status new value: 395
+17230339:: node: Servo read holding register/status, new value: 387
+17230342:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17230343:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17230368:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17230524:: node: Num Status/position, new value: 3009512
+17230534:: node: Servo read holding register/status, new value: 403
+17230536:: setValue for node: Vitesses et couple/Position [pulses]: 3009512
+17230538:: Node notify: Num Status/position (Uint32InputNode) new value: 3009512
+17230548:: Node notify (Uint16InputNode): Servo read holding register/status new value: 403
+17230564:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 3009512
+17230570:: node: Servo read holding register/status, new value: 387
+17230573:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 3009512
+17230584:: Node notify: États du servo/Position cible atteinte new value: false
+17230585:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17230610:: Node notify: États du servo/Position cible atteinte new value: false
+17230724:: node: Servo read holding register/status, new value: 419
+17230727:: Node notify (Uint16InputNode): Servo read holding register/status new value: 419
+17230738:: node: Servo read holding register/status, new value: 387
+17230741:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17230784:: node: Num Status/position, new value: 2244951
+17230797:: setValue for node: Vitesses et couple/Position [pulses]: 2244951
+17230798:: Node notify: Num Status/position (Uint32InputNode) new value: 2244951
+17230813:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 2244951
+17230827:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 2244951
+17230871:: node: Servo read holding register/status, new value: 395
+17230874:: Node notify (Uint16InputNode): Servo read holding register/status new value: 395
+17230889:: Node notify: États du servo/Vitesse Cible Atteinte new value: true
+17230912:: node: Servo read holding register/status, new value: 387
+17230915:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17230927:: node: Servo read holding register/status, new value: 395
+17230930:: Node notify: États du servo/Vitesse Cible Atteinte new value: true
+17230931:: Node notify (Uint16InputNode): Servo read holding register/status new value: 395
+17230953:: node: Servo read holding register/status, new value: 387
+17230956:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17230957:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17230982:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17231046:: node: Num Status/position, new value: 1095864
+17231058:: setValue for node: Vitesses et couple/Position [pulses]: 1095864
+17231060:: Node notify: Num Status/position (Uint32InputNode) new value: 1095864
+17231075:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1095864
+17231085:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1095864
+17231128:: node: Servo read holding register/status, new value: 403
+17231131:: Node notify (Uint16InputNode): Servo read holding register/status new value: 403
+17231146:: Node notify: États du servo/Position cible atteinte new value: true
+17231169:: node: Servo read holding register/status, new value: 407
+17231172:: Node notify (Uint16InputNode): Servo read holding register/status new value: 407
+17231187:: Node notify: États du servo/Vitesse Zéro new value: true
+17231305:: node: Num Status/position, new value: 1000000
+✅ SureServo: Position atteinte - Écart: 0 PUU (tolérance: 500)
+✅ Mouvement terminé vers 1000000 PUU
+17231321:: setValue for node: Vitesses et couple/Position [pulses]: 1000000
+✅ Cycle chaîné PR1→PR2 terminé
+17231332:: setValue for node: Opération/Cycles du job effectués: 263
+dirty for ket: /RessortRoyal2.json registred
+[32m17231342:: SUCCESS: Cycle 263 terminé (aller-retour)[0m
+Success messages are disabled, skipping notification
+
+╔══════════════════════════════════════════════════╗
+║   PERF MONITOR — Cycle complet                   ║
+║   Mode: SMART DELAY                              ║
+╠══════════════════════════════════════════════════╣
+║ Durée totale cycle   :  1488 ms  (100%)          ║
+║ refresh() cumulé     :   872 ms  ( 58%)          ║
+║ process() cumulé     :    46 ms  (  3%)          ║
+║ process() pic        : 10968 µs                   ║
+║ process() appels     :    97                      ║
+╠══════════════════════════════════════════════════╣
+║ Mouvements complétés :     1                      ║
+║ Inter-mvt cumulé     :     0 ms  (  0%)          ║
+║ Inter-mvt pic        :     0 ms                   ║
+╠══════════════════════════════════════════════════╣
+║ Targets envoyés      :     0                      ║
+║ Target→Trigger cumulé:     0 ms  (  0%)          ║
+║ Target→Trigger pic   :     0 ms                   ║
+║ Triggers envoyés     :     1                      ║
+╠══════════════════════════════════════════════════╣
+║ T1 (latence) cumulé  :    45 ms  (  3%)          ║
+║ T1 (latence) pic     :    45 ms                   ║
+║ T2 (mvt) cumulé      :  1374 ms  ( 92%)          ║
+║ T2 (mvt) pic         :  1374 ms                   ║
+╠══════════════════════════════════════════════════╣
+║ Smart delay confirmé :     1 fois               ║
+║ Safety timeout       :     0 fois               ║
+╚══════════════════════════════════════════════════╝
+T1=trigger→signalValidated  T2=signalValidated→reached&&zeroSpeed
+🔄 Transition: CYCLING -> IDLE, Context: Cycle complet
+17231559:: 🚨Transition from CYCLING to IDLE
+Sortie de l'état: CYCLING
+17231570:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: IDLE
+✅ Entrée en état IDLE
+Transition complète: CYCLING -> IDLE
+17231581:: Node notify: Num Status/position (Uint32InputNode) new value: 1000000
+17231596:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1000000
+17231597:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: IDLE
+17231608:: node: États du servo/Start cycle physique, new value: false
+17231608:: VirtualUint32OutputNode::node: Opération/Cycles du job effectués, new value: 263
+ÉTAT: IDLE (état précédent: CYCLING, temps dans l'état: 66 ms)
+17231638:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1000000
+17231649:: Node notify: Opération/Machine d'états new value: IDLE
+17231649:: Node notify: États du servo/Start cycle physique new value: false
+17231660:: Node notify (uint32 output): Opération/Cycles du job effectués new value: 263
+17231926:: node: États du servo/Start cycle physique, new value: true
+Latency: 0 [ms]
+Mode go-and-back: Démarrage du cycle complet (aller-retour)
+🔄 Transition: IDLE -> CYCLING, Context: Demande utilisateur
+17231937:: 🚨Transition from IDLE to CYCLING
+Sortie de l'état: IDLE
+17231948:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: CYCLING
+🔄 Entrée en état CYCLING
+Transition complète: IDLE -> CYCLING
+17231960:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: CYCLING
+ÉTAT: CYCLING (état précédent: IDLE, temps dans l'état: 25 ms)
+17231974:: 🔄 Démarrage phase ALLER
+🔧 SureServo::startGoToPosition(1000000) - DÉBUT
+🔍 DEBUG chainedPR1Target=3010000, prevPos=1000000
+✅ SureServo: État IDLE - démarrage autorisé
+Retour de la position effective (resychro terminé)
+✅ Mouvement démarré vers TARGET
+17231996:: Node notify: Opération/Machine d'états new value: CYCLING
+17232006:: Node notify: États du servo/Start cycle physique new value: true
+🔧 SureServo Move Phase 0: Mode chaîné - target PR1 déjà configuré
+✅ SureServo: Target envoyé au PR1 - Attente 1 cycle PLC
+🚀 SureServo Move Phase 1: Déclenchement trigger PR1
+17232030::setValue for node: Servo write holding register/trigger, with value: 1
+✅ SureServo: Trigger déclenché PR1 vers 1000000 PUU
+17232048:: Uint16OutputNode::node: Servo write holding register/trigger, new value: 1
+⏳ Attente début mouvement... (30 ms)
+17232061:: Node notify (Uint16OutputNode): Servo write holding register/trigger new value: 1
+17232073:: node: Servo read holding register/status, new value: 387
+✅ SureServo: Mouvement long - transition false détectée
+17232077:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+✅ SureServo: Position atteinte - Écart: 0 PUU (tolérance: 500)
+⏳ Attente target reached... (72 ms)
+17232104:: Node notify: États du servo/Position cible atteinte new value: false
+17232115:: Node notify: États du servo/Vitesse Zéro new value: false
+✅ SureServo: Position atteinte - Écart: 0 PUU (tolérance: 500)
+17232157:: node: Num Status/position, new value: 1128832
+17232169:: setValue for node: Vitesses et couple/Position [pulses]: 1128832
+17232171:: Node notify: Num Status/position (Uint32InputNode) new value: 1128832
+17232186:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1128832
+17232196:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1128832
+17232341:: node: Servo read holding register/status, new value: 395
+17232344:: Node notify (Uint16InputNode): Servo read holding register/status new value: 395
+17232359:: Node notify: États du servo/Vitesse Cible Atteinte new value: true
+17232371:: node: Servo read holding register/status, new value: 387
+17232374:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17232389:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17232412:: node: Servo read holding register/status, new value: 395
+17232415:: Node notify (Uint16InputNode): Servo read holding register/status new value: 395
+17232427:: node: Num Status/position, new value: 2350046
+17232439:: setValue for node: Vitesses et couple/Position [pulses]: 2350046
+17232441:: Node notify: États du servo/Vitesse Cible Atteinte new value: true
+17232452:: Node notify: Num Status/position (Uint32InputNode) new value: 2350046
+17232456:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 2350046
+17232473:: node: Servo read holding register/status, new value: 387
+17232476:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 2350046
+17232477:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17232502:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17232655:: node: Servo read holding register/status, new value: 403
+17232658:: Node notify (Uint16InputNode): Servo read holding register/status new value: 403
+17232670:: node: Servo read holding register/status, new value: 391
+17232673:: Node notify: États du servo/Position cible atteinte new value: false
+17232674:: Node notify (Uint16InputNode): Servo read holding register/status new value: 391
+17232696:: node: Num Status/position, new value: 2993906
+17232706:: node: Servo read holding register/status, new value: 387
+17232708:: setValue for node: Vitesses et couple/Position [pulses]: 2993906
+17232710:: Node notify: États du servo/Position cible atteinte new value: false
+17232720:: Node notify: États du servo/Vitesse Zéro new value: false
+17232731:: Node notify: Num Status/position (Uint32InputNode) new value: 2993906
+17232731:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17232747:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 2993906
+17232757:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 2993906
+17232758:: Node notify: États du servo/Vitesse Zéro new value: false
+17232852:: node: Servo read holding register/status, new value: 419
+17232855:: Node notify (Uint16InputNode): Servo read holding register/status new value: 419
+17232867:: node: Servo read holding register/status, new value: 387
+17232870:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17232952:: node: Num Status/position, new value: 2049953
+17232962:: node: Servo read holding register/status, new value: 395
+17232964:: setValue for node: Vitesses et couple/Position [pulses]: 2049953
+17232966:: Node notify: Num Status/position (Uint32InputNode) new value: 2049953
+17232976:: Node notify (Uint16InputNode): Servo read holding register/status new value: 395
+17232992:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 2049953
+17233002:: Node notify: États du servo/Vitesse Cible Atteinte new value: true
+17233003:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 2049953
+17233025:: node: Servo read holding register/status, new value: 387
+17233028:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17233040:: node: Servo read holding register/status, new value: 395
+17233043:: Node notify: États du servo/Vitesse Cible Atteinte new value: true
+17233044:: Node notify (Uint16InputNode): Servo read holding register/status new value: 395
+17233066:: node: Servo read holding register/status, new value: 387
+17233069:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17233070:: Node notify (Uint16InputNode): Servo read holding register/status new value: 387
+17233095:: Node notify: États du servo/Vitesse Cible Atteinte new value: false
+17233209:: node: Num Status/position, new value: 1036119
+17233221:: setValue for node: Vitesses et couple/Position [pulses]: 1036119
+17233223:: Node notify: Num Status/position (Uint32InputNode) new value: 1036119
+17233238:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1036119
+17233248:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1036119
+17233260:: node: Servo read holding register/status, new value: 403
+17233263:: Node notify (Uint16InputNode): Servo read holding register/status new value: 403
+17233278:: Node notify: États du servo/Position cible atteinte new value: true
+17233301:: node: Servo read holding register/status, new value: 407
+17233304:: Node notify (Uint16InputNode): Servo read holding register/status new value: 407
+17233324:: Node notify: États du servo/Vitesse Zéro new value: true
+17233383:: node: États du servo/Start cycle physique, new value: false
+17233392:: Node notify: États du servo/Start cycle physique new value: false
+17233465:: node: Num Status/position, new value: 1000000
+✅ SureServo: Position atteinte - Écart: 0 PUU (tolérance: 500)
+✅ Mouvement terminé vers 1000000 PUU
+17233478:: setValue for node: Vitesses et couple/Position [pulses]: 1000000
+✅ Cycle chaîné PR1→PR2 terminé
+17233488:: setValue for node: Opération/Cycles du job effectués: 264
+dirty for ket: /RessortRoyal2.json registred
+[32m17233499:: SUCCESS: Cycle 264 terminé (aller-retour)[0m
+Success messages are disabled, skipping notification
+
+╔══════════════════════════════════════════════════╗
+║   PERF MONITOR — Cycle complet                   ║
+║   Mode: SMART DELAY                              ║
+╠══════════════════════════════════════════════════╣
+║ Durée totale cycle   :  1514 ms  (100%)          ║
+║ refresh() cumulé     :   884 ms  ( 58%)          ║
+║ process() cumulé     :    46 ms  (  3%)          ║
+║ process() pic        : 10971 µs                   ║
+║ process() appels     :    96                      ║
+╠══════════════════════════════════════════════════╣
+║ Mouvements complétés :     1                      ║
+║ Inter-mvt cumulé     :     0 ms  (  0%)          ║
+║ Inter-mvt pic        :     0 ms                   ║
+╠══════════════════════════════════════════════════╣
+║ Targets envoyés      :     0                      ║
+║ Target→Trigger cumulé:     0 ms  (  0%)          ║
+║ Target→Trigger pic   :     0 ms                   ║
+║ Triggers envoyés     :     1                      ║
+╠══════════════════════════════════════════════════╣
+║ T1 (latence) cumulé  :    45 ms  (  2%)          ║
+║ T1 (latence) pic     :    45 ms                   ║
+║ T2 (mvt) cumulé      :  1402 ms  ( 92%)          ║
+║ T2 (mvt) pic         :  1402 ms                   ║
+╠══════════════════════════════════════════════════╣
+║ Smart delay confirmé :     1 fois               ║
+║ Safety timeout       :     0 fois               ║
+╚══════════════════════════════════════════════════╝
+T1=trigger→signalValidated  T2=signalValidated→reached&&zeroSpeed
+🔄 Transition: CYCLING -> IDLE, Context: Cycle complet
+17233716:: 🚨Transition from CYCLING to IDLE
+Sortie de l'état: CYCLING
+17233726:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: IDLE
+✅ Entrée en état IDLE
+Transition complète: CYCLING -> IDLE
+17233738:: Node notify: Num Status/position (Uint32InputNode) new value: 1000000
+17233753:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1000000
+17233753:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: IDLE
+17233765:: VirtualUint32OutputNode::node: Opération/Cycles du job effectués, new value: 264
+ÉTAT: IDLE (état précédent: CYCLING, temps dans l'état: 66 ms)
+17233794:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1000000
+17233805:: Node notify: Opération/Machine d'états new value: IDLE
+17233805:: Node notify (uint32 output): Opération/Cycles du job effectués new value: 264
+17234398:: VirtualBooleanInputNode::setValue for node Opération/Go And Back, value: false
+Node: Opération/Go And Back new value: false
+dirty for ket: /RessortRoyal2.json registred
+17234416:: setValue for node: Servo write doubble holding registers/PR1 speed: 524290
+✅ clearPRConfig: PR1 restauré config=0x00080002 (SPD_IDX=8)
+17234426:: setValue for node: Servo write doubble holding registers/PR2 speed: 524290
+✅ clearPRConfig: PR2 restauré config=0x00080002 (SPD_IDX=8)
+17234437:: setValue for node: Servo write doubble holding registers/PR3 speed: 524290
+✅ clearPRConfig: PR3 restauré config=0x00080002 (SPD_IDX=8)
+✅ clearPRConfig: tous les PR restaurés
+✅ Mode simple: PR restaurés
+17234458:: Node notify: Opération/Go And Back new value: false
+17234480:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 524290
+17234500:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 524290
+17234504:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 524290
+17234514:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 524290
+17234610:: VirtualBooleanInputNode::setValue for node Opération/Go And Back, value: true
+Node: Opération/Go And Back new value: true
+dirty for ket: /RessortRoyal2.json registred
+17234624:: setValue for node: Servo write doubble holding registers/PR1 speed: 983043
+17234634:: setValue for node: Servo write doubble holding registers/target A: 3010000
+✅ configurePR: PR1 target=3010000 SPD_IDX=15 chain=AUTO config=0x000F0003
+17234645:: setValue for node: Servo write doubble holding registers/PR2 speed: 983042
+17234655:: setValue for node: Servo write doubble holding registers/target B: 1000000
+✅ configurePR: PR2 target=1000000 SPD_IDX=15 chain=SINGLE config=0x000F0002
+✅ Mode go-and-back: PR1+PR2 configurés
+17234667:: Node notify: Opération/Go And Back new value: true
+17234690:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 983043
+17234710:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 983042
+17234714:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 983043
+17234724:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 983042
+17235822:: VirtualBooleanInputNode::setValue for node Opération/Go And Back, value: false
+Node: Opération/Go And Back new value: false
+dirty for ket: /RessortRoyal2.json registred
+17235839:: setValue for node: Servo write doubble holding registers/PR1 speed: 524290
+✅ clearPRConfig: PR1 restauré config=0x00080002 (SPD_IDX=8)
+17235850:: setValue for node: Servo write doubble holding registers/PR2 speed: 524290
+✅ clearPRConfig: PR2 restauré config=0x00080002 (SPD_IDX=8)
+17235861:: setValue for node: Servo write doubble holding registers/PR3 speed: 524290
+✅ clearPRConfig: PR3 restauré config=0x00080002 (SPD_IDX=8)
+✅ clearPRConfig: tous les PR restaurés
+✅ Mode simple: PR restaurés
+17235882:: Node notify: Opération/Go And Back new value: false
+17235895:: Uint32OutputNode::node: Servo write doubble holding registers/PR1 speed, new value: 524290
+17235915:: Uint32OutputNode::node: Servo write doubble holding registers/PR2 speed, new value: 524290
+17235923:: Node notify (uint32 output): Servo write doubble holding registers/PR1 speed new value: 524290
+17235923:: Node notify (uint32 output): Servo write doubble holding registers/PR2 speed new value: 524290
+17237376:: node: États du servo/Start cycle physique, new value: true
+Latency: 1 [ms]
+Mode normal: Démarrage du cycle (aller ou retour selon la phase
+🔄 Transition: IDLE -> GOING, Context: Demande utilisateur
+17237387:: 🚨Transition from IDLE to GOING
+Sortie de l'état: IDLE
+17237398:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: GOING
+➡️ Entrée en état GOING
+Transition complète: IDLE -> GOING
+17237409:: Node notify: États du servo/Start cycle physique new value: true
+17237425:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: GOING
+ÉTAT: GOING (état précédent: IDLE, temps dans l'état: 35 ms)
+17237434:: 🔄 Démarrage phase ALLER
+🔧 SureServo::startGoToPosition(3010000) - DÉBUT
+🔍 DEBUG chainedPR1Target=3010000, prevPos=1000000
+✅ SureServo: État IDLE - démarrage autorisé
+❌ SureServo Error: Position cible au-delà de la butée physique
+⛔ SureServo: Refus - cible 3010000 PUU > limite 1000000 PUU (marge: 100)
+❌ Échec démarrage mouvement: Position cible au-delà de la butée physique
+[31m17237466:: ERROR: Échec démarrage mouvement[0m
++0017237476ms: Échec démarrage mouvement
++0017237477ms: EMERGENCY TRANSITION: GOING -> EMERGENCY, Reason: Défaut servo
+Sortie de l'état: GOING
+17237487:: TextOutputNode: setValue for node: Opération/Machine d'états, with value: EMERGENCY
+🚨 Entrée en état EMERGENCY
+🎯 Emergency target: IDLE
+17237498::setValue for node: Servo write holding register/jog speed, with value: 0
+🚨 SureServo: Arrêt d'urgence activé
+17237508:: VirtualBooleanInputNode::setValue for node Virtual bool inputs/v_immediatStop, value: true
+[33m17237519:: WARNING: EMERGENCY STOP ACTIVÉ[0m
+Transition complète: GOING -> EMERGENCY
+17237530:: 🔧 PLC requests suspend for: Persistence: getFileSize
+17237530:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+17237540:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+17237566:: 🔧 PLC releases suspend
+17237566:: 🟢 PLC SUSPENSION RELEASED (duration: 26 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+17237581:: 🔧 PLC requests suspend for: Persistence: appendToFile
+17237581:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+17237592:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+17237657:: 🔧 PLC releases suspend
+17237658:: 🟢 PLC SUSPENSION RELEASED (duration: 67 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+17237674:: Node notify: Opération/Machine d'états new value: EMERGENCY
+17237675:: Node notify: Virtual bool inputs/v_immediatStop new value: true
+17237694:: VirtualTextOutputNode::node: Opération/Machine d'états, new value: EMERGENCY
+PF8574BooleanOutputNode::setNewValue for node: Outputs/servoOn, pin: 0, new value: false17237706:: OutputNode::node: Outputs/servoOn, new value: down
+17237722:: node: Servo read holding register/status, new value: 261
+ÉTAT: EMERGENCY (état précédent: GOING, temps dans l'état: 246 ms)
+RessortRoyal2::handleEmergencyState: Emergency phase changed from 99 to 0
+✅ Phase 0: Conditions OK, passage en phase 1
+[34m17237744:: INFO: Conditions OK - Appuyez sur RESET pour continuer[0m
+17237755:: Node notify: Opération/Machine d'états new value: EMERGENCY
+17237756:: Node notify: Outputs/servoOn new value: false
+17237766:: Node notify (Uint16InputNode): Servo read holding register/status new value: 261
+Memory: Heap=156868, PSRAM=0
+RessortRoyal2::handleEmergencyState: Emergency phase changed from 0 to 1
+17237777:: Node notify: États du servo/Servo Activé new value: false
+17237788:: Node notify: États du servo/Position cible atteinte new value: false
+17237968:: node: Num Status/position, new value: 1000163
+17237970:: setValue for node: Vitesses et couple/Position [pulses]: 1000163
+17237972:: Node notify: Num Status/position (Uint32InputNode) new value: 1000163
+17237987:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1000163
+17237991:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1000163
+✅ immediateStop relâché après 511 ms (arrêt propre terminé)
+PF8574BooleanOutputNode::setNewValue for node: Outputs/immediatStop, pin: 3, new value: false17238013:: OutputNode::node: Outputs/immediatStop, new value: down
+17238027:: Node notify: Outputs/immediatStop new value: false
+17238226:: node: Num Status/position, new value: 1000169
+17238229:: Node notify: Num Status/position (Uint32InputNode) new value: 1000169
+17238483:: node: Num Status/position, new value: 1000173
+17238486:: Node notify: Num Status/position (Uint32InputNode) new value: 1000173
+17238739:: node: Num Status/position, new value: 1000176
+17238741:: setValue for node: Vitesses et couple/Position [pulses]: 1000176
+17238743:: Node notify: Num Status/position (Uint32InputNode) new value: 1000176
+17238758:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1000176
+17238769:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1000176
+17238960:: node: États du servo/Start cycle physique, new value: false
+Latency: 2 [ms]
+17238961:: Node notify: États du servo/Start cycle physique new value: false
+17238998:: node: Num Status/position, new value: 1000178
+17239001:: Node notify: Num Status/position (Uint32InputNode) new value: 1000178
+17239254:: node: Num Status/position, new value: 1000180
+17239257:: Node notify: Num Status/position (Uint32InputNode) new value: 1000180
+17239510:: node: Num Status/position, new value: 1000181
+17239513:: Node notify: Num Status/position (Uint32InputNode) new value: 1000181
+17239769:: node: Num Status/position, new value: 1000182
+17239772:: Node notify: Num Status/position (Uint32InputNode) new value: 1000182
+17240025:: node: Num Status/position, new value: 1000183
+17240028:: Node notify: Num Status/position (Uint32InputNode) new value: 1000183
+17240284:: node: Num Status/position, new value: 1000184
+17240287:: Node notify: Num Status/position (Uint32InputNode) new value: 1000184
+17240541:: node: Num Status/position, new value: 1000185
+17240544:: Node notify: Num Status/position (Uint32InputNode) new value: 1000185
+17241056:: node: Num Status/position, new value: 1000186
+17241069:: Node notify: Num Status/position (Uint32InputNode) new value: 1000186
+17241313:: node: Num Status/position, new value: 1000187
+17241315:: setValue for node: Vitesses et couple/Position [pulses]: 1000187
+17241317:: Node notify: Num Status/position (Uint32InputNode) new value: 1000187
+17241332:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1000187
+17241336:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1000187
+17242082:: node: Num Status/position, new value: 1000188
+17242085:: Node notify: Num Status/position (Uint32InputNode) new value: 1000188
+17242595:: node: Num Status/position, new value: 1000189
+17242598:: Node notify: Num Status/position (Uint32InputNode) new value: 1000189
+17243625:: node: Num Status/position, new value: 1000190
+17243629:: Node notify: Num Status/position (Uint32InputNode) new value: 1000190
+17244656:: node: Num Status/position, new value: 1000191
+17244659:: Node notify: Num Status/position (Uint32InputNode) new value: 1000191
+17246196:: node: Num Status/position, new value: 1000192
+17246199:: Node notify: Num Status/position (Uint32InputNode) new value: 1000192
+17248765:: node: Num Status/position, new value: 1000193
+17248768:: Node notify: Num Status/position (Uint32InputNode) new value: 1000193
+🔄 Performance globale: 220.0 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+17253152:: node: Num Status/position, new value: 1000194
+17253155:: Node notify: Num Status/position (Uint32InputNode) new value: 1000194
+Memory: Heap=159112, PSRAM=0
+17261116:: node: Num Status/position, new value: 1000195
+17261119:: Node notify: Num Status/position (Uint32InputNode) new value: 1000195
+17273483:: node: Num Status/position, new value: 1000196
+17273486:: Node notify: Num Status/position (Uint32InputNode) new value: 1000196
+17273740:: node: Num Status/position, new value: 1000195
+17273743:: Node notify: Num Status/position (Uint32InputNode) new value: 1000195
+17273997:: node: Num Status/position, new value: 1000196
+17274000:: Node notify: Num Status/position (Uint32InputNode) new value: 1000196
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 219.7 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+17297175:: node: Num Status/position, new value: 1000197
+17297178:: Node notify: Num Status/position (Uint32InputNode) new value: 1000197
+17297433:: node: Num Status/position, new value: 1000196
+17297436:: Node notify: Num Status/position (Uint32InputNode) new value: 1000196
+17297698:: node: Num Status/position, new value: 1000197
+17297701:: Node notify: Num Status/position (Uint32InputNode) new value: 1000197
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 218.1 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+Memory: Heap=159112, PSRAM=0
+Memory: Heap=157248, PSRAM=0
+🔄 Performance globale: 219.8 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+17352301:: node: Num Status/position, new value: 1000198
+17352303:: setValue for node: Vitesses et couple/Position [pulses]: 1000198
+17352305:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17352320:: VirtualUint32OutputNode::node: Vitesses et couple/Position [pulses], new value: 1000198
+17352323:: Node notify (uint32 output): Vitesses et couple/Position [pulses] new value: 1000198
+17352559:: node: Num Status/position, new value: 1000197
+17352562:: Node notify: Num Status/position (Uint32InputNode) new value: 1000197
+17352816:: node: Num Status/position, new value: 1000198
+17352819:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17353080:: node: Num Status/position, new value: 1000197
+17353103:: Node notify: Num Status/position (Uint32InputNode) new value: 1000197
+17353338:: node: Num Status/position, new value: 1000198
+17353341:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17354108:: node: Num Status/position, new value: 1000197
+17354111:: Node notify: Num Status/position (Uint32InputNode) new value: 1000197
+17354367:: node: Num Status/position, new value: 1000198
+17354370:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+PLC_Persistence: [/RessortRoyal2.json] flush differences -> sauvegarde
+
+========================================
+Enregistrement du fichier de paramètres machine
+========================================
+RessortRoyal2::saveRessortRoyalConfigInternal - Début
+BusinessLogic::markInternalSave: Enregistré '/RessortRoyal2.json' (timestamp: 17355863)
+17355864:: 🔧 PLC requests suspend for: Persistence: saveJsonToFile
+17355874:: 🔴 PLC SUSPENSION ACTIVATED (JS=0, PLC=1)
+  🔴 Suspending PLC services...
+    ✓ Heartbeat suspended
+17355884:: MyModbus SUSPENDED
+    ✓ Modbus suspended
+PLC_Persistence: Sauvegarde JSON vers /RessortRoyal2.json (268 octets estimés)
+PLC_Persistence: JSON sérialisé (268 octets réels)
+========================================
+BorneUniverselle::onFileSavedHandler: /RessortRoyal2.json
+========================================
+onFileSavedHandler: not config.json
+Delegating onFileSaved to BusinessLogic for /RessortRoyal2.json
+BusinessLogic: Vérification du callback pour /RessortRoyal2.json
+BusinessLogic: Callback FILTRÉ pour /RessortRoyal2.json (sauvegardé il y a 217 ms)
+Fichier /RessortRoyal2.json modifié en interne, ignoré
+Notification des changements au client...
+17356101:: 🔧 PLC releases suspend
+17356101:: 🟢 PLC SUSPENSION RELEASED (duration: 227 ms)
+  🟢 Resuming PLC services...
+    ✓ Modbus resumed
+    ✓ Heartbeat resumed
+✅ Paramètres machine sauvegardés dans RessortRoyal2.json
+[32m17356115:: SUCCESS: Paramètres sauvegardés[0m
+Success messages are disabled, skipping notification
+Memory: Heap=157476, PSRAM=0
+🔄 Performance globale: 223.3 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+Memory: Heap=159112, PSRAM=0
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 224.1 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 220.0 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+Memory: Heap=157136, PSRAM=0
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 222.8 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 221.2 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+Memory: Heap=159112, PSRAM=0
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 220.5 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 221.3 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+17552044:: node: Num Status/position, new value: 1000199
+17552047:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+17552308:: node: Num Status/position, new value: 1000198
+17552311:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17553598:: node: Num Status/position, new value: 1000199
+17553611:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+17553854:: node: Num Status/position, new value: 1000198
+17553857:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17554111:: node: Num Status/position, new value: 1000199
+17554114:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+17554889:: node: Num Status/position, new value: 1000198
+17554892:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17555404:: node: Num Status/position, new value: 1000199
+17555407:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+17555662:: node: Num Status/position, new value: 1000198
+17555665:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17556690:: node: Num Status/position, new value: 1000199
+17556693:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+17556952:: node: Num Status/position, new value: 1000198
+17556955:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17557462:: node: Num Status/position, new value: 1000199
+17557466:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+17557721:: node: Num Status/position, new value: 1000198
+17557724:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17557980:: node: Num Status/position, new value: 1000199
+17557984:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+17558237:: node: Num Status/position, new value: 1000198
+17558240:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+Memory: Heap=159112, PSRAM=0
+17558495:: node: Num Status/position, new value: 1000199
+17558498:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+17559780:: node: Num Status/position, new value: 1000198
+17559783:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17560037:: node: Num Status/position, new value: 1000199
+17560040:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+17566458:: node: Num Status/position, new value: 1000198
+17566461:: Node notify: Num Status/position (Uint32InputNode) new value: 1000198
+17566717:: node: Num Status/position, new value: 1000199
+17566730:: Node notify: Num Status/position (Uint32InputNode) new value: 1000199
+Memory: Heap=159112, PSRAM=0
+🔄 Performance globale: 222.3 cycles/sec
+   Loop:    avg=2ms, min=1ms, max=1448ms
+   Refresh: avg=1ms, min=0ms, max=894ms
+   Logic:   avg=0ms, min=0ms, max=600ms
+Memory: Heap=159112, PSRAM=0

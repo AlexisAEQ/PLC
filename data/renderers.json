@@ -1,0 +1,131 @@
+{
+    "rx-label": {
+      "name": {
+        "type": "string",
+        "description": "Label text to display",
+        "required": true
+      },
+      "state": {
+        "type": "string",
+        "enum": ["neutral", "success", "warning", "danger"],
+        "description": "Visual state of the label",
+        "default": "neutral"
+      },
+      "isBlinking": {
+        "type": "boolean",
+        "description": "Whether the label should blink",
+        "default": false
+      }
+    },
+    "rx-level-bar": {
+      "name": {
+        "type": "string",
+        "description": "Title for the level bar",
+        "required": true
+      },
+      "orientation": {
+        "type": "string",
+        "enum": ["vertical", "horizontal"],
+        "description": "Orientation of the bar",
+        "default": "vertical"
+      },
+      "unit": {
+        "type": "string",
+        "description": "Unit of measurement",
+        "default": ""
+      },
+      "max": {
+        "type": "number",
+        "description": "Maximum value",
+        "default": 100
+      },
+      "min": {
+        "type": "number",
+        "description": "Minimum value",
+        "default": 0
+      },
+      "isLabelAlarmWarningOn": {
+        "type": "boolean",
+        "description": "Show alarm and warning labels",
+        "default": false
+      }
+    },
+    "tx-bool": {
+      "name": {
+        "type": "string", 
+        "description": "Switch label",
+        "required": true
+      },
+      "disable": {
+        "type": "boolean",
+        "description": "Disable the switch",
+        "default": false
+      }
+    },
+    "tx-button": {
+      "name": {
+        "type": "string",
+        "description": "Button label",
+        "required": true
+      },
+      "color": {
+        "type": "string", 
+        "enum": ["primary", "success", "warning", "danger", "neutral"],
+        "description": "Button color variant",
+        "default": "primary"
+      },
+      "disable": {
+        "type": "boolean",
+        "default": false
+      }
+    },
+    "tx-slider": {
+      "name": {
+        "type": "string",
+        "description": "Slider label",
+        "required": true
+      },
+      "min": {
+        "type": "number",
+        "description": "Minimum value",
+        "default": 0
+      },
+      "max": {
+        "type": "number",
+        "description": "Maximum value",
+        "default": 100
+      }
+    },
+    "tx-numeric": {
+      "name": {
+        "type": "string",
+        "description": "Input label",
+        "required": true
+      },
+      "min": {
+        "type": "number",
+        "description": "Minimum allowed value",
+        "default": null
+      },
+      "max": {
+        "type": "number",
+        "description": "Maximum allowed value",
+        "default": null
+      }
+    },
+    "tx-dropdown": {
+      "name": {
+        "type": "string",
+        "description": "Dropdown label",
+        "required": true
+      },
+      "items": {
+        "type": "array",
+        "description": "List of dropdown options",
+        "items": {
+          "type": "string"
+        },
+        "default": []
+      }
+    }
+  }

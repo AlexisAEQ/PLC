@@ -1,0 +1,105 @@
+{
+    "hardware": "Kincony_KC868_A8S",
+    "I2C":
+    {
+        "SDA":4,
+        "SCL":5,
+        "rx_addr":  34,
+        "tx_addr":  36,
+        "RTC": true
+    },
+
+    "RS485":
+    {
+        "rx": 32,
+        "tx": 33,
+        "speed": 115000,
+        "config": "SERIAL_8E1"
+    },
+
+    "Modbus": 
+    {
+        "modbusRTU": true,
+        "timeout": 101
+    },
+
+   "tx-bool":
+    [
+        {
+            "id": 1,
+            "pin": 2
+        }
+    ],
+
+    "PF8574_rx-bool": 
+    [
+        {
+            "id": 1,
+            "pin": 0
+        },
+        {
+            "id": 2,
+            "pin": 1
+        },
+        {
+            "id": 3,
+            "pin": 2
+        },
+        {
+            "id": 4,
+            "pin": 3
+        },
+        {  
+            "id": 5,
+            "pin": 4
+        },
+        {  
+             "id": 6,
+             "pin": 5
+        },
+        {
+            "id": 7,
+            "pin": 6
+        },
+        {
+            "id": 8,
+            "pin": 7  
+        }
+    ],
+
+    "PF8574_tx-bool":
+    [
+        {
+            "id": 1,
+            "pin": 0
+        },
+        {
+            "id": 2,
+            "pin": 1
+        },
+        {
+            "id": 3,
+            "pin": 2
+        },
+        {
+            "id": 4,
+            "pin": 3
+        },
+        {  
+            "id": 5,
+            "pin": 4
+        },
+        {  
+             "id": 6,
+             "pin": 5
+        },
+        {
+            "id": 7,
+            "pin": 6
+        },
+        {
+            "id": 8,
+            "pin": 7  
+        }
+    ]
+}
