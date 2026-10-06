@@ -1,0 +1,15 @@
+{
+  "name": "plc-studio",
+  "version": "0.1.0",
+  "description": "Outil de configuration et de génération de projets pour le framework PLC ESP32 (BorneUniverselle).",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test test/*.test.js",
+    "check:cpp": "node test/cpp-check.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

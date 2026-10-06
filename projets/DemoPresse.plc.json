@@ -1,0 +1,574 @@
+{
+  "format": "plc-studio-project",
+  "version": 1,
+  "name": "DemoPresse",
+  "hostname": "demopresse",
+  "description": "",
+  "execution": {
+    "mode": "hmi"
+  },
+  "options": {
+    "logDiagnostic": true,
+    "deleteDiagnosticAtStartup": false,
+    "showSuccessMessages": false,
+    "showInfoMessages": true,
+    "logHistory": false,
+    "stateDisplay": true,
+    "clockDisplay": false
+  },
+  "wifi": [
+    {
+      "name": "Atelier",
+      "ssid": "atelier",
+      "pwd": "secret123",
+      "dhcp": true
+    }
+  ],
+  "otaUrl": "",
+  "editorPassword": "",
+  "equipment": [
+    {
+      "uid": "eq_muwyqtkgwl4a3q",
+      "type": "Kincony_KC868_A8S",
+      "label": "Automate",
+      "options": {
+        "rtc": true
+      }
+    },
+    {
+      "uid": "eq_muwyqtkg98p14q",
+      "type": "Waveshare_8DIO",
+      "label": "Module ES",
+      "options": {},
+      "address": 1
+    },
+    {
+      "uid": "eq_muwyqtkgjkkuc6",
+      "type": "SureServo",
+      "label": "Servo",
+      "options": {
+        "pulsesPerUnit": 1,
+        "maxRange": 1000000,
+        "homePolicy": "NEGATIVE_INVALIDATES_HOME"
+      },
+      "address": 127
+    }
+  ],
+  "variables": [
+    {
+      "uid": "sys_eq_muwyqtkgjkkuc6_servoOn",
+      "symbol": "Servo_servoOn",
+      "label": "Servo : Servo ON",
+      "kind": "output",
+      "dataType": "bool",
+      "comment": "",
+      "fallback": "off",
+      "system": {
+        "eq": "eq_muwyqtkgjkkuc6",
+        "signal": "servoOn",
+        "field": "servoOn"
+      },
+      "hmi": {
+        "show": false
+      },
+      "binding": {
+        "eq": "eq_muwyqtkgwl4a3q",
+        "group": "do",
+        "channel": 5
+      }
+    },
+    {
+      "uid": "sys_eq_muwyqtkgjkkuc6_immediateStop",
+      "symbol": "Servo_immediateStop",
+      "label": "Servo : Arrêt immédiat",
+      "kind": "output",
+      "dataType": "bool",
+      "comment": "",
+      "fallback": "off",
+      "system": {
+        "eq": "eq_muwyqtkgjkkuc6",
+        "signal": "immediateStop",
+        "field": "immediateStop"
+      },
+      "hmi": {
+        "show": false
+      },
+      "binding": {
+        "eq": "eq_muwyqtkgwl4a3q",
+        "group": "do",
+        "channel": 6
+      }
+    },
+    {
+      "uid": "sys_eq_muwyqtkgjkkuc6_alarmsReset",
+      "symbol": "Servo_alarmsReset",
+      "label": "Servo : Reset alarmes",
+      "kind": "output",
+      "dataType": "bool",
+      "comment": "",
+      "fallback": "off",
+      "system": {
+        "eq": "eq_muwyqtkgjkkuc6",
+        "signal": "alarmsReset",
+        "field": "alarmsReset"
+      },
+      "hmi": {
+        "show": false
+      },
+      "binding": {
+        "eq": "eq_muwyqtkgwl4a3q",
+        "group": "do",
+        "channel": 7
+      }
+    },
+    {
+      "uid": "var_muwyqtkg8um6x6",
+      "symbol": "AU_OK",
+      "label": "AU OK",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "",
+      "binding": {
+        "eq": "eq_muwyqtkgwl4a3q",
+        "group": "di",
+        "channel": 1
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkgzdgrq0",
+      "symbol": "Depart",
+      "label": "Départ cycle",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "",
+      "binding": {
+        "eq": "eq_muwyqtkgwl4a3q",
+        "group": "di",
+        "channel": 2
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkg665wbv",
+      "symbol": "Piece",
+      "label": "Pièce présente",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "",
+      "binding": {
+        "eq": "eq_muwyqtkg98p14q",
+        "group": "di",
+        "channel": 0
+      },
+      "inverse": true,
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkgnqx2cp",
+      "symbol": "Verin_sorti",
+      "label": "Vérin sorti",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "",
+      "binding": {
+        "eq": "eq_muwyqtkg98p14q",
+        "group": "di",
+        "channel": 1
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhwomf6q",
+      "symbol": "Verin",
+      "label": "Vérin",
+      "kind": "output",
+      "dataType": "bool",
+      "comment": "",
+      "binding": {
+        "eq": "eq_muwyqtkgwl4a3q",
+        "group": "do",
+        "channel": 1
+      },
+      "fallback": "off",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhydq9kd",
+      "symbol": "Soufflage",
+      "label": "Soufflage",
+      "kind": "output",
+      "dataType": "bool",
+      "comment": "",
+      "binding": {
+        "eq": "eq_muwyqtkg98p14q",
+        "group": "do",
+        "channel": 0
+      },
+      "fallback": "off",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhh2t5d3",
+      "symbol": "Voyant",
+      "label": "Voyant marche",
+      "kind": "output",
+      "dataType": "bool",
+      "comment": "",
+      "binding": {
+        "eq": "eq_muwyqtkgwl4a3q",
+        "group": "gpio",
+        "channel": 1
+      },
+      "fallback": "hold",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhdv7gw5",
+      "symbol": "Acquit",
+      "label": "Acquitter",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "",
+      "hmi": {
+        "show": true,
+        "widget": "tx-button-hold"
+      }
+    },
+    {
+      "uid": "var_muwyqtkh9uklrf",
+      "symbol": "Arret",
+      "label": "Arrêt",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhstl4g9",
+      "symbol": "Cible",
+      "label": "Cible",
+      "kind": "parameter",
+      "dataType": "int",
+      "comment": "",
+      "initial": 50000,
+      "min": 0,
+      "max": 900000,
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkha1mhk2",
+      "symbol": "Vitesse",
+      "label": "Vitesse",
+      "kind": "parameter",
+      "dataType": "int",
+      "comment": "",
+      "initial": 8,
+      "min": 0,
+      "max": 15,
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhkr6jzu",
+      "symbol": "Duree",
+      "label": "Durée soufflage",
+      "kind": "parameter",
+      "dataType": "float",
+      "comment": "",
+      "initial": 1.5,
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhmryc8o",
+      "symbol": "Recette",
+      "label": "Recette",
+      "kind": "parameter",
+      "dataType": "text",
+      "comment": "",
+      "initial": "A",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhb5f7gu",
+      "symbol": "Pieces",
+      "label": "Pièces",
+      "kind": "indicator",
+      "dataType": "int",
+      "comment": "",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhk8pzo3",
+      "symbol": "Defaut",
+      "label": "Défaut",
+      "kind": "indicator",
+      "dataType": "bool",
+      "comment": "",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhg3brra",
+      "symbol": "Mem",
+      "label": "Mémoire",
+      "kind": "memory",
+      "dataType": "bool",
+      "comment": "",
+      "hmi": {
+        "show": false
+      }
+    },
+    {
+      "uid": "var_muwyqtkh3cjszt",
+      "symbol": "Jog",
+      "label": "Jog",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkhhpgk7n",
+      "symbol": "JogP",
+      "label": "Jog plus",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_muwyqtkh0a79sk",
+      "symbol": "JogM",
+      "label": "Jog moins",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "",
+      "hmi": {
+        "show": true
+      }
+    }
+  ],
+  "hmi": {
+    "auto": true,
+    "pages": []
+  },
+  "logic": {
+    "steps": [
+      {
+        "id": "s0",
+        "num": 0,
+        "label": "Attente",
+        "initial": true,
+        "actions": [
+          {
+            "type": "N",
+            "target": "Voyant"
+          }
+        ],
+        "x": 240,
+        "y": 60
+      },
+      {
+        "id": "s1",
+        "num": 1,
+        "label": "Serrage",
+        "actions": [
+          {
+            "type": "N",
+            "target": "Verin"
+          },
+          {
+            "type": "S",
+            "target": "Mem"
+          }
+        ],
+        "x": 240,
+        "y": 220
+      },
+      {
+        "id": "s2",
+        "num": 2,
+        "label": "Usinage",
+        "actions": [
+          {
+            "type": "SERVO_MOVE",
+            "position": "Cible",
+            "speed": "Vitesse"
+          }
+        ],
+        "x": 160,
+        "y": 400
+      },
+      {
+        "id": "s3",
+        "num": 3,
+        "label": "Soufflage",
+        "actions": [
+          {
+            "type": "N",
+            "target": "Soufflage",
+            "condition": "Piece"
+          }
+        ],
+        "x": 480,
+        "y": 400
+      },
+      {
+        "id": "s4",
+        "num": 4,
+        "label": "Fin",
+        "actions": [
+          {
+            "type": "INC",
+            "target": "Pieces"
+          },
+          {
+            "type": "R",
+            "target": "Mem"
+          },
+          {
+            "type": "MSG",
+            "level": "success",
+            "text": "Pièce terminée"
+          }
+        ],
+        "x": 240,
+        "y": 580
+      },
+      {
+        "id": "s5",
+        "num": 5,
+        "label": "Attente servo",
+        "actions": [
+          {
+            "type": "SERVO_MOVE",
+            "position": "0",
+            "speed": "15"
+          }
+        ],
+        "x": 240,
+        "y": 740
+      }
+    ],
+    "transitions": [
+      {
+        "id": "t0",
+        "num": 0,
+        "from": [
+          "s0"
+        ],
+        "to": [
+          "s1"
+        ],
+        "condition": "FM(Depart) ET Piece",
+        "x": 240,
+        "y": 140
+      },
+      {
+        "id": "t1",
+        "num": 1,
+        "from": [
+          "s1"
+        ],
+        "to": [
+          "s2",
+          "s3"
+        ],
+        "condition": "Verin_sorti",
+        "x": 240,
+        "y": 310
+      },
+      {
+        "id": "t2",
+        "num": 2,
+        "from": [
+          "s2",
+          "s3"
+        ],
+        "to": [
+          "s4"
+        ],
+        "condition": "Servo.enPosition ET X3.t >= 1500ms",
+        "x": 240,
+        "y": 490
+      },
+      {
+        "id": "t3",
+        "num": 3,
+        "from": [
+          "s4"
+        ],
+        "to": [
+          "s5"
+        ],
+        "condition": "VRAI",
+        "x": 240,
+        "y": 660
+      },
+      {
+        "id": "t4",
+        "num": 4,
+        "from": [
+          "s5"
+        ],
+        "to": [
+          "s0"
+        ],
+        "condition": "Servo.enPosition",
+        "x": 240,
+        "y": 820
+      }
+    ],
+    "blocks": {
+      "emergency": {
+        "condition": "NON AU_OK",
+        "reset": "Acquit"
+      },
+      "run": {
+        "start": "",
+        "stop": "Arret"
+      },
+      "servo": {
+        "homing": "auto",
+        "homingCondition": "",
+        "jogEnabled": true,
+        "jogMode": "Jog",
+        "jogPlus": "JogP",
+        "jogMinus": "JogM",
+        "jogSpeed": "400",
+        "torque": "80"
+      }
+    }
+  }
+}
