@@ -5,6 +5,9 @@ Outil de configuration et de génération de projets pour le framework PLC ESP32
 `data/config.json`, `data/interface.json` et de la classe d'application
 (aujourd'hui `src/RessortRoyal2/`).
 
+Guide illustré (installation, lancement, étapes, aide-mémoire) :
+[`PLC_Studio_Guide.pdf`](../../PLC_Studio_Guide.pdf) à la racine du dépôt.
+
 ## Lancer l'outil
 
 Prérequis : [Node.js](https://nodejs.org) 18 ou plus récent. Aucune dépendance à installer.
