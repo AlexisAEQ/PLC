@@ -110,9 +110,9 @@ export const CATALOG = {
         type: 'ModbusReadHoldingRegister',
         modbus: true,
         nodes: [
-          { id: 1, name: 'status', field: 'status', cpp: 'Uint16InputNode', refreshInterval: 200 },
+          { id: 1, name: 'status', field: 'status', cpp: 'Uint16InputNode', refreshInterval: 200, label: 'Mot d’état servo' },
           { id: 2, name: 'abs coord status', field: 'absoluteCoordonateSystemStatus', cpp: 'Uint16InputNode', refreshInterval: 1000 },
-          { id: 3, name: 'alarms', field: 'alarms', cpp: 'Uint16InputNode', refreshInterval: 1000 },
+          { id: 3, name: 'alarms', field: 'alarms', cpp: 'Uint16InputNode', refreshInterval: 1000, label: 'Code d’alarme servo' },
         ],
       },
       {
@@ -130,7 +130,7 @@ export const CATALOG = {
         name: 'Servo position',
         type: 'ModbusReadDobbleHoldingRegister',
         modbus: true,
-        nodes: [{ id: 1, name: 'position', field: 'position', cpp: 'Uint32InputNode', refreshInterval: 250 }],
+        nodes: [{ id: 1, name: 'position', field: 'position', cpp: 'Uint32InputNode', refreshInterval: 250, label: 'Position actuelle' }],
       },
       {
         name: 'Servo consignes',

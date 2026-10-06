@@ -19,7 +19,12 @@ export function effectivePages(project, layout) {
 export function generateConfig(project, layout, pages) {
   const o = project.options || {};
   const passwords = { pages: {} };
-  for (const p of pages) if (p.password) passwords.pages[p.name] = String(p.password);
+  for (const p of pages) {
+    if (p.password) passwords.pages[p.name] = String(p.password);
+    for (const s of p.sections || []) {
+      if (s.password) (passwords.sections = passwords.sections || {})[s.name] = String(s.password);
+    }
+  }
   if (project.editorPassword) passwords.editor = String(project.editorPassword);
 
   const wifi = (project.wifi || []).map((w) => {
@@ -83,9 +88,10 @@ export function generateInterface(project, layout, pages) {
             if (node.bankRef && layout.nodes.has(`mirror:${node.variable}`)) node = { ...layout.nodes.get(`mirror:${node.variable}`), extra: node.extra?.inverse ? { inverse: true } : {} };
             const variable = node.variable ? varsByUid.get(node.variable) : null;
             const entry = { name: it.label, component: it.widget, hash: node.hash, ...widgetProps(it, variable) };
-            // Un "inverse" présent dans config.json se propagerait au voyant : on l'annule.
-            if (node.extra?.inverse === true || Array.isArray(node.extra?.inverse)) entry.inverse = false;
-            if (variable?.comment) entry.tooltip = variable.comment;
+            // Un "inverse" présent dans config.json se propagerait au voyant : on l'annule,
+            // sauf choix explicite dans l'éditeur d'écrans.
+            const userInverse = it.props && Object.prototype.hasOwnProperty.call(it.props, 'inverse');
+            if ((node.extra?.inverse === true || Array.isArray(node.extra?.inverse)) && !userInverse) entry.inverse = false;
             return entry;
           }),
       })),

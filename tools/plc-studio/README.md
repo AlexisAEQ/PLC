@@ -37,8 +37,10 @@ L'enregistrement est automatique après le premier enregistrement (Ctrl+S).
    OU », « Parallèle ET » ; écrivez les réceptivités (suggestions de symboles en
    tapant) et les actions. Renseignez l'onglet « Modes et sécurités » (au minimum la
    condition d'arrêt d'urgence).
-5. **Simulation** : forcez les entrées et vérifiez le comportement.
-6. **Génération** : « Prévisualiser », puis « Installer », puis compilez et téléversez
+5. **Écrans opérateur** : réorganisez l'écran directement sur l'aperçu de l'interface
+   réelle (glisser-déposer), réglez couleurs, bornes, unités… dans le panneau de droite.
+6. **Simulation** : forcez les entrées et vérifiez le comportement.
+7. **Génération** : « Prévisualiser », puis « Installer », puis compilez et téléversez
    avec PlatformIO (`pio run -e quatre_mb_huge -t upload` et `-t uploadfs` pour `data/`).
 
 Vous pouvez revenir à n'importe quelle étape : tout est recalculé et revérifié en direct
@@ -59,14 +61,45 @@ Vous pouvez revenir à n'importe quelle étape : tout est recalculé et revérif
    convergences ET/OU, reprises), actions (continue N, S/R, affectation, compteur,
    servo, message) et onglet « Modes et sécurités » (arrêt d'urgence et
    acquittement, marche/arrêt, prise d'origine, jog, couple du servo).
-5. **Écrans opérateur** : disposition automatique ou personnalisée des pages,
-   sections et widgets (`interface.json`).
+5. **Écrans opérateur** : éditeur visuel de `interface.json` (voir ci-dessous).
 6. **Simulation** : le projet tourne dans le navigateur avec le même moteur que le
    code C++ généré (cycle de 10 ms) : grafcet animé (étapes actives et leur temps),
    forçage des entrées, commandes de l'écran, paramètres, sorties, modèle simplifié du
    servo (déplacement, prise d'origine, jog, alarmes), messages et journal. Lecture
    en continu (× 0,25 à × 20), cycle par cycle ou par seconde.
 7. **Génération** : vérification, aperçu des fichiers avec différences, export.
+
+## Éditeur d'écrans
+
+L'aperçu central est **l'interface web réelle de l'automate** (`data/index.js`,
+`data/styles.min.css`, `data/component-manifest.json`, servis tels quels depuis `data/`)
+chargée dans un cadre et branchée sur un faux automate (`public/hmi/plc-shim.js`) qui
+lui fournit le `config.json` et le `interface.json` en cours d'édition et répond au
+protocole WebSocket de `BorneUniverselle`. Ce que vous voyez est donc ce qui s'affichera
+sur la tablette, avec les mêmes composants.
+
+- **Structure** (à gauche) : pages > sections > widgets. Tout se réordonne par
+  glisser-déposer (une section peut changer de page, un widget de section).
+- **Éléments disponibles** : variables et voies non encore placées. Glissez-les sur une
+  section de l'aperçu ou de la structure (double-clic : ajout dans la section
+  sélectionnée).
+- **Aperçu** : en mode « Édition », un clic sélectionne un widget ou une section et les
+  widgets se déplacent à la souris ; en mode « Essai », ils réagissent comme sur
+  l'automate (boutons, saisies). Largeurs téléphone / tablette / écran.
+- **Propriétés** (à droite) : page (nom, mot de passe), section (titre, disposition
+  horizontale/verticale, mot de passe), widget (libellé, type compatible avec la
+  variable et toutes les propriétés de `component-manifest.json` : couleur,
+  clignotement, bornes, pas, unité, décimales, choix de liste, seuils d'alarme…). Le
+  bouton ↺ revient à la valeur calculée (bornes min/max de la variable, commentaire
+  comme info-bulle…).
+
+Tant que vous n'avez rien modifié, la disposition est **automatique** (recalculée quand
+vous ajoutez des variables). La première modification la fige en disposition
+personnalisée ; les nouvelles variables apparaissent alors dans « Éléments
+disponibles ». « Revenir à la disposition automatique » abandonne les réglages.
+
+Les mots de passe de page et de section sont écrits dans `config.json`
+(`security.passwords.pages` / `.sections`) ; ils sont désactivés dans l'aperçu.
 
 ## Fichiers produits
 

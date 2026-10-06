@@ -32,10 +32,10 @@ export function describeRef(project, layout, ref) {
   return { label: node.name, widgets: ['rx-numeric'] };
 }
 
-// Références affichables qui ne sont placées sur aucune page.
-export function unplacedRefs(project, layout) {
+// Références affichables qui ne sont placées sur aucune page (pages : disposition affichée).
+export function unplacedRefs(project, layout, pages = project.hmi.pages) {
   const placed = new Set();
-  for (const p of project.hmi.pages) for (const s of p.sections) for (const it of s.items) placed.add(it.ref);
+  for (const p of pages) for (const s of p.sections) for (const it of s.items) placed.add(it.ref);
   const refs = [];
   for (const v of project.variables) {
     const ref = `var:${v.uid}`;
@@ -142,5 +142,7 @@ export function widgetProps(item, variable) {
     }
   }
   if (item.widget === 'rx-label' && !props.state) props.state = 'neutral';
+  // Le commentaire de la variable sert d'info-bulle par défaut.
+  if (variable?.comment) props.tooltip = variable.comment;
   return { ...props, ...(item.props || {}) };
 }

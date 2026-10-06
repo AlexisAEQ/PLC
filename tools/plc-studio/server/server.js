@@ -248,7 +248,16 @@ async function handleApi(req, res, url) {
 async function handleStatic(req, res, url) {
   let rel = decodeURIComponent(url.pathname);
   let base = path.join(toolDir, 'public');
-  if (rel.startsWith('/shared/')) {
+  if (rel.startsWith('/hmi/')) {
+    // Interface web réelle du firmware (data/) pour l'aperçu de l'éditeur d'écrans ;
+    // preview.html et plc-shim.js viennent de PLC Studio.
+    const name = rel.slice('/hmi/'.length);
+    if (name === 'preview.html' || name === 'plc-shim.js') rel = `hmi/${name}`;
+    else {
+      base = path.join(ROOT, 'data');
+      rel = name;
+    }
+  } else if (rel.startsWith('/shared/')) {
     base = path.join(toolDir, 'shared');
     rel = rel.slice('/shared/'.length);
   } else if (rel === '/' || rel === '') {
