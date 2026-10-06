@@ -85,7 +85,7 @@ export const CATALOG = {
     groups: [],
     options: [
       { key: 'pulsesPerUnit', label: 'Impulsions par unité', type: 'number', default: 1, help: '1 = travail direct en impulsions (PUU).' },
-      { key: 'maxRange', label: 'Course maximale (impulsions)', type: 'number', default: 1000000, help: 'Butée logicielle : toute cible au-delà est refusée.' },
+      { key: 'maxRange', label: 'Course maximale (unités)', type: 'number', default: 1000000, help: 'Butée logicielle : toute cible au-delà est refusée (avec 1 impulsion par unité, la course est en impulsions).' },
       {
         key: 'homePolicy',
         label: 'Position négative',

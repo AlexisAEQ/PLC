@@ -4,6 +4,7 @@
 import { CATALOG, VARIABLE_KINDS, widgetsFor } from './catalog.js';
 import { utf8Length } from './hash.js';
 import { buildLayout } from './layout.js';
+import { compileLogic } from './grafcet.js';
 
 const CPP_RESERVED = new Set(
   (
@@ -168,6 +169,8 @@ export function validateProject(project, layout = buildLayout(project)) {
       }
     }
   }
+
+  issues.push(...compileLogic(project).issues);
 
   for (const e of layout.errors) err(e.step, e.message, e.ref);
   for (const w of layout.warnings) warn(w.step, w.message, w.ref);

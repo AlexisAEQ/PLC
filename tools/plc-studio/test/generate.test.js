@@ -43,7 +43,7 @@ test('projet exemple : pas d’erreur, fichiers produits', () => {
   const { p } = sampleProject();
   const r = generateFiles(p, { hardwareFiles });
   assert.deepEqual(r.issues.filter((i) => i.level === 'error'), []);
-  assert.deepEqual(r.files.map((f) => f.path), ['data/config.json', 'data/interface.json', 'data/Demo.json']);
+  assert.deepEqual(r.files.map((f) => f.path), ['data/config.json', 'data/interface.json', 'data/Demo.json', 'src/Demo/Demo.h', 'src/Demo/Demo.cpp']);
 });
 
 test('config.json : automate en premier, hash corrects, ids présents dans les fichiers hardware', () => {

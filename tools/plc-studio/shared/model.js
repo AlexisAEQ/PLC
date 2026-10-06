@@ -111,6 +111,10 @@ export function normalizeVariable(v) {
   return variable;
 }
 
+export function paramsFileName(project) {
+  return `${project.name}.json`;
+}
+
 export function equipmentByUid(project, eqUid) {
   return project.equipment.find((e) => e.uid === eqUid) || null;
 }

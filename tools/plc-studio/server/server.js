@@ -124,6 +124,14 @@ async function preview(project) {
     let current = null;
     if (existsSync(abs)) current = await readFile(abs, 'utf8');
     files.push({ ...f, current, status: current === null ? 'nouveau' : current === f.content ? 'identique' : 'modifié' });
+    // Ne jamais écraser une classe écrite à la main (ex. src/RessortRoyal2/).
+    if (f.kind === 'cpp' && current !== null && !current.includes('généré par PLC Studio')) {
+      result.issues.push({
+        level: 'error',
+        step: 'project',
+        message: `${f.path} existe déjà et n'a pas été généré par PLC Studio : choisissez un autre nom de projet.`,
+      });
+    }
   }
   return {
     files,

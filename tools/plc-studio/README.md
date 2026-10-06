@@ -37,7 +37,10 @@ L'enregistrement est automatique après le premier enregistrement (Ctrl+S).
    les variables internes (commandes, paramètres sauvegardés, indicateurs,
    mémoires). Les signaux du servo (servo ON, arrêt immédiat, reset alarmes) se
    câblent sur des sorties de l'automate.
-4. **Logique (grafcet)** : *en développement*.
+4. **Logique (grafcet)** : éditeur visuel (étapes, transitions, divergences et
+   convergences ET/OU, reprises), actions (continue N, S/R, affectation, compteur,
+   servo, message) et onglet « Modes et sécurités » (arrêt d'urgence et
+   acquittement, marche/arrêt, prise d'origine, jog, couple du servo).
 5. **Écrans opérateur** : disposition automatique ou personnalisée des pages,
    sections et widgets (`interface.json`).
 6. **Simulation** : *en développement*.
@@ -51,14 +54,41 @@ L'enregistrement est automatique après le premier enregistrement (Ctrl+S).
 | `data/interface.json` | pages, sections et widgets de l'écran opérateur |
 | `data/<Nom>.json` | valeurs initiales des paramètres sauvegardés |
 | `data/hardware/Kincony_KC868_A8S_noRTC.json` | variante sans horloge, si l'option est décochée |
+| `src/<Nom>/<Nom>.h` et `.cpp` | classe d'application dérivée de `BusinessLogic` (modes de marche + grafcet) |
+| `src/main.cpp` | bascule de la classe actuelle (ex. `RessortRoyal2`) vers `<Nom>` |
 
 Deux modes d'écriture :
 
 - **Exporter** : écrit dans `projets/<Nom>/generation/`, sans toucher au firmware.
 - **Installer** : écrit dans le dépôt et sauvegarde les fichiers remplacés dans
   `tools/plc-studio/.sauvegardes/<date>/`. Disponible seulement quand le code C++
-  est généré : installer un `config.json` sans la classe correspondante empêcherait
-  l'application actuelle de démarrer.
+  est généré sans erreur : installer un `config.json` sans la classe correspondante
+  empêcherait l'application actuelle de démarrer. L'outil refuse d'écraser un dossier
+  `src/<Nom>/` qu'il n'a pas généré (par exemple `src/RessortRoyal2/`).
+
+## Code C++ généré
+
+La classe générée dérive de `BusinessLogic`. Ses états sont les modes de marche :
+
+```
+INITIALISATION → ARRÊT → (PRISE D'ORIGINE) → REPOS ⇄ CYCLE
+            urgence (prioritaire partout) → acquittement → RÉARMEMENT → ARRÊT
+ARRÊT / REPOS → MANUEL (jog) → ARRÊT
+```
+
+- Le grafcet ne tourne qu'en REPOS et en CYCLE. REPOS signifie « grafcet en
+  situation initiale » : c'est le seul moment où `isIdle()` est vrai, donc où les
+  paramètres sont sauvegardés.
+- Un cycle d'automate : actions à l'activation des étapes activées au cycle
+  précédent → franchissement simultané des transitions validées → actions continues
+  et sorties → mémorisation des fronts. Le simulateur suit exactement le même ordre.
+- En urgence, chaque sortie prend son état de repli (à 0, à 1 ou maintenue), le servo
+  est arrêté et le grafcet remis à zéro.
+- Servo : toute cible est comparée à la course maximale (audit CR-1) ; le jog est
+  appelé à chaque cycle tant que le bouton est maintenu (audit CR-3).
+- Les paramètres sont relus au démarrage depuis `data/<Nom>.json` (valeurs par défaut
+  si le fichier ou une clé manque), bornés par leurs min/max et sauvegardés quand ils
+  changent.
 
 ## Règles du firmware appliquées automatiquement
 
@@ -81,4 +111,14 @@ cd tools/plc-studio && npm test
 ```
 
 Les tests vérifient notamment que la formule d'identifiant retrouve les 58 nœuds de
-`data/config.json` et les `#define` de `RessortRoyal2.h`.
+`data/config.json` et les `#define` de `RessortRoyal2.h`, le langage des réceptivités,
+la compilation du grafcet et la bascule de `main.cpp`.
+
+```bash
+npm run check:cpp
+```
+
+Vérifie la syntaxe du C++ généré pour deux projets d'exemple (avec et sans servo) avec
+`g++ -fsyntax-only`, contre les vrais en-têtes du dépôt et des en-têtes Arduino
+simplifiés (`test/cpp-stubs/`). Ce n'est pas une compilation ESP32 complète : après
+installation, compilez avec PlatformIO (`pio run -e quatre_mb_huge`).

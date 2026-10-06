@@ -4,12 +4,12 @@ import { buildLayout } from './layout.js';
 import { validateProject } from './validate.js';
 import { autoLayout, widgetProps } from './hmi.js';
 import { utf8Length } from './hash.js';
+import { paramsFileName } from './model.js';
+import { compileLogic } from './grafcet.js';
+import { generateCpp, patchMainCpp } from './cpp.js';
 
-export const GENERATOR_TAG = 'PLC Studio';
-
-export function paramsFileName(project) {
-  return `${project.name}.json`;
-}
+export { paramsFileName };
+export const GENERATOR_TAG = 'généré par PLC Studio';
 
 // Pages effectives : disposition automatique ou disposition éditée par l'utilisateur.
 export function effectivePages(project, layout) {
@@ -164,11 +164,25 @@ export function generateFiles(project, ctx = {}) {
     }
   }
 
+  // Logique et code C++
+  const { ir, issues: logicIssues } = compileLogic(project);
+  issues.push(...logicIssues);
+  if (!logicIssues.some((i) => i.level === 'error') && !issues.some((i) => i.level === 'error' && i.step !== 'logic')) {
+    const cpp = generateCpp(project, layout, ir);
+    files.push({ path: `src/${project.name}/${project.name}.h`, content: cpp.header, kind: 'cpp' });
+    files.push({ path: `src/${project.name}/${project.name}.cpp`, content: cpp.source, kind: 'cpp' });
+    if (ctx.mainCpp) {
+      const patch = patchMainCpp(ctx.mainCpp, project.name);
+      if (!patch.ok) issues.push({ level: 'error', step: 'generate', message: patch.message });
+      else if (patch.changed) files.push({ path: 'src/main.cpp', content: patch.content, kind: 'main', replaces: patch.oldClass });
+    }
+  }
+
   const paramsPath = `/${paramsFileName(project)}`;
   if (utf8Length(paramsPath) >= 32) issues.push({ level: 'error', step: 'project', message: `Le chemin ${paramsPath} doit faire moins de 32 caractères.` });
 
   // L'installation dans le dépôt n'est possible que si la classe C++ et main.cpp sont générés :
   // sinon l'application actuelle ne trouverait plus ses nœuds et l'automate bloquerait au démarrage.
   const installable = files.some((f) => f.kind === 'cpp');
-  return { files, issues, layout, pages, installable };
+  return { files, issues, layout, pages, installable, ir };
 }

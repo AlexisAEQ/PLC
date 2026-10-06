@@ -54,9 +54,9 @@ function drawPreview(root, store) {
         ? h(
             'div',
             { class: 'callout warn' },
-            `Le code C++ n’est pas encore généré (il arrive avec l’éditeur grafcet). Installer ces fichiers dans le dépôt casserait l’application actuelle${last.currentApp ? ` (${last.currentApp})` : ''} : utilisez « Exporter », qui écrit dans ${last.exportDir}/ sans toucher au firmware.`
+            `Le code C++ n’a pas pu être généré (corrigez les erreurs ci-dessus). Sans lui, installer ces fichiers casserait l’application actuelle${last.currentApp ? ` (${last.currentApp})` : ''} : seul « Exporter » est possible.`
           )
-        : null,
+        : mainSwitch(last),
       h(
         'div',
         { class: 'file-list' },
@@ -99,6 +99,16 @@ function drawPreview(root, store) {
       )
     ),
     file ? fileCard(root, store, file) : null
+  );
+}
+
+function mainSwitch(preview) {
+  const main = preview.files.find((f) => f.kind === 'main');
+  if (!main) return null;
+  return h(
+    'div',
+    { class: 'callout info' },
+    `L’installation fait basculer src/main.cpp de la classe ${main.replaces} vers ${preview.files.find((f) => f.kind === 'cpp')?.path.split('/')[1]}. Le dossier src/${main.replaces}/ reste dans le dépôt (toujours compilé, mais plus utilisé) : vous pourrez revenir en arrière avec la sauvegarde ou avec git.`
   );
 }
 

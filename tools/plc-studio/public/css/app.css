@@ -801,3 +801,216 @@ pre.code .hunk {
     padding: 16px;
   }
 }
+
+/* ---------- Grafcet ---------- */
+.grafcet-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  align-items: start;
+}
+.grafcet-card {
+  padding: 10px;
+}
+.grafcet-toolbar {
+  padding: 2px 4px 10px;
+}
+.grafcet-canvas {
+  overflow: auto;
+  max-height: calc(100vh - 260px);
+  min-height: 420px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  outline: none;
+}
+.grafcet-canvas:focus {
+  border-color: var(--accent);
+}
+.grafcet-svg {
+  display: block;
+  user-select: none;
+  font-family: system-ui, sans-serif;
+}
+.g-grid {
+  fill: var(--border-strong);
+}
+.g-link {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.5;
+}
+.g-bar {
+  stroke-width: 1.5;
+}
+.g-arrow {
+  fill: var(--text);
+}
+.g-step,
+.g-trans {
+  cursor: move;
+}
+.g-box {
+  fill: var(--panel);
+  stroke: var(--text);
+  stroke-width: 1.8;
+}
+.g-box-inner {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.4;
+}
+.g-num {
+  font-size: 16px;
+  font-weight: 650;
+  fill: var(--text);
+}
+.g-label {
+  font-size: 12px;
+  fill: var(--muted);
+}
+.g-actions {
+  fill: var(--panel-2);
+  stroke: var(--text);
+  stroke-width: 1.2;
+}
+.g-sep {
+  stroke: var(--border-strong);
+}
+.g-action {
+  font-size: 12px;
+  font-family: var(--mono);
+  fill: var(--text);
+}
+.g-hit {
+  fill: transparent;
+}
+.g-tbar {
+  stroke: var(--text);
+  stroke-width: 4;
+}
+.g-tnum {
+  font-size: 11px;
+  fill: var(--muted);
+}
+.g-cond {
+  font-size: 12.5px;
+  font-family: var(--mono);
+  fill: var(--step-active);
+}
+.g-step.selected .g-box,
+.g-step.selected .g-box-inner {
+  stroke: var(--accent);
+  stroke-width: 2.6;
+}
+.g-trans.selected .g-tbar {
+  stroke: var(--accent);
+}
+.g-trans.selected .g-cond {
+  font-weight: 700;
+}
+.g-step.has-error .g-box,
+.g-trans.has-error .g-tbar {
+  stroke: var(--err);
+}
+.g-trans.has-error .g-cond {
+  fill: var(--err);
+}
+.g-step.sim-active .g-box {
+  fill: var(--ok-soft);
+  stroke: var(--ok);
+  stroke-width: 2.6;
+}
+.g-step.sim-active .g-num {
+  fill: var(--ok);
+}
+.g-trans.sim-ready .g-tbar {
+  stroke: var(--warn);
+}
+
+.grafcet-props .card {
+  margin-bottom: 12px;
+}
+.step-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow: auto;
+}
+.action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.action-item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--panel-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.action-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Champ d'expression */
+.expr-input {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.expr-status {
+  font-size: 12px;
+  min-height: 16px;
+  color: var(--muted);
+}
+.expr-status.ok {
+  color: var(--ok);
+}
+.expr-status.error {
+  color: var(--err);
+}
+.expr-suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin-top: -18px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  max-height: 240px;
+  overflow: auto;
+}
+.expr-suggest[hidden] {
+  display: none;
+}
+.expr-suggest-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 9px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.expr-suggest-item.active,
+.expr-suggest-item:hover {
+  background: var(--accent-soft);
+}
+textarea.mono {
+  resize: vertical;
+}
+
+@media (max-width: 1100px) {
+  .grafcet-layout {
+    grid-template-columns: 1fr;
+  }
+}
