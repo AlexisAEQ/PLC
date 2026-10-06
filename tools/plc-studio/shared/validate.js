@@ -126,6 +126,9 @@ export function validateProject(project, layout = buildLayout(project)) {
         const group = eq && CATALOG[eq.type]?.groups.find((g) => g.key === v.binding.group);
         if (!group) err('variables', `${where} : voie introuvable (équipement supprimé ?).`, v.uid);
         else {
+          if (eq.type === 'Kincony_KC868_A8S' && group.key === 'gpio') {
+            warn('variables', `${where} : GPIO2 est le buzzer de la carte ; main.cpp le remet à 0 à chaque connexion WiFi (turnOffBuzzer).`, v.uid);
+          }
           const expectedDir = v.kind === 'input' ? 'in' : 'out';
           if (group.dir !== expectedDir) err('variables', `${where} : une ${v.kind === 'input' ? 'entrée' : 'sortie'} ne peut pas être câblée sur « ${group.label} ».`, v.uid);
           if (group.dataType !== v.dataType) err('variables', `${where} : type ${v.dataType} incompatible avec « ${group.label} » (${group.dataType}).`, v.uid);

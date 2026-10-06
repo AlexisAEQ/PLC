@@ -26,6 +26,24 @@ Options :
 Les projets sont enregistrés dans `projets/<Nom>.plc.json` (à la racine du dépôt).
 L'enregistrement est automatique après le premier enregistrement (Ctrl+S).
 
+## Démarrage rapide
+
+1. **Nouveau** → nom du projet (ex. `Presse`), puis réseaux WiFi à l'étape Projet.
+2. **Équipements** : ajoutez l'automate Kincony, puis les modules et le servo.
+3. **Câblage et variables** : sur chaque voie, tapez ce qui est branché (« Arrêt
+   d'urgence OK », « Vérin sorti »…) ; le symbole utilisé dans la logique est créé
+   automatiquement. Ajoutez les commandes (boutons à l'écran), paramètres, indicateurs.
+4. **Logique** : « Créer un grafcet de départ », puis « Étape suivante », « Branche
+   OU », « Parallèle ET » ; écrivez les réceptivités (suggestions de symboles en
+   tapant) et les actions. Renseignez l'onglet « Modes et sécurités » (au minimum la
+   condition d'arrêt d'urgence).
+5. **Simulation** : forcez les entrées et vérifiez le comportement.
+6. **Génération** : « Prévisualiser », puis « Installer », puis compilez et téléversez
+   avec PlatformIO (`pio run -e quatre_mb_huge -t upload` et `-t uploadfs` pour `data/`).
+
+Vous pouvez revenir à n'importe quelle étape : tout est recalculé et revérifié en direct
+(la barre latérale indique le nombre d'erreurs par étape).
+
 ## Étapes
 
 1. **Projet** : nom (classe C++ et fichier de paramètres), nom réseau, mode
@@ -126,3 +144,27 @@ Vérifie la syntaxe du C++ généré pour deux projets d'exemple (avec et sans s
 `g++ -fsyntax-only`, contre les vrais en-têtes du dépôt et des en-têtes Arduino
 simplifiés (`test/cpp-stubs/`). Ce n'est pas une compilation ESP32 complète : après
 installation, compilez avec PlatformIO (`pio run -e quatre_mb_huge`).
+
+## Ajouter un équipement au catalogue
+
+1. Créez (ou réutilisez) le fichier `data/hardware/<Nom>.json` lu par le firmware.
+2. Ajoutez une entrée dans `tools/plc-studio/shared/catalog.js` : `hardware` (nom du
+   fichier), `role`, `modbus`/`defaultAddress` et des `groups` dont `type` est le type
+   de section `config.json` et `ids` les identifiants du tableau correspondant dans le
+   fichier matériel (ou `bank` pour un nœud qui regroupe plusieurs voies).
+3. `npm test` vérifie que chaque id généré existe dans le fichier matériel.
+
+## Limites connues
+
+- **Mode headless** : la clé `execution_mode` est écrite mais pas encore lue par le
+  firmware ; la logique ne tourne qu'avec un écran connecté (audit CR-2).
+- **Compilation ESP32** : le C++ généré est vérifié par `g++ -fsyntax-only` contre les
+  en-têtes du dépôt ; la compilation complète se fait avec PlatformIO sur le poste.
+- **Ancienne application** : après installation, `src/RessortRoyal2/` reste compilé
+  (inutilisé) ; supprimez-le ou excluez-le si la place en flash manque.
+- **Servo** : un seul SureServo par projet ; le simulateur utilise un modèle simplifié
+  (vitesses et temps indicatifs).
+- **Import** : un projet existant écrit à la main (config.json + classe C++) ne peut pas
+  être importé dans PLC Studio.
+- Sur la carte Kincony A8S, GPIO2 (buzzer) est remis à 0 par `main.cpp` à chaque
+  connexion WiFi.
