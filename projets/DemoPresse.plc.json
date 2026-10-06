@@ -18,14 +18,16 @@
   },
   "wifi": [
     {
-      "name": "Atelier",
-      "ssid": "atelier",
-      "pwd": "secret123",
-      "dhcp": true
+      "name": "Point d’accès",
+      "mode": "access_point",
+      "ap_name": "demopresse",
+      "ap_password": "secret123",
+      "ap_ip": "192.168.4.1",
+      "ap_channel": 6
     }
   ],
   "otaUrl": "",
-  "editorPassword": "",
+  "editorPassword": "1111",
   "equipment": [
     {
       "uid": "eq_muwyqtkgwl4a3q",
@@ -221,23 +223,6 @@
       }
     },
     {
-      "uid": "var_muwyqtkhh2t5d3",
-      "symbol": "Voyant",
-      "label": "Voyant marche",
-      "kind": "output",
-      "dataType": "bool",
-      "comment": "",
-      "binding": {
-        "eq": "eq_muwyqtkgwl4a3q",
-        "group": "gpio",
-        "channel": 1
-      },
-      "fallback": "hold",
-      "hmi": {
-        "show": true
-      }
-    },
-    {
       "uid": "var_muwyqtkhdv7gw5",
       "symbol": "Acquit",
       "label": "Acquitter",
@@ -257,7 +242,8 @@
       "dataType": "bool",
       "comment": "",
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "tx-button-hold"
       }
     },
     {
@@ -271,7 +257,8 @@
       "min": 0,
       "max": 900000,
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "tx-numeric"
       }
     },
     {
@@ -285,7 +272,8 @@
       "min": 0,
       "max": 15,
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "tx-numeric"
       }
     },
     {
@@ -297,7 +285,8 @@
       "comment": "",
       "initial": 1.5,
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "tx-numeric"
       }
     },
     {
@@ -309,7 +298,8 @@
       "comment": "",
       "initial": "A",
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "tx-string"
       }
     },
     {
@@ -320,7 +310,8 @@
       "dataType": "int",
       "comment": "",
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "rx-numeric"
       }
     },
     {
@@ -331,7 +322,8 @@
       "dataType": "bool",
       "comment": "",
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "rx-indicator"
       }
     },
     {
@@ -342,7 +334,8 @@
       "dataType": "bool",
       "comment": "",
       "hmi": {
-        "show": false
+        "show": false,
+        "widget": "rx-indicator"
       }
     },
     {
@@ -353,7 +346,8 @@
       "dataType": "bool",
       "comment": "",
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "tx-button-hold"
       }
     },
     {
@@ -364,7 +358,8 @@
       "dataType": "bool",
       "comment": "",
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "tx-button-hold"
       }
     },
     {
@@ -375,7 +370,8 @@
       "dataType": "bool",
       "comment": "",
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "tx-button-hold"
       }
     }
   ],
@@ -393,7 +389,7 @@
         "actions": [
           {
             "type": "N",
-            "target": "Voyant"
+            "target": "Mem"
           }
         ],
         "x": 240,
