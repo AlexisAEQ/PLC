@@ -541,6 +541,7 @@ export function generateCpp(project, layout, ir) {
   if (hasServo) L(`    servoService();`, `    if (cur() == State::EMERGENCY) return;`);
   L(
     `    grafcetActivationActions();`,
+    `    if (cur() == State::EMERGENCY) return;  // déclenchée par une action (ex. cible hors course)`,
     `    grafcetEvolve();`,
     `    go(grafcetInInitialSituation() && !servoIsMoving() ? State::IDLE : State::RUNNING);`,
     `    updateStateDisplay();`,
@@ -583,8 +584,9 @@ export function generateCpp(project, layout, ir) {
 
   L(
     `void ${N}::handleEmergency() {`,
-    `    char reason[160];`,
-    `    if (emergencyRequested(reason, sizeof(reason))) { emergencyClearSince = 0; return; }`,
+    `    // Seule la condition d'urgence bloque la sortie : une alarme servo est justement`,
+    `    // effacée par le réarmement (startReset). Si elle persiste, l'urgence se redéclenche.`,
+    `    if (${ir.blocks.emergency ? cx(ir.blocks.emergency) : 'false'}) { emergencyClearSince = 0; return; }`,
     `    if (emergencyClearSince == 0) emergencyClearSince = now ? now : 1;`
   );
   if (ir.blocks.emergencyReset) L(`    if (!(${cx(ir.blocks.emergencyReset)})) return;   // acquittement`);

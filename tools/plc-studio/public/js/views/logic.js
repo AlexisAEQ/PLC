@@ -13,6 +13,7 @@ const GRID = 10;
 let tab = 'grafcet';
 let selection = null; // { kind: 'step' | 'transition', id }
 let zoom = 1;
+export const getZoom = () => zoom;
 
 const s = (tag, attrs = {}, ...children) => {
   const el = document.createElementNS(NS, tag);
@@ -220,7 +221,7 @@ function actionText(a) {
   }
 }
 
-function drawGrafcet(svg, store, { onSelect, onDragEnd }) {
+export function drawGrafcet(svg, store, { onSelect, onDragEnd, sim = null }) {
   const logic = store.project.logic;
   const steps = new Map(logic.steps.map((x) => [x.id, x]));
   const errorRefs = new Set(store.issues.filter((i) => i.step === 'logic' && i.level === 'error' && i.ref).map((i) => i.ref));
@@ -248,7 +249,7 @@ function drawGrafcet(svg, store, { onSelect, onDragEnd }) {
       width,
       height,
       fill: 'url(#grid)',
-      on: { mousedown: () => onSelect(null) },
+      on: { mousedown: () => onSelect?.(null) },
     })
   );
 
@@ -310,21 +311,21 @@ function drawGrafcet(svg, store, { onSelect, onDragEnd }) {
   // Transitions
   for (const t of logic.transitions) {
     const sel = selection?.kind === 'transition' && selection.id === t.id;
-    const g = s('g', { class: `g-trans ${sel ? 'selected' : ''} ${errorRefs.has(t.id) ? 'has-error' : ''}`, transform: `translate(${t.x} ${t.y})` });
+    const g = s('g', { class: `g-trans ${sel ? 'selected' : ''} ${errorRefs.has(t.id) ? 'has-error' : ''} ${sim?.ready?.has(t.id) ? 'sim-ready' : ''}`, transform: `translate(${t.x} ${t.y})` });
     g.append(
       s('rect', { x: -40, y: -10, width: 80, height: 20, class: 'g-hit' }),
       s('line', { x1: -16, y1: 0, x2: 16, y2: 0, class: 'g-tbar' }),
       s('text', { x: -24, y: 4, class: 'g-tnum', 'text-anchor': 'end' }, `T${t.num}`),
       s('text', { x: 24, y: 4, class: 'g-cond' }, t.condition || '(vide)')
     );
-    makeDraggable(g, t, svg, { onSelect: () => onSelect({ kind: 'transition', id: t.id }), onDragEnd, redraw: () => drawGrafcet(svg, store, { onSelect, onDragEnd }) });
+    if (!sim) makeDraggable(g, t, svg, { onSelect: () => onSelect({ kind: 'transition', id: t.id }), onDragEnd, redraw: () => drawGrafcet(svg, store, { onSelect, onDragEnd }) });
     svg.append(g);
   }
 
   // Étapes
   for (const st of logic.steps) {
     const sel = selection?.kind === 'step' && selection.id === st.id;
-    const g = s('g', { class: `g-step ${sel ? 'selected' : ''} ${errorRefs.has(st.id) ? 'has-error' : ''}`, transform: `translate(${st.x} ${st.y})` });
+    const g = s('g', { class: `g-step ${sel ? 'selected' : ''} ${errorRefs.has(st.id) ? 'has-error' : ''} ${sim?.active?.has(st.id) ? 'sim-active' : ''}`, transform: `translate(${st.x} ${st.y})` });
     g.append(s('rect', { x: -STEP_W / 2, y: -STEP_H / 2, width: STEP_W, height: STEP_H, class: 'g-box' }));
     if (st.initial) g.append(s('rect', { x: -STEP_W / 2 + 4, y: -STEP_H / 2 + 4, width: STEP_W - 8, height: STEP_H - 8, class: 'g-box-inner' }));
     g.append(s('text', { x: 0, y: 5, 'text-anchor': 'middle', class: 'g-num' }, st.num));
@@ -342,7 +343,11 @@ function drawGrafcet(svg, store, { onSelect, onDragEnd }) {
         g.append(s('text', { x: ax + 10, y: -hgt / 2 + i * 20 + 17, class: 'g-action' }, actionText(a)));
       });
     }
-    makeDraggable(g, st, svg, { onSelect: () => onSelect({ kind: 'step', id: st.id }), onDragEnd, redraw: () => drawGrafcet(svg, store, { onSelect, onDragEnd }) });
+    if (sim && st.x !== undefined) {
+      const t = sim.times?.get(st.id);
+      if (t !== undefined) g.append(s('text', { x: -STEP_W / 2 - 6, y: STEP_H / 2 - 4, 'text-anchor': 'end', class: 'g-time' }, `${(t / 1000).toFixed(1)} s`));
+    }
+    if (!sim) makeDraggable(g, st, svg, { onSelect: () => onSelect({ kind: 'step', id: st.id }), onDragEnd, redraw: () => drawGrafcet(svg, store, { onSelect, onDragEnd }) });
     svg.append(g);
   }
 }

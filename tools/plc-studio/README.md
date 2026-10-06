@@ -43,7 +43,11 @@ L'enregistrement est automatique après le premier enregistrement (Ctrl+S).
    acquittement, marche/arrêt, prise d'origine, jog, couple du servo).
 5. **Écrans opérateur** : disposition automatique ou personnalisée des pages,
    sections et widgets (`interface.json`).
-6. **Simulation** : *en développement*.
+6. **Simulation** : le projet tourne dans le navigateur avec le même moteur que le
+   code C++ généré (cycle de 10 ms) : grafcet animé (étapes actives et leur temps),
+   forçage des entrées, commandes de l'écran, paramètres, sorties, modèle simplifié du
+   servo (déplacement, prise d'origine, jog, alarmes), messages et journal. Lecture
+   en continu (× 0,25 à × 20), cycle par cycle ou par seconde.
 7. **Génération** : vérification, aperçu des fichiers avec différences, export.
 
 ## Fichiers produits
