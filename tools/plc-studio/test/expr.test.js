@@ -103,3 +103,9 @@ test('traduction C++', () => {
   assert.equal(toCpp(parse('Temp > 1.5', ctx), names), '(v_Temp() > 1.5f)');
   assert.equal(toCpp(parse('X3.t >= 5s', ctx), names), '(stepTime(3) >= 5000)');
 });
+
+test('durée t/X/... : unité obligatoire ; débordement entier 32 bits comme en C++', () => {
+  assert.match(tryParse('t/X3/5', ctx).error, /unité/);
+  assert.equal(evaluate(parse('Compteur * Nb', ctx), env({ Compteur: 100000, Nb: 100000 })), Math.imul(100000, 100000));
+  assert.equal(evaluate(parse('Compteur + 1', ctx), env({ Compteur: 2147483647 })), -2147483648);
+});

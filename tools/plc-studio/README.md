@@ -99,11 +99,16 @@ ARRÊT / REPOS → MANUEL (jog) → ARRÊT
 ```
 
 - Le grafcet ne tourne qu'en REPOS et en CYCLE. REPOS signifie « grafcet en
-  situation initiale » : c'est le seul moment où `isIdle()` est vrai, donc où les
-  paramètres sont sauvegardés.
-- Un cycle d'automate : actions à l'activation des étapes activées au cycle
-  précédent → franchissement simultané des transitions validées → actions continues
-  et sorties → mémorisation des fronts. Le simulateur suit exactement le même ordre.
+  situation initiale » : `isIdle()` (qui autorise les sauvegardes de paramètres) est
+  vrai en REPOS, ARRÊT, URGENCE et INITIALISATION, jamais en CYCLE.
+- Un cycle d'automate : capture des opérandes des fronts → franchissement simultané
+  des transitions validées, répété tant que possible dans le même cycle (recherche de
+  stabilité, 16 itérations au plus) avec exécution des actions à l'activation →
+  actions continues et sorties. Une étape franchie dans le même cycle n'active pas ses
+  actions continues ; un front ne vaut qu'une fois par cycle. Le simulateur suit
+  exactement le même ordre.
+- Les voies des modules Waveshare (un seul nœud par module) sont recopiées dans des
+  nœuds « Miroirs ES » pour être affichées correctement à l'écran.
 - En urgence, chaque sortie prend son état de repli (à 0, à 1 ou maintenue), le servo
   est arrêté et le grafcet remis à zéro.
 - Servo : toute cible est comparée à la course maximale (audit CR-1) ; le jog est

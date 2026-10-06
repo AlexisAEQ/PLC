@@ -18,7 +18,10 @@ const CPP_RESERVED = new Set(
   ).split(' ')
 );
 // Mots réservés par le langage des réceptivités.
-const EXPR_RESERVED = new Set(['ET', 'OU', 'NON', 'FM', 'FD', 'VRAI', 'FAUX', 'AND', 'OR', 'NOT', 'MIN', 'MAX', 'ABS', 'Servo']);
+// (comparaison en majuscules)
+const EXPR_RESERVED = new Set(['ET', 'OU', 'NON', 'FM', 'FD', 'VRAI', 'FAUX', 'AND', 'OR', 'NOT', 'MIN', 'MAX', 'ABS', 'SERVO', 'TRUE', 'FALSE']);
+// Noms de projet qui écraseraient un fichier du firmware (data/<Nom>.json).
+const RESERVED_PROJECT_NAMES = new Set(['config', 'interface', 'renderers', 'component-manifest', 'index', 'styles', 'diagnostic', 'main']);
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 
@@ -30,7 +33,7 @@ export function validateProject(project, layout = buildLayout(project)) {
   // --- Projet -----------------------------------------------------------
   if (!/^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(project.name || '')) {
     err('project', 'Nom de projet invalide : lettre en premier, puis lettres, chiffres ou _ (24 caractères maximum). Il sert de nom de classe C++ et de fichier.');
-  } else if (CPP_RESERVED.has(project.name)) {
+  } else if (CPP_RESERVED.has(project.name) || RESERVED_PROJECT_NAMES.has(project.name.toLowerCase())) {
     err('project', `« ${project.name} » est un nom réservé.`);
   }
   if (!/^[A-Za-z0-9_-]{1,32}$/.test(project.hostname || '')) {
@@ -132,6 +135,7 @@ export function validateProject(project, layout = buildLayout(project)) {
           const expectedDir = v.kind === 'input' ? 'in' : 'out';
           if (group.dir !== expectedDir) err('variables', `${where} : une ${v.kind === 'input' ? 'entrée' : 'sortie'} ne peut pas être câblée sur « ${group.label} ».`, v.uid);
           if (group.dataType !== v.dataType) err('variables', `${where} : type ${v.dataType} incompatible avec « ${group.label} » (${group.dataType}).`, v.uid);
+          if (v.system && group.bank) err('variables', `${where} : un signal du servo doit être câblé sur une sortie de l'automate, pas sur un module Waveshare.`, v.uid);
           const chKey = `${v.binding.eq}/${v.binding.group}/${v.binding.channel}`;
           if (channelUse.has(chKey)) err('variables', `${where} et « ${channelUse.get(chKey).label} » sont câblées sur la même voie.`, v.uid);
           channelUse.set(chKey, v);
@@ -140,10 +144,12 @@ export function validateProject(project, layout = buildLayout(project)) {
     } else if (v.binding) {
       err('variables', `${where} : seules les entrées et sorties se câblent.`, v.uid);
     }
-    if (v.kind === 'parameter' && v.dataType !== 'text' && v.dataType !== 'bool') {
-      if (v.min !== undefined && v.min !== '' && v.max !== undefined && v.max !== '' && Number(v.min) > Number(v.max)) {
-        err('variables', `${where} : minimum supérieur au maximum.`, v.uid);
+    if (v.dataType === 'int' || v.dataType === 'float') {
+      const set = (x) => x !== undefined && x !== null && x !== '';
+      for (const k of ['min', 'max', ...(v.kind === 'parameter' ? ['initial'] : [])]) {
+        if (set(v[k]) && !Number.isFinite(Number(v[k]))) err('variables', `${where} : « ${k} » n'est pas un nombre.`, v.uid);
       }
+      if (set(v.min) && set(v.max) && Number(v.min) > Number(v.max)) err('variables', `${where} : minimum supérieur au maximum.`, v.uid);
     }
     if (v.hmi?.show && v.hmi.widget && !widgetsFor(v).includes(v.hmi.widget)) {
       warn('variables', `${where} : widget « ${v.hmi.widget} » inadapté, un widget par défaut sera utilisé.`, v.uid);
@@ -174,6 +180,13 @@ export function validateProject(project, layout = buildLayout(project)) {
   }
 
   issues.push(...compileLogic(project).issues);
+
+  // Sécurité : sortie d'urgence et redémarrage sans action de l'opérateur.
+  const blocks = project.logic?.blocks;
+  if (blocks?.emergency?.condition?.trim() && !blocks.emergency.reset?.trim()) {
+    warn('logic', "Sans condition d'acquittement, la machine sort seule de l'arrêt d'urgence 1 s après sa disparition : prévoyez un bouton d'acquittement.");
+    if (!blocks.run?.start?.trim()) warn('logic', "Sans acquittement ni condition de mise en marche, le cycle peut redémarrer seul après un arrêt d'urgence.");
+  }
 
   for (const e of layout.errors) err(e.step, e.message, e.ref);
   for (const w of layout.warnings) warn(w.step, w.message, w.ref);

@@ -59,7 +59,8 @@ export function tokenize(src) {
     // t/X3/5s
     const tm = /^t\/X(\d+)\/(\d+(?:\.\d+)?)(ms|s|min|h)?/i.exec(s.slice(i));
     if (tm) {
-      tokens.push({ t: 'tstep', step: Number(tm[1]), ms: Number(tm[2]) * UNITS[(tm[3] || 's').toLowerCase()], pos: start, len: tm[0].length });
+      if (!tm[3]) throw new ExprError(`Précisez l’unité de la durée (ex. t/X${tm[1]}/${tm[2]}s ou ${tm[2]}ms)`, i);
+      tokens.push({ t: 'tstep', step: Number(tm[1]), ms: Math.round(Number(tm[2]) * UNITS[tm[3].toLowerCase()]), pos: start, len: tm[0].length });
       i += tm[0].length;
       continue;
     }
@@ -366,11 +367,15 @@ export function evaluate(ast, env) {
       return !!evaluate(ast.a, env) && !!evaluate(ast.b, env);
     case 'or':
       return !!evaluate(ast.a, env) || !!evaluate(ast.b, env);
-    case 'neg':
-      return -evaluate(ast.a, env);
+    case 'neg': {
+      const a = evaluate(ast.a, env);
+      return ast.type === 'int' ? -a | 0 : Math.fround(-a);
+    }
     case 'edge': {
-      const cur = !!evaluate(ast.a, env);
-      const prev = !!env.prev(edgeKey(ast.a));
+      // Valeur capturée en début de cycle (env.cur) comparée à celle du cycle précédent.
+      const key = edgeKey(ast.a);
+      const cur = env.cur ? !!env.cur(key) : !!evaluate(ast.a, env);
+      const prev = !!env.prev(key);
       return ast.rising ? cur && !prev : !cur && prev;
     }
     case 'cmp': {
@@ -405,7 +410,7 @@ export function evaluate(ast, env) {
           r = a - b;
           break;
         case '*':
-          r = a * b;
+          r = isInt ? Math.imul(a, b) : a * b;
           break;
         case '/':
           r = b === 0 ? 0 : a / b;
@@ -455,8 +460,9 @@ export function toCpp(ast, names) {
     case 'neg':
       return `(-${c(ast.a)})`;
     case 'edge': {
-      const cur = c(ast.a);
-      const prev = names.prev(edgeKey(ast.a));
+      const key = edgeKey(ast.a);
+      const cur = names.cur ? names.cur(key) : c(ast.a);
+      const prev = names.prev(key);
       return ast.rising ? `(${cur} && !${prev})` : `(!${cur} && ${prev})`;
     }
     case 'cmp':

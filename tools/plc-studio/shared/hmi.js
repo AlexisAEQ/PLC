@@ -42,7 +42,7 @@ export function unplacedRefs(project, layout) {
     if (layout.nodes.has(ref) && !placed.has(ref)) refs.push(ref);
   }
   for (const [ref, node] of layout.nodes) {
-    if (ref.startsWith('var:') || ref.startsWith('bank:') || placed.has(ref)) continue;
+    if (ref.startsWith('var:') || ref.startsWith('bank:') || ref.startsWith('mirror:') || placed.has(ref)) continue;
     // Registres internes du servo : seuls les états booléens, la position et les alarmes sont utiles à l'écran.
     if (ref.startsWith('servo:') && node.cppClass !== 'BooleanOutputNode' && !SERVO_NUMERIC.includes(node.field)) continue;
     refs.push(ref);

@@ -70,11 +70,22 @@ const work = mkdtempSync(path.join(tmpdir(), 'plc-studio-cpp-'));
 let failed = false;
 try {
   const ajDir = findArduinoJson(work);
-  for (const variant of [{ servo: true }, { servo: false }]) {
-    const dir = path.join(work, variant.servo ? 'servo' : 'sans-servo');
+  // Variante « noms piégeux » : symbole qui est une macro du framework, course non entière.
+  const tricky = (p) => {
+    p.variables.find((v) => v.symbol === 'Pieces').symbol = 'STATUS';
+    p.logic.steps[4].actions[0].target = 'STATUS';
+    p.equipment.find((e) => e.type === 'SureServo').options.maxRange = 24.5;
+    return p;
+  };
+  for (const variant of [
+    { name: 'Avec servo', servo: true },
+    { name: 'Sans servo', servo: false },
+    { name: 'Noms piégeux', servo: true, tweak: tricky },
+  ]) {
+    const dir = path.join(work, variant.name.replace(/\W+/g, '-'));
     cpSync(path.join(repo, 'src'), path.join(dir, 'src'), { recursive: true });
     fixIncludeCase(path.join(dir, 'src'));
-    const project = pressProject(variant);
+    const project = variant.tweak ? variant.tweak(pressProject(variant)) : pressProject(variant);
     const r = generateFiles(project, { hardwareFiles: hardwareFiles(), mainCpp: mainCpp() });
     const errors = r.issues.filter((i) => i.level === 'error');
     if (errors.length) throw new Error('Projet exemple invalide : ' + errors.map((e) => e.message).join('; '));
@@ -93,7 +104,7 @@ try {
     // Seuls les messages qui concernent le code généré nous intéressent.
     const own = output.split('\n').filter((l) => l.startsWith(`src/${project.name}/`) && /(error|warning):/.test(l));
     if (own.length) failed = true;
-    console.log(`${variant.servo ? 'Avec servo' : 'Sans servo'} : ${own.length ? 'ÉCHEC' : 'OK'}`);
+    console.log(`${variant.name} : ${own.length || run.status !== 0 ? 'ÉCHEC' : 'OK'}`);
     for (const l of own) console.log('  ' + l);
     if (failed && !own.length) console.log(output.split('\n').filter((l) => /error/.test(l)).slice(0, 20).join('\n'));
   }

@@ -73,3 +73,39 @@ test('sans servo : pas de SureServo dans le code généré', () => {
   const h = r.files.find((f) => f.path.endsWith('.h')).content;
   assert.doesNotMatch(h, /SureServo/);
 });
+
+test('validation : signaux servo sur un module Waveshare, noms réservés, bornes non numériques', async () => {
+  const { validateProject } = await import('../shared/validate.js');
+  const p = pressProject();
+  const io = p.equipment.find((e) => e.type === 'Waveshare_8DIO');
+  p.variables.find((v) => v.system).binding = { eq: io.uid, group: 'do', channel: 3 };
+  p.variables.find((v) => v.symbol === 'Cible').min = 'abc';
+  p.variables.push({ ...p.variables.find((v) => v.symbol === 'Mem'), uid: 'x1', symbol: 'True' });
+  p.name = 'config';
+  const msgs = validateProject(p).filter((i) => i.level === 'error').map((i) => i.message).join('\n');
+  assert.match(msgs, /pas sur un module Waveshare/);
+  assert.match(msgs, /« min » n'est pas un nombre/);
+  assert.match(msgs, /symbole « True » est réservé/);
+  assert.match(msgs, /« config » est un nom réservé/);
+});
+
+test('C++ : symboles qui sont des macros Arduino, course non entière, voies Waveshare à l’écran', () => {
+  const p = pressProject();
+  p.variables.find((v) => v.symbol === 'Pieces').symbol = 'STATUS'; // indicateur : nœud + constante
+  p.logic.steps[4].actions[0].target = 'STATUS';
+  p.equipment.find((e) => e.type === 'SureServo').options.maxRange = 24.5;
+  const r = generateFiles(p, { hardwareFiles: hardwareFiles(), mainCpp: mainCpp() });
+  assert.deepEqual(r.issues.filter((i) => i.level === 'error'), []);
+  const h = r.files.find((f) => f.path.endsWith('.h')).content;
+  const cpp = r.files.find((f) => f.path.endsWith('.cpp')).content;
+  assert.match(h, /constexpr uint32_t H_STATUS = /);
+  assert.match(cpp, /24\.5f/);
+  // Les voies Waveshare affichées utilisent un nœud miroir, pas le banc.
+  const cfg = JSON.parse(r.files.find((f) => f.path === 'data/config.json').content);
+  const ui = JSON.parse(r.files.find((f) => f.path === 'data/interface.json').content);
+  const mirrors = cfg.children.find((s) => s.name === 'Miroirs ES');
+  assert.ok(mirrors);
+  const piece = ui.pages.flatMap((pg) => pg.sections.flatMap((s) => s.NodesList)).find((n) => n.name === 'Pièce présente');
+  assert.ok(mirrors.children.some((c) => c.hash === piece.hash));
+  assert.match(cpp, /mirror_Piece->setValue\(v_Piece\(\)\);/);
+});

@@ -78,7 +78,9 @@ export function generateInterface(project, layout, pages) {
         NodesList: s.items
           .filter((it) => layout.nodes.has(it.ref))
           .map((it) => {
-            const node = layout.nodes.get(it.ref);
+            let node = layout.nodes.get(it.ref);
+            // Voie de banc Waveshare : on affiche son nœud miroir.
+            if (node.bankRef && layout.nodes.has(`mirror:${node.variable}`)) node = { ...layout.nodes.get(`mirror:${node.variable}`), extra: node.extra?.inverse ? { inverse: true } : {} };
             const variable = node.variable ? varsByUid.get(node.variable) : null;
             const entry = { name: it.label, component: it.widget, hash: node.hash, ...widgetProps(it, variable) };
             // Un "inverse" présent dans config.json se propagerait au voyant : on l'annule.

@@ -182,7 +182,11 @@ export function renderSimulation(root, store) {
       ...sim.messages
         .slice(-12)
         .reverse()
-        .map((m) => h('div', { class: `msg-${m.level}` }, h('span', { class: 't' }, fmtTime(m.t)), m.text))
+        .map((m) => {
+          // Ces notifications sont filtrées par l'automate selon les options du projet.
+          const hidden = (m.level === 'success' && !p.options.showSuccessMessages) || (m.level === 'info' && p.options.showInfoMessages === false);
+          return h('div', { class: `msg-${m.level}` }, h('span', { class: 't' }, fmtTime(m.t)), m.text, hidden ? h('span', { class: 'muted' }, ' (non affiché sur l’automate)') : null);
+        })
     );
     journal.replaceChildren(
       ...sim.journal

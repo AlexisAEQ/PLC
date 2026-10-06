@@ -7,8 +7,9 @@ import { paramsFileName } from './model.js';
 const CPP_TYPE = { bool: 'bool', int: 'int32_t', float: 'float', text: 'const char*' };
 const DEFAULT_VALUE = { bool: 'false', int: '0', float: '0.0f', text: '""' };
 
+// Littéral chaîne C++ (UTF-8 conservé ; caractères de contrôle autres que \n et \t retirés).
 function cstr(s) {
-  return JSON.stringify(String(s ?? '')).replace(/\\u00([0-9a-f]{2})/gi, '\\x$1');
+  return JSON.stringify(String(s ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, ''));
 }
 
 function cppLiteral(value, type) {
@@ -60,7 +61,7 @@ function variableAccess(project, layout) {
     const ptr = `n_${v.symbol}`;
     acc.members.push(`${node.cppClass}* ${ptr} = nullptr;`);
     acc.hashName = v.symbol;
-    acc.init.push(`initNodePtr(${ptr}, ${project.name}Nodes::${v.symbol}, context);`);
+    acc.init.push(`initNodePtr(${ptr}, ${project.name}Nodes::H_${v.symbol}, context);`);
     switch (node.cppClass) {
       case 'BooleanInputNode':
         acc.get = `${ptr}->getValue()`;
@@ -103,6 +104,11 @@ function variableAccess(project, layout) {
 }
 
 // ---------------------------------------------------------------------------
+// Texte sûr dans un commentaire C++ d'une ligne (pas de saut de ligne ni de « \ » final).
+const comment = (s) => String(s ?? '').replace(/[\\\r\n]+/g, ' ').replace(/\*\//g, '* /').slice(0, 120);
+
+const MAX_EVOLUTIONS = 16;
+
 export function generateCpp(project, layout, ir) {
   const N = project.name;
   const servoEq = project.equipment.find((e) => CATALOG[e.type]?.role === 'servo');
@@ -117,16 +123,23 @@ export function generateCpp(project, layout, ir) {
   const outputs = project.variables.filter((v) => v.kind === 'output' && !v.system);
   const params = project.variables.filter((v) => v.kind === 'parameter');
   const drivenSet = new Map(ir.driven.map((d) => [d.sym, d]));
+  const mirrors = [...layout.nodes.entries()]
+    .filter(([ref]) => ref.startsWith('mirror:'))
+    .map(([, node]) => ({ node, variable: project.variables.find((v) => v.uid === node.variable) }))
+    .filter((m) => m.variable);
 
-  const names = {
+  const baseNames = {
     var: (sym) => `v_${sym}()`,
     step: (num) => `X[${stepIndex.get(num)}]`,
     stepTime: (num) => `stepTime(${stepIndex.get(num)})`,
     servo: (prop) => SERVO_PROPS[prop].cpp,
-    prev: (key) => `E[${edgeIndex.get(key)}]`,
   };
+  // Les fronts comparent la valeur capturée en début de cycle (S) à celle du cycle précédent (E).
+  const names = { ...baseNames, cur: (key) => `S[${edgeIndex.get(key)}]`, prev: (key) => `E[${edgeIndex.get(key)}]` };
   const cx = (ast) => toCpp(ast, names);
+  const raw = (ast) => toCpp(ast, baseNames); // valeur directe (capture des fronts)
   const setCall = (sym, valueCpp) => `set_${sym}(${valueCpp});`;
+  const emergencyExpr = ir.blocks.emergency ? cx(ir.blocks.emergency) : 'false';
 
   // ---------------- En-tête ----------------
   const H = [];
@@ -151,14 +164,15 @@ export function generateCpp(project, layout, ir) {
   H.push(``, `// Identifiants des nœuds (CRC-32 de "<id><section>", voir data/config.json).`, `namespace ${N}Nodes {`);
   for (const [sym, acc] of access) {
     if (!acc.hashName) continue;
-    H.push(`    constexpr uint32_t ${sym} = ${acc.node.hash}u;  // ${acc.node.section} / id ${acc.node.id}`);
+    H.push(`    constexpr uint32_t H_${sym} = ${acc.node.hash}u;  // ${comment(acc.node.section)} / id ${acc.node.id}`);
   }
-  for (const b of banks.values()) H.push(`    constexpr uint32_t ${b.hashName} = ${b.hash}u;  // ${b.section}`);
-  if (stateNode) H.push(`    constexpr uint32_t SYS_STATE = ${stateNode.hash}u;`);
-  if (clockNode) H.push(`    constexpr uint32_t SYS_CLOCK = ${clockNode.hash}u;`);
+  for (const b of banks.values()) H.push(`    constexpr uint32_t H_${b.hashName} = ${b.hash}u;  // ${comment(b.section)}`);
+  for (const m of mirrors) H.push(`    constexpr uint32_t H_MIRROR_${m.variable.symbol} = ${m.node.hash}u;  // ${comment(m.node.section)} / id ${m.node.id}`);
+  if (stateNode) H.push(`    constexpr uint32_t H_SYS_STATE = ${stateNode.hash}u;`);
+  if (clockNode) H.push(`    constexpr uint32_t H_SYS_CLOCK = ${clockNode.hash}u;`);
   if (hasServo) {
     for (const [ref, node] of layout.nodes) {
-      if (ref.startsWith('servo:')) H.push(`    constexpr uint32_t SERVO_${ident(node.field)} = ${node.hash}u;  // ${node.section} / id ${node.id}`);
+      if (ref.startsWith('servo:')) H.push(`    constexpr uint32_t H_SERVO_${ident(node.field)} = ${node.hash}u;  // ${comment(node.section)} / id ${node.id}`);
     }
   }
   H.push(`}`, ``);
@@ -215,8 +229,9 @@ export function generateCpp(project, layout, ir) {
   );
   for (const acc of access.values()) for (const m of acc.members) H.push(`    ${m}`);
   for (const b of banks.values()) H.push(`    ${b.cls}* ${b.name} = nullptr;`);
-  if (stateNode) H.push(`    VirtualTextOutputNode* n_sys_state = nullptr;`);
-  if (clockNode) H.push(`    VirtualTextOutputNode* n_sys_clock = nullptr;`);
+  for (const m of mirrors) H.push(`    BooleanOutputNode* mirror_${m.variable.symbol} = nullptr;  // recopie de la voie pour l'écran`);
+  if (stateNode) H.push(`    VirtualTextOutputNode* sysStateNode = nullptr;`);
+  if (clockNode) H.push(`    VirtualTextOutputNode* sysClockNode = nullptr;`);
 
   H.push(
     ``,
@@ -224,12 +239,16 @@ export function generateCpp(project, layout, ir) {
     `    static constexpr int STEP_COUNT = ${stepCount};`,
     `    static constexpr int TRANSITION_COUNT = ${transCount};`,
     `    static constexpr int EDGE_COUNT = ${edgeCount};`,
+    `    static constexpr int MAX_EVOLUTIONS = ${MAX_EVOLUTIONS};  // recherche de stabilité`,
+    stateNode ? `    static const int STEP_NUMBERS[STEP_COUNT];` : null,
     `    bool X[STEP_COUNT] = {};          // étapes actives`,
-    `    bool Xnew[STEP_COUNT] = {};       // étapes activées au cycle précédent (actions à l'activation)`,
+    `    bool Xnew[STEP_COUNT] = {};       // étapes activées, actions à l'activation à exécuter`,
     `    uint32_t Xstart[STEP_COUNT] = {}; // instant d'activation`,
-    `    bool E[EDGE_COUNT] = {};          // valeurs précédentes pour les fronts`,
+    `    bool S[EDGE_COUNT] = {};          // opérandes des fronts, capturés en début de cycle`,
+    `    bool E[EDGE_COUNT] = {};          // mêmes opérandes au cycle précédent`,
     `    uint32_t now = 0;`,
     `    uint32_t emergencyClearSince = 0;`,
+    `    bool unstableReported = false;`,
     `    bool initialised = false;`
   );
   for (const d of ir.driven) if (d.latch) H.push(`    bool latch_${d.sym} = false;`);
@@ -239,15 +258,18 @@ export function generateCpp(project, layout, ir) {
       `    // ---- Servo`,
       `    std::unique_ptr<SureServo> sureServo;`,
       `    ServoNodes servoNodes;`,
-      `    bool servoMoveActive = false;   // déplacement lancé, en attente de fin`,
-      `    bool servoMoveDone = false;     // dernier déplacement terminé (Servo.enPosition)`,
-      `    bool servoMovePending = false;  // déplacement demandé, pas encore lancé`,
+      `    bool servoInitRequested = false; // initialisation lancée par cette classe`,
+      `    bool servoMoveActive = false;    // déplacement lancé, en attente de fin`,
+      `    bool servoMoveDone = false;      // dernier déplacement terminé (Servo.enPosition)`,
+      `    bool servoMovePending = false;   // déplacement demandé, pas encore lancé`,
       `    int32_t servoPendingTarget = 0;`,
       `    int servoPendingSpeed = 0;`,
       `    int servoAppliedSpeed = -1;`,
-      `    bool servoHomingActive = false;`,
+      `    bool servoHomingActive = false;  // prise d'origine demandée par le grafcet`,
+      `    bool servoHomingRunning = false; // handleHoming() a démarré une prise d'origine`,
       `    bool jogForwardHeld = false;`,
       `    bool jogReverseHeld = false;`,
+      `    bool jogBlocked = false;         // butée atteinte : attendre le relâchement`,
       `    int lastJogSpeed = -1;`,
       `    int lastTorque = -1;`
     );
@@ -268,7 +290,7 @@ export function generateCpp(project, layout, ir) {
     `    // ---- Fonctions internes`,
     `    State cur() const { return static_cast<State>(BusinessLogic::getCurrentState()); }`,
     `    void go(State s) { if (cur() != s) transitionWithContext(static_cast<int>(s), 0); }`,
-    `    uint32_t stepTime(int i) const { return X[i] ? now - Xstart[i] : 0; }`,
+    `    int32_t stepTime(int i) const { return X[i] ? (int32_t)(now - Xstart[i]) : 0; }`,
     `    void activateStep(int i) { X[i] = true; Xnew[i] = true; Xstart[i] = now; }`,
     `    static bool bankBit(ModbusReadMultipleInputsRegistersNode* b, uint8_t bit) {`,
     `        if (!b) return false;`,
@@ -289,10 +311,11 @@ export function generateCpp(project, layout, ir) {
     `    void grafcetClear();`,
     `    bool grafcetInInitialSituation() const;`,
     `    void grafcetActivationActions();`,
-    `    void grafcetEvolve();`,
+    `    bool grafcetEvolve();`,
     `    void computeOutputs();`,
+    `    void captureEdges();`,
     `    void updateEdges();`,
-    `    bool emergencyRequested(char* reason, size_t len);`,
+    `    bool emergencyCondition();`,
     `    void handleInitializing();`,
     `    void handleStop();`,
     `    void handleRun();`,
@@ -312,13 +335,14 @@ export function generateCpp(project, layout, ir) {
       `    void servoService();`,
       `    void servoMoveTo(int32_t target, int32_t speed);`,
       `    void servoStartHoming();`,
-      `    void servoStop();`,
+      `    void servoHalt(bool homingMode = false);`,
       `    bool servoIsReady() const { return sureServo && sureServo->getIsReady(); }`,
       `    bool servoInPosition() const { return servoMoveDone; }`,
       `    bool servoIsMoving() const { return servoMoveActive || servoMovePending || servoHomingActive; }`,
       `    bool servoHomeDone() const { return sureServo && sureServo->getHomeDone(); }`,
       `    bool servoHasAlarm() const { return sureServo && sureServo->getHasAlarms(); }`,
-      `    int32_t servoPosition() const { return sureServo ? sureServo->getPosition() : 0; }`
+      `    // Position lue sur le variateur (getPosition() renvoie la cible pendant un mouvement et écrit sur Serial).`,
+      `    int32_t servoPosition() const { return servoNodes.position ? servoNodes.position->getValueAsInt32() : 0; }`
     );
   } else {
     H.push(`    bool servoIsMoving() const { return false; }`);
@@ -327,7 +351,7 @@ export function generateCpp(project, layout, ir) {
 
   // ---------------- Implémentation ----------------
   const C = [];
-  const L = (...lines) => C.push(...lines);
+  const L = (...lines) => C.push(...lines.filter((x) => x !== null && x !== undefined));
   L(
     `// =============================================================================`,
     `// ${N}.cpp — généré par PLC Studio (tools/plc-studio)`,
@@ -336,6 +360,8 @@ export function generateCpp(project, layout, ir) {
     `#include "${N}.h"`,
     clockNode ? `#include "DS3231_RTC/ClockDisplay.h"` : null,
     ``,
+    stateNode ? `const int ${N}::STEP_NUMBERS[${N}::STEP_COUNT] = { ${ir.steps.length ? ir.steps.map((s) => s.num).join(', ') : '0'} };` : null,
+    stateNode ? `` : null,
     `${N}::${N}() : BusinessLogic() {`,
     `    currentState = static_cast<int>(State::UNDEFINED);`,
     `    previousState = static_cast<int>(State::UNDEFINED);`,
@@ -352,9 +378,10 @@ export function generateCpp(project, layout, ir) {
   // initializePointers
   L(`bool ${N}::initializePointers(const char* context) {`);
   for (const acc of access.values()) for (const line of acc.init) L(`    ${line}`);
-  for (const b of banks.values()) L(`    initNodePtr(${b.name}, ${N}Nodes::${b.hashName}, context);`);
-  if (stateNode) L(`    initNodePtr(n_sys_state, ${N}Nodes::SYS_STATE, context);`);
-  if (clockNode) L(`    initNodePtr(n_sys_clock, ${N}Nodes::SYS_CLOCK, context);`, `    ClockDisplay::attach(n_sys_clock);`);
+  for (const b of banks.values()) L(`    initNodePtr(${b.name}, ${N}Nodes::H_${b.hashName}, context);`);
+  for (const m of mirrors) L(`    initNodePtr(mirror_${m.variable.symbol}, ${N}Nodes::H_MIRROR_${m.variable.symbol}, context);`);
+  if (stateNode) L(`    initNodePtr(sysStateNode, ${N}Nodes::H_SYS_STATE, context);`);
+  if (clockNode) L(`    initNodePtr(sysClockNode, ${N}Nodes::H_SYS_CLOCK, context);`, `    ClockDisplay::attach(sysClockNode);`);
   L(`    if (BorneUniverselle::getInstance()->isPlcBroken()) {`, `        Serial.println("${N}: erreur pendant l'initialisation des pointeurs");`, `        return false;`, `    }`);
   if (hasServo) L(`    if (!createServo(context)) return false;`);
   L(`    applyParamsToNodes();`, `    return true;`, `}`, ``);
@@ -364,7 +391,7 @@ export function generateCpp(project, layout, ir) {
     L(`bool ${N}::createServo(const char* context) {`);
     for (const [ref, node] of layout.nodes) {
       if (!ref.startsWith('servo:')) continue;
-      L(`    initNodePtr(servoNodes.${node.field}, ${N}Nodes::SERVO_${ident(node.field)}, context);`);
+      L(`    initNodePtr(servoNodes.${node.field}, ${N}Nodes::H_SERVO_${ident(node.field)}, context);`);
     }
     for (const v of project.variables.filter((x) => x.system?.eq === servoEq.uid)) {
       L(`    servoNodes.${v.system.field} = n_${v.symbol};`);
@@ -375,7 +402,7 @@ export function generateCpp(project, layout, ir) {
       `        BorneUniverselle::setPlcBroken("${N}: nœuds obligatoires du servo manquants");`,
       `        return false;`,
       `    }`,
-      `    sureServo = std::unique_ptr<SureServo>(new SureServo(${Number(opts.pulsesPerUnit) || 1}, servoNodes, HomePositionPolicy::${opts.homePolicy === 'NEGATIVE_TOLERATED' ? 'NEGATIVE_TOLERATED' : 'NEGATIVE_INVALIDATES_HOME'}, ${Math.max(0, Number(opts.maxRange) || 0)}.0f));`,
+      `    sureServo = std::unique_ptr<SureServo>(new SureServo(${Number(opts.pulsesPerUnit) || 1}, servoNodes, HomePositionPolicy::${opts.homePolicy === 'NEGATIVE_TOLERATED' ? 'NEGATIVE_TOLERATED' : 'NEGATIVE_INVALIDATES_HOME'}, ${cppLiteral(Math.max(0, Number(opts.maxRange) || 0), 'float')}));`,
       `    const char* err = sureServo->getLastError();`,
       `    if (err && strlen(err) > 0 && strcmp(err, "Pas d'erreur") != 0) {`,
       `        char msg[160];`,
@@ -411,24 +438,32 @@ export function generateCpp(project, layout, ir) {
     `    now = millis();`,
     hasServo ? `    if (sureServo) sureServo->process();` : null,
     `    if (BorneUniverselle::getInstance()->isPlcBroken()) return false;`,
+    `    captureEdges();`,
     ``,
-    `    // Arrêt d'urgence : prioritaire sur tous les modes.`,
+    `    // Arrêt d'urgence : prioritaire sur tous les modes (y compris pendant le réarmement).`,
     `    State s = cur();`,
-    `    if (s != State::EMERGENCY && s != State::RESETTING && s != State::UNDEFINED) {`,
-    `        char reason[160];`,
-    `        if (emergencyRequested(reason, sizeof(reason))) {`,
+    `    if (s != State::EMERGENCY && s != State::UNDEFINED) {`,
+    `        if (emergencyCondition()) {`,
+    `            char reason[160];`,
+    `            snprintf(reason, sizeof(reason), "Arrêt d'urgence : %s", ${cstr(project.logic?.blocks?.emergency?.condition || '')});`,
     `            BorneUniverselle::prepareMessage(ERROR, reason);`,
     `            PLC_Tools::logDiagnostic(reason);`,
     `            go(State::EMERGENCY);`,
     `        }`,
+    hasServo ? `        else if (s != State::RESETTING && servoHasAlarm()) {` : null,
+    hasServo ? `            char reason[160];` : null,
+    hasServo ? `            snprintf(reason, sizeof(reason), "Alarme servo 0x%04X : %s", sureServo->getAlarmCode(), sureServo->getAlarmDescription());` : null,
+    hasServo ? `            BorneUniverselle::prepareMessage(ERROR, reason);` : null,
+    hasServo ? `            PLC_Tools::logDiagnostic(reason);` : null,
+    hasServo ? `            go(State::EMERGENCY);` : null,
+    hasServo ? `        }` : null,
     `    }`
   );
   if (ir.blocks.stop) {
     L(
-      `    // Arrêt demandé : retour en STOP (grafcet remis à zéro).`,
+      `    // Arrêt demandé : retour en ARRÊT (mouvements stoppés et grafcet remis à zéro en entrant dans ARRÊT).`,
       `    s = cur();`,
       `    if ((s == State::IDLE || s == State::RUNNING || s == State::HOMING || s == State::JOGGING) && ${cx(ir.blocks.stop)}) {`,
-      hasServo ? `        servoStop();` : null,
       `        BorneUniverselle::prepareMessage(INFO, "Arrêt demandé");`,
       `        go(State::STOP);`,
       `    }`
@@ -452,40 +487,30 @@ export function generateCpp(project, layout, ir) {
     `    computeOutputs();`,
     `    checkParams();`,
     `    updateEdges();`,
-    clockNode ? `    if (shouldShowClock()) updateClockNode(n_sys_clock);` : null,
+    clockNode ? `    if (shouldShowClock()) updateClockNode(sysClockNode);` : null,
     `    return true;`,
     `}`,
     ``
   );
 
-  // emergencyRequested
-  L(`bool ${N}::emergencyRequested(char* reason, size_t len) {`);
-  if (ir.blocks.emergency) {
-    L(
-      `    if (${cx(ir.blocks.emergency)}) {`,
-      `        snprintf(reason, len, "Arrêt d'urgence : %s", ${cstr(project.logic?.blocks?.emergency?.condition || '')});`,
-      `        return true;`,
-      `    }`
-    );
-  }
-  if (hasServo) {
-    L(
-      `    if (sureServo && sureServo->getHasAlarms()) {`,
-      `        snprintf(reason, len, "Alarme servo 0x%04X : %s", sureServo->getAlarmCode(), sureServo->getAlarmDescription());`,
-      `        return true;`,
-      `    }`
-    );
-  }
-  L(`    (void)reason; (void)len;`, `    return false;`, `}`, ``);
+  L(`bool ${N}::emergencyCondition() {`, `    return ${emergencyExpr};`, `}`, ``);
 
   // Modes
   L(`void ${N}::handleInitializing() {`);
   if (hasServo) {
     L(
+      `    if (!servoInitRequested) {`,
+      `        ServoDrive::OperationState is = sureServo->getInitializeState();`,
+      `        // Après un réarmement, SureServo relance lui-même l'initialisation : on attend sa fin.`,
+      `        if (is == ServoDrive::OperationState::DRIVE_IN_PROGRESS) return;`,
+      `        if (is == ServoDrive::OperationState::DRIVE_IDLE && sureServo->getIsInitialized()) { go(State::STOP); return; }`,
+      `    }`,
       `    ServoDrive::OperationStatus st;`,
-      `    if (!sureServo->handleInitializing(st)) { go(State::EMERGENCY); return; }`,
+      `    if (!sureServo->handleInitializing(st)) { servoInitRequested = false; go(State::EMERGENCY); return; }`,
+      `    servoInitRequested = true;`,
       `    switch (st) {`,
       `        case ServoDrive::OperationStatus::COMPLETED:`,
+      `            servoInitRequested = false;`,
       `            servoAppliedSpeed = -1;`,
       `            lastTorque = -1;`,
       `            go(State::STOP);`,
@@ -493,6 +518,7 @@ export function generateCpp(project, layout, ir) {
       `        case ServoDrive::OperationStatus::IN_PROGRESS:`,
       `            break;`,
       `        default:`,
+      `            servoInitRequested = false;`,
       `            BorneUniverselle::prepareMessage(ERROR, "Initialisation du servo en échec");`,
       `            go(State::EMERGENCY);`,
       `            break;`,
@@ -506,17 +532,12 @@ export function generateCpp(project, layout, ir) {
   const startExpr = ir.blocks.start ? cx(ir.blocks.start) : 'true';
   const stopExpr = ir.blocks.stop ? cx(ir.blocks.stop) : 'false';
   const jog = hasServo && ir.blocks.servo?.jog;
-  L(`void ${N}::handleStop() {`);
+  L(`void ${N}::handleStop() {`, `    if (${stopExpr}) return;  // arrêt maintenu`);
   if (jog) L(`    if (${cx(jog.mode)}) { go(State::JOGGING); return; }`);
-  L(`    if (!(${startExpr}) || ${stopExpr}) return;`);
+  L(`    if (!(${startExpr})) return;`);
   if (hasServo && ir.blocks.servo.homing !== 'none') {
     const homingTrigger = ir.blocks.servo.homing === 'condition' ? cx(ir.blocks.servo.homingCondition) : 'true';
-    L(
-      `    if (!servoHomeDone()) {`,
-      `        if (${homingTrigger}) go(State::HOMING);`,
-      `        return;`,
-      `    }`
-    );
+    L(`    if (!servoHomeDone()) {`, `        if (${homingTrigger}) go(State::HOMING);`, `        return;`, `    }`);
   }
   L(`    grafcetReset();`, `    go(State::IDLE);`, `}`, ``);
 
@@ -524,7 +545,8 @@ export function generateCpp(project, layout, ir) {
   if (hasServo) {
     L(
       `    ServoDrive::OperationStatus st;`,
-      `    if (!sureServo->handleHoming(st)) { go(State::EMERGENCY); return; }`,
+      `    if (!sureServo->handleHoming(st)) { servoHomingRunning = false; go(State::EMERGENCY); return; }`,
+      `    servoHomingRunning = (st == ServoDrive::OperationStatus::IN_PROGRESS);`,
       `    if (st == ServoDrive::OperationStatus::COMPLETED) {`,
       `        BorneUniverselle::prepareMessage(SUCCESS, "Prise d'origine terminée");`,
       `        grafcetReset();`,
@@ -540,9 +562,22 @@ export function generateCpp(project, layout, ir) {
   if (jog) L(`    if (${cx(jog.mode)} && grafcetInInitialSituation() && !servoIsMoving()) { go(State::JOGGING); return; }`);
   if (hasServo) L(`    servoService();`, `    if (cur() == State::EMERGENCY) return;`);
   L(
+    `    // Actions à l'activation en attente (étapes initiales après une remise à zéro).`,
     `    grafcetActivationActions();`,
     `    if (cur() == State::EMERGENCY) return;  // déclenchée par une action (ex. cible hors course)`,
-    `    grafcetEvolve();`,
+    `    // Recherche de stabilité : on franchit tant que possible dans le même cycle ; les étapes`,
+    `    // instables exécutent leurs actions à l'activation mais pas leurs actions continues.`,
+    `    for (int iter = 0; iter < MAX_EVOLUTIONS; iter++) {`,
+    `        if (!grafcetEvolve()) break;`,
+    `        if (iter == 0) for (int k = 0; k < EDGE_COUNT; k++) E[k] = S[k];  // un front ne vaut qu'une fois`,
+    `        grafcetActivationActions();`,
+    `        if (cur() == State::EMERGENCY) return;`,
+    `        if (iter == MAX_EVOLUTIONS - 1 && !unstableReported) {`,
+    `            BorneUniverselle::prepareMessage(WARNING, "Grafcet instable : boucle de franchissements sans fin");`,
+    `            unstableReported = true;`,
+    `        }`,
+    `    }`,
+    `    for (int i = 0; i < STEP_COUNT; i++) Xnew[i] = false;`,
     `    go(grafcetInInitialSituation() && !servoIsMoving() ? State::IDLE : State::RUNNING);`,
     `    updateStateDisplay();`,
     `}`,
@@ -555,28 +590,24 @@ export function generateCpp(project, layout, ir) {
       `    ServoDrive::OperationStatus st;`,
       `    sureServo->handleJogging(st);`,
       `    if (st == ServoDrive::OperationStatus::SERVO_DRIVE_ERROR) { go(State::EMERGENCY); return; }`,
-      `    if (!(${cx(jog.mode)})) {`,
-      `        if (jogForwardHeld || jogReverseHeld) sureServo->jogStop();`,
-      `        jogForwardHeld = jogReverseHeld = false;`,
-      `        go(State::STOP);`,
-      `        return;`,
-      `    }`,
+      `    if (!(${cx(jog.mode)})) { go(State::STOP); return; }  // le jog est arrêté en entrant dans ARRÊT`,
       `    int speed = (int)(${cx(jog.speed)});`,
       `    if (speed < 1) speed = 1;`,
       `    if (speed > 3000) speed = 3000;`,
       `    if (speed != lastJogSpeed && !jogForwardHeld && !jogReverseHeld) { sureServo->setJogSpeed(speed); lastJogSpeed = speed; }`,
       `    bool plus = ${cx(jog.plus)};`,
       `    bool minus = ${cx(jog.minus)};`,
-      `    // SureServo attend des appels à chaque cycle tant que le bouton est maintenu (butée, zone lente).`,
+      `    // SureServo attend un appel à chaque cycle tant que le bouton est maintenu (butée, zone lente).`,
       `    if (plus && !minus) {`,
-      `        if (jogReverseHeld) { sureServo->jogStop(); jogReverseHeld = false; }`,
-      `        jogForwardHeld = sureServo->jogForward(${maxRangePuu || 'INT32_MAX'}, 0, 10);`,
+      `        if (jogReverseHeld) { sureServo->jogStop(); jogReverseHeld = false; return; }  // arrêt envoyé avant d'inverser`,
+      `        if (!jogBlocked) { jogForwardHeld = sureServo->jogForward(${maxRangePuu || 'INT32_MAX'}, 0, 10); jogBlocked = !jogForwardHeld; }`,
       `    } else if (minus && !plus) {`,
-      `        if (jogForwardHeld) { sureServo->jogStop(); jogForwardHeld = false; }`,
-      `        jogReverseHeld = sureServo->jogReverse(servoHomeDone() ? 0 : INT32_MIN, 0, 10);`,
-      `    } else if (jogForwardHeld || jogReverseHeld) {`,
-      `        sureServo->jogStop();`,
+      `        if (jogForwardHeld) { sureServo->jogStop(); jogForwardHeld = false; return; }`,
+      `        if (!jogBlocked) { jogReverseHeld = sureServo->jogReverse(servoHomeDone() ? 0 : INT32_MIN, 0, 10); jogBlocked = !jogReverseHeld; }`,
+      `    } else {`,
+      `        if (jogForwardHeld || jogReverseHeld) sureServo->jogStop();`,
       `        jogForwardHeld = jogReverseHeld = false;`,
+      `        jogBlocked = false;`,
       `    }`
     );
   } else L(`    go(State::STOP);`);
@@ -586,18 +617,13 @@ export function generateCpp(project, layout, ir) {
     `void ${N}::handleEmergency() {`,
     `    // Seule la condition d'urgence bloque la sortie : une alarme servo est justement`,
     `    // effacée par le réarmement (startReset). Si elle persiste, l'urgence se redéclenche.`,
-    `    if (${ir.blocks.emergency ? cx(ir.blocks.emergency) : 'false'}) { emergencyClearSince = 0; return; }`,
+    `    if (emergencyCondition()) { emergencyClearSince = 0; return; }`,
     `    if (emergencyClearSince == 0) emergencyClearSince = now ? now : 1;`
   );
   if (ir.blocks.emergencyReset) L(`    if (!(${cx(ir.blocks.emergencyReset)})) return;   // acquittement`);
   else L(`    if (now - emergencyClearSince < 1000) return;   // sortie automatique après 1 s`);
   if (hasServo) {
-    L(
-      `    if (sureServo->startReset()) {`,
-      `        BorneUniverselle::prepareMessage(INFO, "Réarmement du servo…");`,
-      `        go(State::RESETTING);`,
-      `    }`
-    );
+    L(`    if (sureServo->startReset()) {`, `        BorneUniverselle::prepareMessage(INFO, "Réarmement du servo…");`, `        go(State::RESETTING);`, `    }`);
   } else L(`    BorneUniverselle::prepareMessage(SUCCESS, "Arrêt d'urgence acquitté");`, `    go(State::STOP);`);
   L(`}`, ``);
 
@@ -609,7 +635,8 @@ export function generateCpp(project, layout, ir) {
       `            return;`,
       `        case ServoDrive::OperationState::DRIVE_IDLE:`,
       `            BorneUniverselle::prepareMessage(SUCCESS, "Arrêt d'urgence acquitté");`,
-      `            go(sureServo->getIsInitialized() ? State::STOP : State::INITIALIZING);`,
+      `            // Le réarmement relance l'initialisation du variateur si elle avait été interrompue.`,
+      `            go(sureServo->getIsInitialized() && sureServo->getInitializeState() == ServoDrive::OperationState::DRIVE_IDLE ? State::STOP : State::INITIALIZING);`,
       `            return;`,
       `        default:`,
       `            BorneUniverselle::prepareMessage(ERROR, "Échec du réarmement du servo");`,
@@ -620,13 +647,9 @@ export function generateCpp(project, layout, ir) {
   } else L(`    go(State::STOP);`);
   L(`}`, ``);
 
-  // Servo service
+  // Servo
   if (hasServo) {
-    const maxRange = maxRangePuu;
-    L(
-      `void ${N}::servoService() {`,
-      `    if (!sureServo) return;`
-    );
+    L(`void ${N}::servoService() {`, `    if (!sureServo) return;`);
     if (ir.blocks.servo?.torque) {
       L(
         `    int torque = (int)(${cx(ir.blocks.servo.torque)});`,
@@ -643,6 +666,8 @@ export function generateCpp(project, layout, ir) {
       `            servoAppliedSpeed = servoPendingSpeed;`,
       `            return;`,
       `        }`,
+      `        // Après un arrêt, SureServo bloque les déplacements pendant 500 ms : on patiente.`,
+      `        if (sureServo->isImmediateStopActive()) return;`,
       `        servoMovePending = false;`,
       `        if (sureServo->startGoToPosition(servoPendingTarget, false)) {`,
       `            servoMoveActive = true;`,
@@ -674,7 +699,9 @@ export function generateCpp(project, layout, ir) {
       `    }`,
       `    if (servoHomingActive) {`,
       `        ServoDrive::OperationStatus st;`,
-      `        if (!sureServo->handleHoming(st) || (st != ServoDrive::OperationStatus::IN_PROGRESS && st != ServoDrive::OperationStatus::COMPLETED)) {`,
+      `        bool ok = sureServo->handleHoming(st);`,
+      `        servoHomingRunning = ok && st == ServoDrive::OperationStatus::IN_PROGRESS;`,
+      `        if (!ok || (st != ServoDrive::OperationStatus::IN_PROGRESS && st != ServoDrive::OperationStatus::COMPLETED)) {`,
       `            servoHomingActive = false;`,
       `            go(State::EMERGENCY);`,
       `            return;`,
@@ -685,7 +712,7 @@ export function generateCpp(project, layout, ir) {
       ``,
       `void ${N}::servoMoveTo(int32_t target, int32_t speed) {`,
       `    // Butée logicielle appliquée à toutes les cibles (cf. audit CR-1).`,
-      `    if (target < 0${maxRange ? ` || target > ${maxRange}` : ''}) {`,
+      `    if (target < 0${maxRangePuu ? ` || target > ${maxRangePuu}` : ''}) {`,
       `        char msg[120];`,
       `        snprintf(msg, sizeof(msg), "Cible servo hors course : %ld", (long)target);`,
       `        BorneUniverselle::prepareMessage(ERROR, msg);`,
@@ -705,8 +732,20 @@ export function generateCpp(project, layout, ir) {
       `    servoHomingActive = true;`,
       `}`,
       ``,
-      `void ${N}::servoStop() {`,
-      `    if (sureServo && (servoMoveActive || servoHomingActive)) sureServo->stopMovement();`,
+      `// Arrête tout mouvement en cours (déplacement, prise d'origine, jog).`,
+      `void ${N}::servoHalt(bool homingMode) {`,
+      `    if (!sureServo) return;`,
+      `    if (jogForwardHeld || jogReverseHeld) sureServo->jogStop();`,
+      `    jogForwardHeld = jogReverseHeld = jogBlocked = false;`,
+      `    bool homing = servoHomingRunning && (servoHomingActive || homingMode);`,
+      `    if (servoMoveActive || homing) sureServo->stopMovement();`,
+      `    if (homing) {`,
+      `        // stopMovement() ne réarme pas la prise d'origine interne de SureServo : un appel à`,
+      `        // handleHoming() consomme cet état, sinon la prochaine prise d'origine finirait aussitôt.`,
+      `        ServoDrive::OperationStatus st;`,
+      `        sureServo->handleHoming(st);`,
+      `    }`,
+      `    servoHomingRunning = false;`,
       `    servoMovePending = servoMoveActive = servoHomingActive = false;`,
       `    servoMoveDone = false;`,
       `}`,
@@ -717,7 +756,7 @@ export function generateCpp(project, layout, ir) {
   // Grafcet
   L(`void ${N}::grafcetClear() {`, `    for (int i = 0; i < STEP_COUNT; i++) { X[i] = false; Xnew[i] = false; Xstart[i] = 0; }`);
   for (const d of ir.driven) if (d.latch) L(`    latch_${d.sym} = false;`);
-  L(`}`, ``);
+  L(`    unstableReported = false;`, `}`, ``);
   L(`void ${N}::grafcetReset() {`, `    grafcetClear();`);
   ir.steps.forEach((s, i) => s.initial && L(`    activateStep(${i});  // étape ${s.num} initiale`));
   L(`}`, ``);
@@ -753,7 +792,7 @@ export function generateCpp(project, layout, ir) {
           lines.push(`servoStartHoming();`);
           break;
         case 'SERVO_STOP':
-          lines.push(`servoStop();`);
+          lines.push(`servoHalt();`);
           break;
         case 'MSG':
           lines.push(`BorneUniverselle::prepareMessage(${{ info: 'INFO', warning: 'WARNING', error: 'ERROR', success: 'SUCCESS' }[a.level]}, ${cstr(a.text)});`);
@@ -762,28 +801,24 @@ export function generateCpp(project, layout, ir) {
           break;
       }
     }
-    if (lines.length) L(`    if (Xnew[${i}]) {  // étape ${s.num}${s.label ? ' — ' + s.label : ''}`, ...lines.map((x) => `        ${x}`), `    }`);
+    if (lines.length) L(`    if (Xnew[${i}]) {  // étape ${s.num}${s.label ? ' — ' + comment(s.label) : ''}`, ...lines.map((x) => `        ${x}`), `    }`);
   });
-  L(`}`, ``);
+  L(`    for (int i = 0; i < STEP_COUNT; i++) Xnew[i] = false;`, `}`, ``);
 
-  L(
-    `void ${N}::grafcetEvolve() {`,
-    `    bool fire[TRANSITION_COUNT] = {};`,
-    `    bool any = false;`
-  );
+  L(`bool ${N}::grafcetEvolve() {`, `    bool fire[TRANSITION_COUNT] = {};`, `    bool any = false;`);
   ir.transitions.forEach((t, i) => {
     const up = t.from.map((k) => `X[${k}]`).join(' && ') || 'false';
     const cond = t.cond ? cx(t.cond) : 'false';
-    L(`    fire[${i}] = ${up} && ${cond};  // T${t.num}: ${String(t.text || '').replace(/\*\//g, '* /').replace(/\n/g, ' ')}`, `    any = any || fire[${i}];`);
+    L(`    fire[${i}] = ${up} && ${cond};  // T${t.num}: ${comment(t.text)}`, `    any = any || fire[${i}];`);
   });
-  L(`    for (int i = 0; i < STEP_COUNT; i++) Xnew[i] = false;`, `    if (!any) return;`, `    // Désactivation des étapes amont, puis activation des étapes aval (prioritaire).`);
+  L(`    if (!any) return false;`, `    // Désactivation des étapes amont, puis activation des étapes aval (prioritaire).`);
   ir.transitions.forEach((t, i) => {
     if (t.from.length) L(`    if (fire[${i}]) { ${t.from.map((k) => `X[${k}] = false;`).join(' ')} }`);
   });
   ir.transitions.forEach((t, i) => {
     if (t.to.length) L(`    if (fire[${i}]) { ${t.to.map((k) => `activateStep(${k});`).join(' ')} }`);
   });
-  L(`}`, ``);
+  L(`    return true;`, `}`, ``);
 
   // Sorties
   L(
@@ -793,7 +828,6 @@ export function generateCpp(project, layout, ir) {
     `    const bool emergency = (s == State::EMERGENCY || s == State::RESETTING);`,
     `    (void)run; (void)emergency;`
   );
-  // Actions continues
   const contBySym = new Map();
   const nsets = [];
   ir.steps.forEach((s, i) => {
@@ -819,7 +853,6 @@ export function generateCpp(project, layout, ir) {
     for (const { i, a } of nsets) L(`        if (X[${i}]) ${setCall(a.target, cast(cx(a.value), a.targetType, a.value.type))}`);
     L(`    }`);
   }
-  // Sorties non pilotées en continu : repli en urgence, à 0 hors fonctionnement.
   const others = outputs.filter((v) => !drivenSet.has(v.symbol) && access.get(v.symbol)?.set);
   if (others.length) {
     L(`    if (emergency) {`);
@@ -828,17 +861,18 @@ export function generateCpp(project, layout, ir) {
     for (const v of others) L(`        set_${v.symbol}(false);`);
     L(`    }`);
   }
+  for (const m of mirrors) L(`    mirror_${m.variable.symbol}->setValue(v_${m.variable.symbol}());`);
   L(`}`, ``);
 
-  L(`void ${N}::updateEdges() {`);
-  ir.edges.forEach((e, i) => L(`    E[${i}] = ${cx(e.ast)};`));
-  L(`}`, ``);
+  L(`void ${N}::captureEdges() {`);
+  ir.edges.forEach((e, i) => L(`    S[${i}] = ${raw(e.ast)};`));
+  L(`}`, ``, `void ${N}::updateEdges() {`, `    for (int k = 0; k < EDGE_COUNT; k++) E[k] = S[k];`, `}`, ``);
 
   // Affichage de l'état
   L(`void ${N}::updateStateDisplay() {`);
   if (stateNode) {
     L(
-      `    if (!n_sys_state) return;`,
+      `    if (!sysStateNode) return;`,
       `    char text[160];`,
       `    int n = snprintf(text, sizeof(text), "%s", stateToString(static_cast<int>(cur())));`,
       `    if (cur() == State::IDLE || cur() == State::RUNNING) {`,
@@ -847,15 +881,10 @@ export function generateCpp(project, layout, ir) {
       `            if (X[i]) n += snprintf(text + n, sizeof(text) - n, " X%d", STEP_NUMBERS[i]);`,
       `        }`,
       `    }`,
-      `    if (strcmp(n_sys_state->getValue(), text) != 0) n_sys_state->setValue(text);`
+      `    if (strcmp(sysStateNode->getValue(), text) != 0) sysStateNode->setValue(text);`
     );
   }
   L(`}`, ``);
-  if (stateNode) {
-    // Déclaration statique des numéros d'étape (définition hors classe, compatible C++11).
-    H.splice(H.indexOf(`    bool X[STEP_COUNT] = {};          // étapes actives`), 0, `    static const int STEP_NUMBERS[STEP_COUNT];`);
-    C.splice(C.indexOf(`${N}::~${N}() {}`), 0, `const int ${N}::STEP_NUMBERS[${N}::STEP_COUNT] = { ${ir.steps.length ? ir.steps.map((s) => s.num).join(', ') : '0'} };`, ``);
-  }
 
   // Paramètres
   L(`bool ${N}::readParams() {`, `    SafeJsonDocument doc(4096);`, `    PLC_Persistence& p = PLC_Persistence::getInstance();`, `    if (!p.readJsonFromFile(PARAMS_FILE, doc)) {`, `        Serial.printf("${N}: %s absent ou illisible, valeurs par défaut utilisées\\n", PARAMS_FILE);`, `        p.markDirty(PARAMS_FILE);`, `        return false;`, `    }`);
@@ -877,12 +906,11 @@ export function generateCpp(project, layout, ir) {
 
   L(`void ${N}::checkParams() {`, `    bool dirty = false;`);
   for (const v of params) {
-    const hasMin = v.min !== undefined && v.min !== '' && v.dataType !== 'text' && v.dataType !== 'bool';
-    const hasMax = v.max !== undefined && v.max !== '' && v.dataType !== 'text' && v.dataType !== 'bool';
-    if (hasMin) L(`    if (v_${v.symbol}() < ${cppLiteral(v.min, v.dataType)}) set_${v.symbol}(${cppLiteral(v.min, v.dataType)});`);
-    if (hasMax) L(`    if (v_${v.symbol}() > ${cppLiteral(v.max, v.dataType)}) set_${v.symbol}(${cppLiteral(v.max, v.dataType)});`);
-    if (v.dataType === 'text') L(`    if (saved_${v.symbol} != v_${v.symbol}()) { saved_${v.symbol} = v_${v.symbol}(); dirty = true; }`);
-    else L(`    if (saved_${v.symbol} != v_${v.symbol}()) { saved_${v.symbol} = v_${v.symbol}(); dirty = true; }`);
+    const numeric = v.dataType === 'int' || v.dataType === 'float';
+    const has = (x) => numeric && x !== undefined && x !== null && x !== '' && Number.isFinite(Number(x));
+    if (has(v.min)) L(`    if (v_${v.symbol}() < ${cppLiteral(v.min, v.dataType)}) set_${v.symbol}(${cppLiteral(v.min, v.dataType)});`);
+    if (has(v.max)) L(`    if (v_${v.symbol}() > ${cppLiteral(v.max, v.dataType)}) set_${v.symbol}(${cppLiteral(v.max, v.dataType)});`);
+    L(`    if (saved_${v.symbol} != v_${v.symbol}()) { saved_${v.symbol} = v_${v.symbol}(); dirty = true; }`);
   }
   L(`    if (dirty) PLC_Persistence::getInstance().markDirty(PARAMS_FILE);`, `}`, ``);
 
@@ -934,22 +962,27 @@ export function generateCpp(project, layout, ir) {
     `}`,
     ``,
     `void ${N}::onStateEnter(int newState, int oldState) {`,
-    `    (void)oldState;`,
     `    // Pas de changement d'état ici (règle BusinessLogic).`,
     `    switch (static_cast<State>(newState)) {`,
     `        case State::EMERGENCY:`,
-    hasServo ? `            if (sureServo) sureServo->emergencyStop();` : null,
-    hasServo ? `            servoMovePending = servoMoveActive = servoHomingActive = false;` : null,
-    hasServo ? `            jogForwardHeld = jogReverseHeld = false;` : null,
+    hasServo ? `            if (sureServo) {` : null,
+    hasServo ? `                if (jogForwardHeld || jogReverseHeld) sureServo->jogStop();  // remet à zéro le jog interne` : null,
+    hasServo ? `                sureServo->emergencyStop();` : null,
+    hasServo ? `            }` : null,
+    hasServo ? `            servoMovePending = servoMoveActive = servoHomingActive = servoHomingRunning = false;` : null,
+    hasServo ? `            jogForwardHeld = jogReverseHeld = jogBlocked = false;` : null,
+    hasServo ? `            servoInitRequested = false;` : null,
     `            emergencyClearSince = 0;`,
     `            grafcetClear();`,
     `            break;`,
     `        case State::STOP:`,
+    hasServo ? `            servoHalt(oldState == static_cast<int>(State::HOMING));` : null,
     `            grafcetClear();`,
     `            break;`,
     `        default:`,
     `            break;`,
     `    }`,
+    hasServo ? null : `    (void)oldState;`,
     `    updateStateDisplay();`,
     `}`,
     ``,
@@ -990,8 +1023,8 @@ export function generateCpp(project, layout, ir) {
   L(`}`, ``);
 
   return {
-    header: H.join('\n') + '\n',
-    source: C.filter((x) => x !== null).join('\n') + '\n',
+    header: H.filter((x) => x !== null && x !== undefined).join('\n') + '\n',
+    source: C.join('\n') + '\n',
   };
 }
 

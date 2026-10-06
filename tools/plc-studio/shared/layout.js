@@ -110,6 +110,7 @@ export function buildLayout(project) {
   });
 
   const hardwareVariants = [];
+  const mirrorVars = []; // voies de bancs Waveshare : recopiées dans un nœud booléen pour l'écran
   for (const eq of ordered) {
     const entry = CATALOG[eq.type];
     if (!entry) {
@@ -142,6 +143,7 @@ export function buildLayout(project) {
         });
         for (const { bit, v } of bits) {
           nodes.set(`var:${v.uid}`, { ...bank, ref: `var:${v.uid}`, bankRef: bank.ref, bit, variable: v.uid });
+          mirrorVars.push(v);
         }
         continue;
       }
@@ -177,6 +179,13 @@ export function buildLayout(project) {
         addNode(section, { id: n.id, name: n.name, ref: `servo:${n.field}`, extra, cppClass: n.cpp, label: n.label || n.name, field: n.field });
       }
     }
+  }
+
+  // Le firmware envoie un banc entier sous forme de texte « 0101… » : un voyant lié au banc
+  // serait toujours allumé. Chaque voie a donc un nœud miroir (tx-bool) recopié par la logique.
+  if (mirrorVars.length) {
+    const section = addSection({ name: 'Miroirs ES', hardware: 'virtual', type: 'tx-bool', nodes: [] });
+    mirrorVars.slice(0, 255).forEach((v, k) => addNode(section, { id: k + 1, name: v.symbol, ref: `mirror:${v.uid}`, extra: {}, variable: v.uid, label: v.label }));
   }
 
   // 2. Variables internes -> sections virtuelles.

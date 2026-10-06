@@ -773,7 +773,7 @@ function helpPanel(store) {
           row('Depart ET NON Porte', 'opérateurs logiques (aussi AND/OR/NOT ou && || !)'),
           row('FM(Bouton)   ↑Bouton', 'front montant (FD / ↓ : front descendant)'),
           row('X3', 'étape 3 active'),
-          row('X3.t >= 5s   ou   t/X3/5s', 'étape 3 active depuis 5 s (ms, s, min, h)'),
+          row('X3.t >= 5s   ou   t/X3/5s', 'étape 3 active depuis 5 s (unités : ms, s, min, h ; un nombre seul comparé à X3.t est en ms)'),
           row('Compteur >= Nb_pieces', 'comparaisons : =  <>  <  <=  >  >='),
           row('(Cible + 100) * 2', 'arithmétique : + − * / % (division entière entre entiers)'),
           row('MIN(a, b)  MAX(a, b)  ABS(a)', 'fonctions'),
@@ -812,7 +812,7 @@ function helpPanel(store) {
       h(
         'p',
         { class: 'hint', style: { marginTop: '10px' } },
-        'Cycle d’exécution : actions à l’activation des étapes activées au cycle précédent → franchissement simultané des transitions validées → actions continues et sorties → mémorisation des fronts. Une sortie pilotée par N/S/R vaut le OU de toutes ses actions.'
+        'Cycle d’exécution (10 ms) : capture des fronts → franchissement simultané des transitions validées, répété tant que possible (recherche de stabilité) avec exécution des actions à l’activation → actions continues et sorties. Une étape franchie dans le même cycle (instable) n’active pas ses actions continues. Un front (FM/FD) ne vaut qu’une fois par cycle. Une sortie pilotée par N/S/R vaut le OU de toutes ses actions.'
       )
     )
   );

@@ -168,3 +168,121 @@ test('sans servo : démarrage direct en repos', () => {
   assert.deepEqual(sim.activeSteps(), [0]);
   assert.equal(sim.get('Pieces'), 1);
 });
+
+// ---------------------------------------------------------------------------
+// Régressions trouvées en relecture
+
+test('arrêt pendant le jog : le jog s’arrête et ne repart pas', () => {
+  const sim = boot();
+  sim.set('Jog', true);
+  sim.run(20);
+  sim.set('JogP', true);
+  sim.run(300);
+  assert.equal(sim.mode, 'JOGGING');
+  sim.set('Arret', true);
+  sim.run(50);
+  assert.equal(sim.mode, 'STOP'); // pas de va-et-vient ARRÊT/MANUEL tant que l'arrêt est maintenu
+  assert.equal(sim.servo.jogDir, 0);
+  const p = sim.servo.position;
+  sim.set('JogP', false);
+  sim.set('Jog', false);
+  sim.set('Arret', false);
+  sim.run(500);
+  assert.equal(sim.servo.position, p);
+  assert.equal(sim.mode, 'IDLE');
+});
+
+test('arrêt pendant la prise d’origine : mouvement stoppé, la suivante se fait vraiment', () => {
+  const p = pressProject();
+  const sim = new Simulator(p);
+  sim.set('AU_OK', true);
+  sim.servo.position = 300000; // loin de l'origine
+  sim.run(1100); // initialisation puis début de la prise d'origine
+  assert.equal(sim.mode, 'HOMING');
+  assert.ok(sim.servo.position < 300000);
+  sim.set('Arret', true);
+  sim.run(20);
+  assert.equal(sim.mode, 'STOP');
+  const p1 = sim.servo.position;
+  sim.run(300);
+  assert.equal(sim.servo.position, p1); // plus de mouvement
+  assert.equal(sim.servo.homeDone, false);
+  sim.set('Arret', false);
+  sim.run(20);
+  assert.equal(sim.mode, 'HOMING');
+  sim.run(1000);
+  assert.equal(sim.mode, 'HOMING'); // pas de « succès » immédiat
+  sim.run(12000);
+  assert.equal(sim.mode, 'IDLE');
+  assert.equal(sim.servo.position, 0);
+  assert.ok(sim.servo.homeDone);
+});
+
+test('urgence pendant l’initialisation du servo : sortie normale après acquittement', () => {
+  const sim = new Simulator(pressProject());
+  sim.run(300); // AU_OK = faux dès la mise sous tension
+  assert.equal(sim.mode, 'EMERGENCY');
+  sim.set('AU_OK', true);
+  sim.set('Acquit', true);
+  sim.run(100);
+  sim.set('Acquit', false);
+  sim.run(3000);
+  assert.equal(sim.mode, 'IDLE');
+  assert.ok(sim.servo.initialized);
+});
+
+test('fronts sur une étape et sur une sortie pilotée', () => {
+  const p = pressProject({ servo: false });
+  p.logic.transitions[1].condition = 'FM(X1) ET Verin'; // Verin vrai en X1 (action N)
+  const sim = new Simulator(p);
+  sim.set('AU_OK', true);
+  sim.set('Piece', true);
+  sim.run(500);
+  sim.set('Depart', true);
+  sim.run(50);
+  assert.deepEqual(sim.activeSteps(), [2, 3]);
+  const p2 = pressProject({ servo: false });
+  p2.logic.transitions[1].condition = 'FM(Verin)';
+  const sim2 = new Simulator(p2);
+  sim2.set('AU_OK', true);
+  sim2.set('Piece', true);
+  sim2.run(500);
+  sim2.set('Depart', true);
+  sim2.run(50);
+  assert.deepEqual(sim2.activeSteps(), [2, 3]);
+});
+
+test('étape instable : pas d’impulsion de ses actions continues, actions à l’activation exécutées', () => {
+  const p = pressProject({ servo: false });
+  // X4 (Pieces + 1, message) est franchie dans le même cycle (T3 = VRAI) ; on ajoute une N sur X4.
+  p.logic.steps[4].actions.push({ type: 'N', target: 'Defaut' });
+  const sim = new Simulator(p);
+  sim.set('AU_OK', true);
+  sim.set('Piece', true);
+  sim.run(500);
+  sim.set('Depart', true);
+  sim.set('Verin_sorti', true);
+  let pulse = false;
+  for (let i = 0; i < 300; i++) {
+    sim.scan();
+    if (sim.get('Defaut')) pulse = true;
+  }
+  assert.equal(pulse, false);
+  assert.equal(sim.get('Pieces'), 1);
+  assert.ok(sim.messages.some((m) => m.text === 'Pièce terminée'));
+});
+
+test('arrêt puis déplacement immédiat du servo : attente du verrou de 500 ms, pas d’urgence', () => {
+  const p = pressProject();
+  p.logic.steps[2].actions = [{ type: 'SERVO_STOP' }, { type: 'SERVO_MOVE', position: 'Cible', speed: 'Vitesse' }];
+  const sim = boot(p);
+  sim.set('Depart', true);
+  sim.set('Verin_sorti', true);
+  sim.run(200);
+  sim.servoHalt(); // arrêt explicite pendant le déplacement…
+  sim.servoMoveTo(1000, 5); // …suivi aussitôt d'un nouveau déplacement
+  sim.run(100);
+  assert.notEqual(sim.mode, 'EMERGENCY');
+  sim.run(1000);
+  assert.notEqual(sim.mode, 'EMERGENCY');
+});
