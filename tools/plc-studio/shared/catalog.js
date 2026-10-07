@@ -680,8 +680,8 @@ export const MODBUS_TRANSPORT_OPTIONS = [
     type: 'select',
     default: 'rtu',
     choices: [
-      { value: 'rtu', label: 'RS485 de l’automate (Modbus RTU)' },
-      { value: 'tcp', label: 'Réseau WiFi / Ethernet (Modbus TCP)' },
+      { value: 'rtu', label: 'RS485 (Modbus RTU)' },
+      { value: 'tcp', label: 'Réseau (Modbus TCP)' },
     ],
     help: 'TCP : équipement Modbus TCP, ou passerelle TCP → RTU (l’adresse devient le n° d’unité).',
   },
