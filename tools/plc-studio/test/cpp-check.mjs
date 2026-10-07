@@ -7,7 +7,7 @@
 // complète, compiler avec PlatformIO (pio run -e quatre_mb_huge) après installation du projet.
 
 import { checkCppSyntax } from '../cli/cppcheck.mjs';
-import { pressProject, hardwareFiles, mainCpp, repo } from './fixtures.js';
+import { pressProject, multiAxisProject, hardwareFiles, mainCpp, repo } from './fixtures.js';
 
 // Variante « noms piégeux » : symbole qui est une macro du framework, course non entière.
 const tricky = (p) => {
@@ -22,6 +22,8 @@ const results = checkCppSyntax(
     { label: 'Avec servo', project: pressProject({ servo: true }) },
     { label: 'Sans servo', project: pressProject({ servo: false }) },
     { label: 'Noms piégeux', project: tricky(pressProject({ servo: true })) },
+    { label: 'Axes multiples (2 SureServo + pas-à-pas)', project: multiAxisProject() },
+    { label: 'Axes multiples + Lichuan A6 et A5', project: multiAxisProject({ lichuan: true }) },
   ],
   { repo, hardwareFiles: hardwareFiles(), mainCpp: mainCpp() }
 );

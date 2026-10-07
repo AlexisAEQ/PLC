@@ -53,22 +53,28 @@ Vous pouvez revenir à n'importe quelle étape : tout est recalculé et revérif
 
 1. **Projet** : nom (classe C++ et fichier de paramètres), nom réseau, mode
    d'exécution, réseaux WiFi, options du journal.
-2. **Équipements** : automate Kincony KC868-A8S, modules Waveshare (8DIO, 16DO,
-   8AI), servo SureServo 2. L'automate est toujours déclaré en premier (il porte le
-   bus RS485, sinon le firmware bloque au démarrage).
+2. **Équipements** : un automate parmi KinCony KC868-A8S, KC868-A16, KC868-A16v3,
+   KC868-A8v3, Waveshare ESP32-S3-POE-ETH-8DI-8DO, Waveshare ESP32-S3-RS485-WLED,
+   M5Stack StamPLC, Homemaster MiniPLC (chacun indique son environnement PlatformIO) ;
+   modules Waveshare (8DIO, 16DO, 8AI) ; autant d'axes que nécessaire : SureServo 2,
+   Lichuan A6 / A5 (Modbus), moteurs pas-à-pas STEP/DIR. L'automate est toujours
+   déclaré en premier (il porte le bus RS485, sinon le firmware bloque au démarrage).
 3. **Câblage et variables** : on tape ce qui est branché sur chaque voie ; on crée
    les variables internes (commandes, paramètres sauvegardés, indicateurs,
-   mémoires). Les signaux du servo (servo ON, arrêt immédiat, reset alarmes) se
-   câblent sur des sorties de l'automate.
+   mémoires). Les signaux des axes (servo ON, arrêt immédiat, reset alarmes ; STEP,
+   DIR, ENABLE, capteur d'origine, fins de course des pas-à-pas) se câblent sur des
+   voies de l'automate ; STEP et DIR exigent une sortie GPIO directe.
 4. **Logique (grafcet)** : éditeur visuel (étapes, transitions, divergences et
    convergences ET/OU, reprises), actions (continue N, S/R, affectation, compteur,
-   servo, message) et onglet « Modes et sécurités » (arrêt d'urgence et
-   acquittement, marche/arrêt, prise d'origine, jog, couple du servo).
+   déplacement / origine / arrêt d'un axe, message) et onglet « Modes et sécurités »
+   (arrêt d'urgence et acquittement, marche/arrêt, puis pour chaque axe : prise
+   d'origine et son ordre, jog, couple). Dans les expressions, un axe se désigne par
+   son nom : `Axe_X.enPosition` (`Servo.` pour l'axe unique).
 5. **Écrans opérateur** : éditeur visuel de `interface.json` (voir ci-dessous).
 6. **Simulation** : le projet tourne dans le navigateur avec le même moteur que le
    code C++ généré (cycle de 10 ms) : grafcet animé (étapes actives et leur temps),
-   forçage des entrées, commandes de l'écran, paramètres, sorties, modèle simplifié du
-   servo (déplacement, prise d'origine, jog, alarmes), messages et journal. Lecture
+   forçage des entrées, commandes de l'écran, paramètres, sorties, modèle simplifié de
+   chaque axe (déplacement, prise d'origine, jog, alarmes), messages et journal. Lecture
    en continu (× 0,25 à × 20), cycle par cycle ou par seconde.
 7. **Génération** : vérification, aperçu des fichiers avec différences, export.
 
@@ -145,10 +151,13 @@ ARRÊT / REPOS → MANUEL (jog) → ARRÊT
   exactement le même ordre.
 - Les voies des modules Waveshare (un seul nœud par module) sont recopiées dans des
   nœuds « Miroirs ES » pour être affichées correctement à l'écran.
-- En urgence, chaque sortie prend son état de repli (à 0, à 1 ou maintenue), le servo
-  est arrêté et le grafcet remis à zéro.
-- Servo : toute cible est comparée à la course maximale (audit CR-1) ; le jog est
-  appelé à chaque cycle tant que le bouton est maintenu (audit CR-3).
+- En urgence, chaque sortie prend son état de repli (à 0, à 1 ou maintenue), les axes
+  sont arrêtés et le grafcet remis à zéro.
+- Axes : un `AxisController` (`src/AxisController`) par axe, quel que soit le drive
+  (`SureServo`, `LichuanServo`, `StepperMotor`) : initialisations en parallèle, prises
+  d'origine par ordre, toute cible comparée à la course maximale (audit CR-1), jog
+  appelé à chaque cycle tant que le bouton est maintenu (audit CR-3), réarmement de
+  tous les variateurs après une urgence.
 - Les paramètres sont relus au démarrage depuis `data/<Nom>.json` (valeurs par défaut
   si le fichier ou une clé manque), bornés par leurs min/max et sauvegardés quand ils
   changent.
@@ -217,7 +226,8 @@ installation, compilez avec PlatformIO (`pio run -e quatre_mb_huge`).
 
 ## Ajouter un équipement au catalogue
 
-1. Créez (ou réutilisez) le fichier `data/hardware/<Nom>.json` lu par le firmware.
+1. Créez (ou réutilisez) le fichier `data/hardware/<Nom>.json` lu par le firmware
+   (format des cartes : `docs/cartes.md`).
 2. Ajoutez une entrée dans `tools/plc-studio/shared/catalog.js` : `hardware` (nom du
    fichier), `role`, `modbus`/`defaultAddress` et des `groups` dont `type` est le type
    de section `config.json` et `ids` les identifiants du tableau correspondant dans le
@@ -232,9 +242,11 @@ installation, compilez avec PlatformIO (`pio run -e quatre_mb_huge`).
   en-têtes du dépôt ; la compilation complète se fait avec PlatformIO sur le poste.
 - **Ancienne application** : après installation, `src/RessortRoyal2/` reste compilé
   (inutilisé) ; supprimez-le ou excluez-le si la place en flash manque.
-- **Servo** : un seul SureServo par projet ; le simulateur utilise un modèle simplifié
-  (vitesses et temps indicatifs).
+- **Axes** : le simulateur utilise un modèle simplifié de chaque variateur (vitesses et
+  temps indicatifs) ; les drives Lichuan et pas-à-pas n'ont pas encore été essayés sur
+  du matériel (voir `docs/axes/`).
 - **Import** : un projet existant écrit à la main (config.json + classe C++) ne peut pas
   être importé dans PLC Studio.
-- Sur la carte Kincony A8S, GPIO2 (buzzer) est remis à 0 par `main.cpp` à chaque
-  connexion WiFi.
+- Le buzzer de la carte (GPIO2 sur la KC868-A8S, voie `BUZZER` des autres cartes) est
+  remis au repos par `main.cpp` à chaque connexion WiFi.
+- **Réseau** : WiFi seulement ; l'Ethernet des cartes qui en ont n'est pas utilisé.

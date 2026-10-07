@@ -113,7 +113,8 @@ export function validateProject(project, layout = buildLayout(project)) {
     const key = a.symbol.toLowerCase();
     if (axisSymbols.has(key)) err('equipment', `Les axes « ${axisSymbols.get(key)} » et « ${a.label} » ont le même nom dans les expressions (${a.symbol}) : renommez l'un des deux.`, a.uid);
     axisSymbols.set(key, a.label);
-    if (/^X\d+$/i.test(a.symbol) || EXPR_RESERVED.has(a.symbol.toUpperCase()) || ['FM', 'FD'].includes(a.symbol.toUpperCase())) {
+    const upper = a.symbol.toUpperCase();
+    if (/^X\d+$/i.test(a.symbol) || (upper !== 'SERVO' && EXPR_RESERVED.has(upper))) {
       err('equipment', `L'axe « ${a.label} » porte un nom réservé dans les expressions (${a.symbol}) : renommez-le.`, a.uid);
     }
   }
@@ -138,7 +139,7 @@ export function validateProject(project, layout = buildLayout(project)) {
     if (v.kind === 'input' || v.kind === 'output') {
       if (!v.binding?.eq) {
         if (v.system && !signalDef(project, v)?.optional) err('variables', `${where} : signal obligatoire, câblez-le sur une ${v.kind === 'input' ? 'entrée' : 'sortie'}.`, v.uid);
-        else warn('variables', `${where} : pas encore câblée sur une voie.`, v.uid);
+        else if (!v.system) warn('variables', `${where} : pas encore câblée sur une voie.`, v.uid);
       } else {
         const eq = project.equipment.find((e) => e.uid === v.binding.eq);
         const group = eq && CATALOG[eq.type]?.groups.find((g) => g.key === v.binding.group);

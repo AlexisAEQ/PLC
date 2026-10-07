@@ -159,6 +159,28 @@ function axisCreate(a, N) {
         `    }`
       );
       break;
+    case 'lichuan': {
+      const accel = Math.max(0, Math.min(65535, Math.round(Number(o.accelTime) || 0)));
+      lines.push(
+        `    if (!axNodes_${s}.validateRequired()) { ${broken(`nœuds obligatoires de l'axe « ${a.label} » manquants`)} return false; }`,
+        `    axDrive_${s}.reset(new LichuanServo(LichuanFamily::${a.def.family === 'A5' ? 'A5' : 'A6'}, axNodes_${s}, ${cstr(a.label)}));`
+      );
+      if (accel) lines.push(`    axDrive_${s}->setAccelTime(${accel});`);
+      break;
+    }
+    case 'stepper': {
+      const factor = Math.max(1, Math.round(Number(o.stepsPerUnit) || 1));
+      const maxSteps = Math.max(0, Math.round((Number(o.maxRange) || 0) * factor));
+      const accel = Math.max(1, Math.round(Number(o.acceleration) || 5000));
+      lines.push(
+        `    if (!axNodes_${s}.validateRequired()) { ${broken(`STEP et DIR de l'axe « ${a.label} » doivent être câblés sur des sorties GPIO directes`)} return false; }`,
+        `    axDrive_${s}.reset(new StepperMotor(${factor}, axNodes_${s}, ${maxSteps}, ${cstr(a.label)}, ${accel}));`,
+        `    axDrive_${s}->setHomingParameters(${Number(o.homingDirection) > 0 ? 1 : -1}, ${Math.max(1, Math.round(Number(o.homingSpeed) || 1000))}, ${Math.max(0, Math.round(Number(o.homingBackoff) || 0))});`,
+        `    axDrive_${s}->setDirectionInverted(${o.invertDirection === true ? 'true' : 'false'});`,
+        `    axDrive_${s}->setEnableActiveLow(${o.enableActiveLow === false ? 'false' : 'true'});`
+      );
+      break;
+    }
     default:
       throw new Error(`Type d'axe non géré par le générateur : ${a.eq.type}`);
   }
@@ -444,7 +466,8 @@ export function generateCpp(project, layout, ir) {
         if (!ref.startsWith(`axis:${a.uid}:`)) continue;
         L(`    initNodePtr(axNodes_${a.symbol}.${node.field}, ${N}Nodes::H_AX_${a.symbol}_${ident(node.field)}, context);`);
       }
-      for (const v of project.variables.filter((x) => x.system?.eq === a.uid)) {
+      // Signaux câblés (les signaux facultatifs non câblés restent à nullptr).
+      for (const v of project.variables.filter((x) => x.system?.eq === a.uid && layout.nodes.has(`var:${x.uid}`))) {
         L(...axisSignalAssign(a, v));
       }
       L(...axisCreate(a, N));

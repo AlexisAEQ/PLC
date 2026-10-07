@@ -1,6 +1,7 @@
 // Champ d'expression (réceptivité, valeur) avec vérification immédiate et suggestions.
 
-import { tryParse, projectContext, SERVO_PROPS } from '/shared/expr.js';
+import { tryParse, projectContext, AXIS_PROPS } from '/shared/expr.js';
+import { axisList } from '/shared/axes.js';
 import { h } from './ui.js';
 
 const KEYWORDS = ['ET', 'OU', 'NON', 'VRAI', 'FAUX', 'FM(', 'FD(', 'MIN(', 'MAX(', 'ABS('];
@@ -41,7 +42,7 @@ export function exprInput(store, obj, key, options = {}) {
   const candidates = () => {
     const vars = store.project.variables.map((v) => ({ text: v.symbol, hint: v.label }));
     const stp = [...steps()].map((n) => ({ text: `X${n}`, hint: `étape ${n}` }));
-    const srv = store.project.equipment.some((e) => e.type === 'SureServo') ? Object.entries(SERVO_PROPS).map(([k, d]) => ({ text: `Servo.${k}`, hint: d.label })) : [];
+    const srv = axisList(store.project).flatMap((a) => Object.entries(AXIS_PROPS).map(([k, d]) => ({ text: `${a.symbol}.${k}`, hint: `${a.label} : ${d.label}` })));
     const kw = KEYWORDS.map((k) => ({ text: k, hint: 'mot-clé' }));
     return [...vars, ...stp, ...srv, ...kw];
   };

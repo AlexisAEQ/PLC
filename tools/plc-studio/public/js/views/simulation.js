@@ -135,8 +135,10 @@ export function renderSimulation(root, store) {
   if (indicators.length) side.append(card('Indicateurs et mémoires', ...indicators.map((v) => readOnly(v, /defaut|alarme|erreur/i.test(v.symbol)))));
   if (params.length) side.append(card('Paramètres', ...params.map(writable)));
 
-  if (sim.servo) {
-    const s = sim.servo;
+  // Un panneau par axe (modèle simplifié du variateur).
+  for (const axis of sim.axes) {
+    const s = axis.drive;
+    const unit = sim.axisDefs.find((a) => a.uid === axis.uid)?.entry.axis || {};
     const pos = h('div', { class: 'servo-pos' });
     const target = h('div', { class: 'servo-target' });
     const posText = h('span', { class: 'mono' });
@@ -149,19 +151,19 @@ export function renderSimulation(root, store) {
     flags.append(
       flag('Prêt', () => s.ready),
       flag('Origine faite', () => s.homeDone),
-      flag('En mouvement', () => sim.servoIsMoving() || s.jogDir !== 0),
-      flag('En position', () => sim.servoMoveDone),
+      flag('En mouvement', () => axis.isMoving() || s.jogDir !== 0),
+      flag('En position', () => axis.inPosition()),
       flag('Alarme', () => s.alarm, true)
     );
-    const range = sim.maxRangePuu || 1000000;
+    const range = axis.cfg.maxPosition || Math.max(1000, Math.abs(s.position) * 2, Math.abs(s.target) * 2);
     updaters.push(() => {
       pos.style.left = `${Math.max(0, Math.min(100, (s.position / range) * 100))}%`;
       target.style.left = `${Math.max(0, Math.min(100, (s.target / range) * 100))}%`;
-      posText.textContent = `${s.position} / ${range} impulsions · vitesse ${s.speedIdx}`;
+      posText.textContent = `${s.position} / ${range} ${unit.positionUnit || 'impulsions'} · vitesse ${s.speedIdx} ${unit.speedUnit || ''}`;
     });
     side.append(
       card(
-        'Servo (modèle simplifié)',
+        `${axis.label} (modèle simplifié)`,
         posText,
         h('div', { class: 'servo-track' }, target, pos),
         flags,

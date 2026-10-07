@@ -69,14 +69,23 @@ Conséquences :
 | `MIN(a, b)` `MAX(a, b)` `ABS(a)` | fonctions |
 | `Recette = "A"` | texte : `=` et `<>` seulement |
 | `VRAI` `FAUX` | constantes |
-| `Servo.pret` `Servo.enPosition` `Servo.enMouvement` `Servo.origineFaite` `Servo.alarme` `Servo.position` | état du servo |
+| `Servo.pret` `Servo.enPosition` `Servo.enMouvement` `Servo.origineFaite` `Servo.alarme` `Servo.position` | état de l'axe (`Axe_X.…` avec plusieurs axes) |
 
 Symboles sensibles à la casse. Une réceptivité doit être booléenne ; une valeur
 (`SET`, `SERVO_MOVE`) peut être numérique ou texte selon la cible.
 
-## Servo
+## Axes (servo)
 
-- `SERVO_MOVE pos @ vitesse` à l'activation : vitesse = index 0-15 ; une cible négative ou
+Ce qui suit vaut pour chaque axe : `Servo.` désigne l'axe unique d'un projet ; avec
+plusieurs axes, on écrit `<Axe>.propriété` (`Axe_X.enPosition`, nom de l'équipement en
+symbole) et `SERVO_MOVE[axe_x] …`. Les axes sont indépendants : un `SERVO_MOVE` par axe dans
+la même étape les fait partir ensemble ; attendre `Axe_X.enPosition ET Axe_Y.enPosition`.
+Les variateurs s'initialisent en parallèle ; les prises d'origine suivent `homingOrder`.
+Une alarme sur n'importe quel axe met la machine en URGENCE ; le réarmement acquitte tous
+les variateurs. Unités par type : SureServo impulsions et index de vitesse 0-15 ; Lichuan
+impulsions et tr/min ; pas-à-pas pas et pas/s.
+
+- `SERVO_MOVE pos @ vitesse` à l'activation : vitesse = index 0-15 (SureServo) ; une cible négative ou
   au-delà de la course maximale (`maxRange` × `pulsesPerUnit`) **met la machine en URGENCE**
   (« Cible servo hors course ») : borner les paramètres de position avec `min`/`max`.
   `Servo.enPosition` devient vrai à la fin du déplacement et retombe au déplacement

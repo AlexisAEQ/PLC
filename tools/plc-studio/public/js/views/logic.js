@@ -1,7 +1,9 @@
 // Étape 4 : éditeur de grafcet et modes de marche.
 
 import { ACTION_TYPES, normalizeLogic, starterGrafcet, isWritable, compileLogic, actionText } from '/shared/grafcet.js';
-import { SERVO_PROPS } from '/shared/expr.js';
+import { AXIS_PROPS } from '/shared/expr.js';
+import { axisList } from '/shared/axes.js';
+import { DEFAULT_AXIS_BLOCK } from '/shared/model.js';
 import { h, input, checkbox, select, card, pageHead, button, confirmDialog, issueList } from '../ui.js';
 import { exprInput } from '../exprinput.js';
 
@@ -31,7 +33,7 @@ const newId = (p) => `${p}_${Math.random().toString(36).slice(2, 9)}`;
 
 export function renderLogic(root, store) {
   const p = store.project;
-  p.logic = { ...normalizeLogic(p.logic), ...p.logic, blocks: normalizeLogic(p.logic).blocks };
+  p.logic = { ...normalizeLogic(p.logic, p), ...p.logic, blocks: normalizeLogic(p.logic, p).blocks };
   p.logic.steps = p.logic.steps || [];
   p.logic.transitions = p.logic.transitions || [];
 
@@ -201,7 +203,7 @@ export function drawGrafcet(svg, store, { onSelect, onDragEnd, sim = null }) {
   // Bornes du dessin
   const xs = [...logic.steps.map((x) => x.x), ...logic.transitions.map((x) => x.x)];
   const ys = [...logic.steps.map((x) => x.y), ...logic.transitions.map((x) => x.y)];
-  const actionWidth = (st) => (st.actions.length ? Math.max(...st.actions.map((a) => actionText(a).length)) * 7 + 24 : 0);
+  const actionWidth = (st) => (st.actions.length ? Math.max(...st.actions.map((a) => actionText(a, axisNameOf(store.project)).length)) * 7 + 24 : 0);
   const maxRight = Math.max(400, ...logic.steps.map((st) => st.x + STEP_W / 2 + 20 + actionWidth(st)), ...logic.transitions.map((t) => t.x + 40 + String(t.condition || '').length * 7.2));
   const minX = Math.min(0, ...xs, ...logic.steps.map((st) => st.x - (st.label ? st.label.length * 6.5 : 0))) - 160;
   const minY = Math.min(0, ...ys) - 60;
@@ -311,7 +313,7 @@ export function drawGrafcet(svg, store, { onSelect, onDragEnd, sim = null }) {
       );
       st.actions.forEach((a, i) => {
         if (i > 0) g.append(s('line', { x1: ax, y1: -hgt / 2 + i * 20 + 3, x2: ax + w, y2: -hgt / 2 + i * 20 + 3, class: 'g-sep' }));
-        g.append(s('text', { x: ax + 10, y: -hgt / 2 + i * 20 + 17, class: 'g-action' }, actionText(a)));
+        g.append(s('text', { x: ax + 10, y: -hgt / 2 + i * 20 + 17, class: 'g-action' }, actionText(a, axisNameOf(store.project))));
       });
     }
     if (sim && st.x !== undefined) {
@@ -515,11 +517,17 @@ function propertiesPanel(store, { redraw, select, refresh }) {
   );
 }
 
+// Nom d'un axe par uid (texte des actions SERVO_*).
+function axisNameOf(project) {
+  const names = new Map(axisList(project).map((a) => [a.uid, a.label]));
+  return (uid) => names.get(uid) || null;
+}
+
 function actionsCard(store, st, { changed, refresh }) {
   const p = store.project;
-  const hasServo = p.equipment.some((e) => e.type === 'SureServo');
+  const axes = axisList(p);
   const types = Object.entries(ACTION_TYPES)
-    .filter(([, d]) => !d.servo || hasServo)
+    .filter(([, d]) => !d.servo || axes.length)
     .map(([k, d]) => ({ value: k, label: d.label }));
   const targetsFor = (type) => {
     const def = ACTION_TYPES[type];
@@ -542,10 +550,20 @@ function actionsCard(store, st, { changed, refresh }) {
       }
       if (def.needs.includes('value')) fields.append(exprInput(store, a, 'value', { placeholder: 'valeur ou expression', onInput: changed }));
       if (a.type === 'N') fields.append(exprInput(store, a, 'condition', { placeholder: 'condition (optionnelle)', expect: 'bool', allowEmpty: true, emptyHint: 'sans condition', onInput: changed }));
+      if (def.servo && axes.length) {
+        if (!a.axis || !axes.some((x) => x.uid === a.axis)) {
+          if (axes.length === 1) a.axis = axes[0].uid;
+        }
+        if (axes.length > 1) {
+          const opts = [{ value: '', label: '— axe —' }, ...axes.map((x) => ({ value: x.uid, label: `${x.label} (${x.entry.label})` }))];
+          fields.append(h('label', { class: 'field' }, h('span', {}, 'Axe'), select(a, 'axis', opts, { onChange: () => { changed(); refresh(); } })));
+        }
+      }
       if (a.type === 'SERVO_MOVE') {
+        const ax = axes.find((x) => x.uid === a.axis)?.entry.axis || {};
         fields.append(
-          h('label', { class: 'field' }, h('span', {}, 'Position (impulsions)'), exprInput(store, a, 'position', { expect: 'num', placeholder: 'ex. Cible', onInput: changed })),
-          h('label', { class: 'field' }, h('span', {}, 'Vitesse (0 à 15)'), exprInput(store, a, 'speed', { expect: 'num', placeholder: 'ex. 8', onInput: changed }))
+          h('label', { class: 'field' }, h('span', {}, `Position (${ax.positionUnit || 'impulsions'})`), exprInput(store, a, 'position', { expect: 'num', placeholder: 'ex. Cible', onInput: changed })),
+          h('label', { class: 'field' }, h('span', {}, `Vitesse (${ax.speedUnit || 'index 0 à 15'}, ${ax.speedMin ?? 0} à ${ax.speedMax ?? 15})`), exprInput(store, a, 'speed', { expect: 'num', placeholder: `ex. ${ax.defaultSpeed ?? 8}`, onInput: changed }))
         );
       }
       if (a.type === 'MSG') {
@@ -629,7 +647,7 @@ function actionsCard(store, st, { changed, refresh }) {
 function modesPanel(store) {
   const p = store.project;
   const b = p.logic.blocks;
-  const hasServo = p.equipment.some((e) => e.type === 'SureServo');
+  const axes = axisList(p);
   const changed = () => store.changed();
   const exprField = (label, obj, key, opts = {}) => h('label', { class: 'field' }, h('span', {}, label), exprInput(store, obj, key, { expect: 'bool', allowEmpty: true, onInput: changed, ...opts }), opts.help ? h('small', {}, opts.help) : null);
 
@@ -644,10 +662,10 @@ function modesPanel(store) {
       h(
         'div',
         { class: 'grid', style: { gridTemplateColumns: '1fr 1fr' } },
-        exprField('Condition d’urgence', b.emergency, 'condition', { placeholder: 'ex. NON AU_OK', emptyHint: 'aucune (déconseillé)', help: 'Vraie = urgence. Les sorties prennent leur état de repli, le servo est stoppé, le grafcet est remis à zéro.' }),
+        exprField('Condition d’urgence', b.emergency, 'condition', { placeholder: 'ex. NON AU_OK', emptyHint: 'aucune (déconseillé)', help: 'Vraie = urgence. Les sorties prennent leur état de repli, les axes sont stoppés, le grafcet est remis à zéro.' }),
         exprField('Acquittement', b.emergency, 'reset', { placeholder: 'ex. Acquitter', emptyHint: 'automatique 1 s après disparition', help: 'Nécessaire pour quitter l’urgence une fois la condition disparue.' })
       ),
-      hasServo ? h('p', { class: 'hint', style: { marginTop: '10px' } }, 'Les alarmes du servo déclenchent aussi l’arrêt d’urgence.') : null
+      axes.length ? h('p', { class: 'hint', style: { marginTop: '10px' } }, 'Les alarmes des axes déclenchent aussi l’arrêt d’urgence ; le réarmement acquitte tous les variateurs.') : null
     ),
     card(
       'Marche / arrêt',
@@ -659,8 +677,10 @@ function modesPanel(store) {
       )
     ),
   ];
-  if (hasServo) {
-    const sv = b.servo;
+  if (axes.length) b.axes = b.axes || {};
+  for (const axis of axes) {
+    const sv = (b.axes[axis.uid] = { ...DEFAULT_AXIS_BLOCK, ...(b.axes[axis.uid] || {}) });
+    const def = axis.entry.axis || {};
     const homingCond = h('div', {});
     const drawHoming = () => homingCond.replaceChildren(sv.homing === 'condition' ? exprField('Condition de prise d’origine', sv, 'homingCondition', { placeholder: 'ex. Origine' }) : '');
     drawHoming();
@@ -672,7 +692,7 @@ function modesPanel(store) {
               'div',
               { class: 'grid', style: { gridTemplateColumns: '1fr 1fr', marginTop: '10px' } },
               exprField('Mode manuel actif', sv, 'jogMode', { placeholder: 'ex. Mode_jog' }),
-              exprField('Vitesse de jog (1 à 3000)', sv, 'jogSpeed', { expect: 'num', allowEmpty: false, placeholder: 'ex. 500' }),
+              exprField(`Vitesse de jog (${def.jogSpeedUnit || 'tr/min'}, ${def.jogSpeedMin ?? 1} à ${def.jogSpeedMax ?? 3000})`, sv, 'jogSpeed', { expect: 'num', placeholder: `défaut ${def.defaultJogSpeed ?? 500}`, emptyHint: `défaut ${def.defaultJogSpeed ?? 500}` }),
               exprField('Jog +', sv, 'jogPlus', { placeholder: 'ex. Jog_plus' }),
               exprField('Jog −', sv, 'jogMinus', { placeholder: 'ex. Jog_moins' })
             )
@@ -681,10 +701,11 @@ function modesPanel(store) {
     drawJog();
     cards.push(
       card(
-        'Servo',
+        `${axis.label} — ${axis.entry.label}`,
+        h('p', { class: 'hint' }, `Dans les expressions : ${axis.symbol}.enPosition, ${axis.symbol}.position… Positions en ${def.positionUnit || 'impulsions'}, vitesses en ${def.speedUnit || 'index 0-15'}.`),
         h(
           'div',
-          { class: 'grid', style: { gridTemplateColumns: '1fr 1fr' } },
+          { class: 'grid', style: { gridTemplateColumns: '1fr 1fr 1fr' } },
           h(
             'label',
             { class: 'field' },
@@ -705,7 +726,16 @@ function modesPanel(store) {
               }
             )
           ),
-          exprField('Couple maximal (0 à 100 %)', sv, 'torque', { expect: 'num', placeholder: 'ex. Couple', emptyHint: 'non modifié' })
+          h(
+            'label',
+            { class: 'field' },
+            h('span', {}, 'Ordre de prise d’origine'),
+            input(sv, 'homingOrder', { type: 'number', min: 1, max: 9, parse: (v) => Math.max(1, Math.trunc(Number(v) || 1)), onInput: changed }),
+            h('small', {}, 'Les axes d’ordre 1 d’abord, puis 2… ; même ordre = en même temps.')
+          ),
+          def.torque === false
+            ? h('div', {})
+            : exprField('Couple maximal (0 à 100 %)', sv, 'torque', { expect: 'num', placeholder: 'ex. Couple', emptyHint: 'non modifié' })
         ),
         homingCond,
         h(
@@ -728,7 +758,8 @@ function modesPanel(store) {
 
 // ===========================================================================
 function helpPanel(store) {
-  const servo = store.project.equipment.some((e) => e.type === 'SureServo');
+  const axes = axisList(store.project);
+  const servo = axes.length > 0;
   const row = (a, b) => h('tr', {}, h('td', { class: 'mono' }, a), h('td', {}, b));
   return h(
     'div',
@@ -755,14 +786,15 @@ function helpPanel(store) {
     ),
     servo
       ? card(
-          'Servo',
+          'Axes',
+          h('p', { class: 'hint' }, `Axes du projet : ${axes.map((a) => a.symbol).join(', ')}.${axes.length === 1 ? ' « Servo. » désigne aussi l’axe unique.' : ''}`),
           h(
             'table',
             { class: 'tbl' },
             h(
               'tbody',
               {},
-              Object.entries(SERVO_PROPS).map(([k, d]) => row(`Servo.${k}`, d.label))
+              Object.entries(AXIS_PROPS).map(([k, d]) => row(`${axes[0].symbol}.${k}`, d.label))
             )
           )
         )

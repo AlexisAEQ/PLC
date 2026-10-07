@@ -1,6 +1,6 @@
 ---
 name: plc-projet
-description: Crée ou modifie un projet d'automate conforme pour le framework PLC ESP32 de ce dépôt (BorneUniverselle, automate Kincony KC868-A8S, modules Waveshare, servo SureServo) à partir du comportement souhaité d'une machine — E/S câblées, variables, grafcet, arrêt d'urgence et modes de marche, écrans opérateur — et le valide par des scénarios de simulation. Produit projets/<Nom>.plc.json, qui s'ouvre dans PLC Studio pour peaufiner les écrans et rejouer la logique. Utiliser dès que l'utilisateur décrit une machine, un cycle, une séquence ou un automatisme à programmer pour cet automate (« crée-moi un projet pour… », « fais la logique de… », « grafcet pour… », « une ensacheuse / un convoyeur / une presse qui… »), veut générer config.json / interface.json ou une classe d'application qui remplace RessortRoyal2, ou demande de modifier la logique, le câblage ou les écrans d'un projet de projets/ — même sans nommer PLC Studio.
+description: Crée ou modifie un projet d'automate conforme pour le framework PLC ESP32 de ce dépôt (BorneUniverselle ; automates KinCony KC868-A8S/A16/A16v3/A8v3, Waveshare ESP32-S3 8DI-8DO et RS485-WLED, M5Stack StamPLC, Homemaster MiniPLC ; modules Waveshare ; axes SureServo, Lichuan A6/A5 et pas-à-pas, plusieurs par projet) à partir du comportement souhaité d'une machine — E/S câblées, variables, grafcet, arrêt d'urgence et modes de marche, écrans opérateur — et le valide par des scénarios de simulation. Produit projets/<Nom>.plc.json, qui s'ouvre dans PLC Studio pour peaufiner les écrans et rejouer la logique. Utiliser dès que l'utilisateur décrit une machine, un cycle, une séquence ou un automatisme à programmer pour cet automate (« crée-moi un projet pour… », « fais la logique de… », « grafcet pour… », « une ensacheuse / un convoyeur / une presse qui… »), veut générer config.json / interface.json ou une classe d'application qui remplace RessortRoyal2, ou demande de modifier la logique, le câblage ou les écrans d'un projet de projets/ — même sans nommer PLC Studio.
 ---
 
 # Projet PLC Studio à partir d'un comportement
@@ -46,11 +46,12 @@ Références à lire selon le besoin :
 Relever dans la demande : équipements, ce qui est câblé (capteurs, boutons, actionneurs),
 commandes et réglages à l'écran, séquence normale, cas particuliers (pièce absente, rebut,
 défaut, temporisations, comptages), sécurité (arrêt d'urgence, acquittement), mise en
-marche / arrêt, servo (positions, vitesses, prise d'origine, jog).
+marche / arrêt, axes (lesquels, positions, vitesses, ordre des prises d'origine, jog).
 
 Ce qui manque se complète par des choix raisonnables plutôt que par une rafale de
 questions : voies affectées dans l'ordre (entrées `X1…`, relais `Y1…`, puis un module
-Waveshare 8DIO si plus de 8 E/S ; signaux du servo sur les derniers relais), acquittement
+Waveshare 8DIO si plus de 8 E/S ; signaux des servos sur les derniers relais, STEP/DIR des
+pas-à-pas sur les GPIO libres ; automate KC868-A8S si rien n'est imposé), acquittement
 par une commande d'écran, temporisations en paramètres réglables, écrans automatiques.
 Chaque choix fait à la place de l'utilisateur est noté pour le rapport. Ne poser une
 question que si elle change la logique de sécurité ou le principe du cycle et qu'aucune

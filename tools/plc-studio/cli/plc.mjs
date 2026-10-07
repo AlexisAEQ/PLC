@@ -25,7 +25,8 @@ import { parseJsonc } from '../shared/jsonc.js';
 import { buildFromSpec, specFromProject } from '../shared/spec.js';
 import { generateFiles } from '../shared/generate.js';
 import { runScenarios } from '../shared/scenario.js';
-import { actionText, normalizeLogic } from '../shared/grafcet.js';
+import { actionText, normalizeLogic, axisBlock } from '../shared/grafcet.js';
+import { axisList } from '../shared/axes.js';
 import { buildLayout } from '../shared/layout.js';
 import { effectivePages } from '../shared/generate.js';
 import { checkCppSyntax } from './cppcheck.mjs';
@@ -152,7 +153,12 @@ function cmdCatalog() {
       console.log(`  ${g.dir === 'in' ? 'entrées' : 'sorties'} ${g.dataType.padEnd(4)} ${g.label} : ${names.join(' ')}${g.supportsInverse ? '  (inverse possible)' : ''}`);
     }
     for (const o of e.options || []) console.log(`  option ${o.key} (défaut ${JSON.stringify(o.default)}) : ${o.label}${o.choices ? ' — ' + o.choices.map((c) => c.value).join(' | ') : ''}`);
-    for (const s of e.signals || []) console.log(`  signal à câbler sur une sortie de l'automate (servoSignals.${s.key}) : ${s.label}`);
+    if (e.axis) console.log(`  axe : positions en ${e.axis.positionUnit}, vitesse de déplacement en ${e.axis.speedUnit} (${e.axis.speedMin} à ${e.axis.speedMax}, défaut ${e.axis.defaultSpeed}), jog en ${e.axis.jogSpeedUnit}`);
+    if (e.pioEnv) console.log(`  compilation : environnement PlatformIO « ${e.pioEnv} »`);
+    for (const s of e.signals || []) {
+      const where = s.gpio ? "sortie GPIO directe de l'automate" : s.dir === 'in' ? "entrée de l'automate" : "sortie de l'automate";
+      console.log(`  signal${s.optional ? ' facultatif' : ''} (equipment[].signals.${s.key}) sur une ${where} : ${s.label}`);
+    }
     console.log('');
   }
   return 0;
@@ -263,7 +269,7 @@ function cmdDescribe() {
   h('Entrées / sorties');
   table(
     ['Symbole', 'Libellé', 'Sens', 'Voie', 'Remarque'],
-    project.variables.filter((v) => ['input', 'output'].includes(v.kind)).map((v) => [v.symbol, v.label, v.kind === 'input' ? 'entrée' : 'sortie', chName(v.binding), [v.inverse ? 'inversée' : '', v.kind === 'output' ? `repli ${fb[v.fallback] || v.fallback}` : '', v.system ? 'signal servo' : '', v.comment].filter(Boolean).join(', ')])
+    project.variables.filter((v) => ['input', 'output'].includes(v.kind)).map((v) => [v.symbol, v.label, v.kind === 'input' ? 'entrée' : 'sortie', chName(v.binding), [v.inverse ? 'inversée' : '', v.kind === 'output' ? `repli ${fb[v.fallback] || v.fallback}` : '', v.system ? "signal d'axe" : '', v.comment].filter(Boolean).join(', ')])
   );
   const KIND = { command: 'Commande', parameter: 'Paramètre', indicator: 'Indicateur', memory: 'Mémoire' };
   h('Variables internes');
@@ -274,10 +280,12 @@ function cmdDescribe() {
       .map((v) => [v.symbol, v.label, KIND[v.kind], v.dataType, [v.initial !== undefined && v.kind === 'parameter' ? `${v.initial}` : '', v.min !== undefined && v.min !== '' ? `min ${v.min}` : '', v.max !== undefined && v.max !== '' ? `max ${v.max}` : '', v.unit || ''].filter(Boolean).join(' · '), v.comment])
   );
 
-  const logic = normalizeLogic(project.logic);
+  const logic = normalizeLogic(project.logic, project);
+  const axes = axisList(project);
+  const axisName = (uid) => axes.find((a) => a.uid === uid)?.label || null;
   const numOf = new Map(logic.steps.map((s) => [s.id, s.num]));
   h('Grafcet — étapes');
-  const act = (a) => actionText(a).replace(/\s{2,}/g, ' ');
+  const act = (a) => actionText(a, axisName).replace(/\s{2,}/g, ' ');
   table(['Étape', 'Libellé', 'Actions'], [...logic.steps].sort((a, b) => a.num - b.num).map((s) => [`${s.initial ? '((' : ''}${s.num}${s.initial ? '))' : ''}`, s.label, s.actions.map(act).join(' ; ') || '—']));
   h('Grafcet — transitions');
   table(['Transition', 'De', 'Vers', 'Réceptivité'], [...logic.transitions].sort((a, b) => a.num - b.num).map((t) => [`T${t.num}`, t.from.map((id) => numOf.get(id)).join(' + '), t.to.map((id) => numOf.get(id)).join(' + '), t.condition]));
@@ -290,13 +298,14 @@ function cmdDescribe() {
       ['Acquittement', b.emergency.reset || '— aucun (sortie automatique après 1 s) —'],
       ['Mise en marche', b.run.start || 'automatique'],
       ["Condition d'arrêt", b.run.stop || '— aucune —'],
-      ...(project.equipment.some((e) => CATALOG[e.type]?.role === 'servo')
-        ? [
-            ["Prise d'origine", b.servo.homing + (b.servo.homingCondition ? ` (${b.servo.homingCondition})` : '')],
-            ['Jog', b.servo.jogEnabled ? `mode ${b.servo.jogMode || '?'}, + ${b.servo.jogPlus || '?'}, − ${b.servo.jogMinus || '?'}, vitesse ${b.servo.jogSpeed}` : 'désactivé'],
-            ['Couple maximal', b.servo.torque ? `${b.servo.torque} %` : 'défaut'],
-          ]
-        : []),
+      ...axes.flatMap((a) => {
+        const x = axisBlock(logic, a.uid);
+        return [
+          [`${a.label} — prise d'origine`, x.homing + (x.homingCondition ? ` (${x.homingCondition})` : '') + (x.homing !== 'none' ? `, ordre ${x.homingOrder}` : '')],
+          [`${a.label} — jog`, x.jogEnabled ? `mode ${x.jogMode || '?'}, + ${x.jogPlus || '?'}, − ${x.jogMinus || '?'}, vitesse ${x.jogSpeed || 'défaut'}` : 'désactivé'],
+          [`${a.label} — couple maximal`, x.torque ? `${x.torque} %` : 'défaut'],
+        ];
+      }),
     ]
   );
   h(`Écrans (${project.hmi?.auto === false ? 'disposition personnalisée' : 'disposition automatique'})`);

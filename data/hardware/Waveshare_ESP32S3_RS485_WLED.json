@@ -1,0 +1,20 @@
+{
+    "hardware": "Waveshare_ESP32S3_RS485_WLED",
+
+    "board": {"mcu": "ESP32-S3", "buzzer": null},
+
+    "RS485": {"rx": 18, "tx": 17, "speed": 115200, "config": "SERIAL_8E1"},
+
+    "Modbus": {"modbusRTU": true, "timeout": 101},
+
+    "rx-bool": [
+        {"id": 1, "pin": 0, "activeLow": true, "pull": "up"}
+    ],
+
+    "tx-bool": [
+        {"id": 1, "pin": 2},
+        {"id": 2, "pin": 16},
+        {"id": 3, "pin": 3},
+        {"id": 4, "pin": 4}
+    ]
+}

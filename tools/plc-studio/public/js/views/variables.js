@@ -1,7 +1,7 @@
 // Étape 3 : câblage des voies et variables internes.
 
 import { CATALOG, VARIABLE_KINDS, DATA_TYPE_LABELS, WIDGET_LABELS, widgetsFor } from '/shared/catalog.js';
-import { normalizeVariable, toSymbol, listChannels } from '/shared/model.js';
+import { normalizeVariable, toSymbol, listChannels, signalDef } from '/shared/model.js';
 import { h, input, checkbox, select, card, pageHead, button, confirmDialog } from '../ui.js';
 import { issueBlock } from './project.js';
 
@@ -170,23 +170,26 @@ function channelRow(store, eq, g, c) {
 }
 
 // ---------------------------------------------------------------------------
-// Signaux d'équipements (ex. servo) à câbler sur une sortie libre
+// Signaux des axes (servo ON, STEP/DIR, capteur d'origine…) à câbler sur une voie libre
 function signalsCard(store, signals) {
   const p = store.project;
-  const channels = listChannels(p).filter((c) => c.group.dir === 'out' && c.group.dataType === 'bool');
+  const all = listChannels(p).filter((c) => c.group.dataType === 'bool' && !c.group.bank);
   return card(
-    'Signaux à câbler',
-    h('p', { class: 'hint' }, 'Ces signaux sont pilotés automatiquement (bloc servo). Choisissez la sortie sur laquelle chacun est branché.'),
+    'Signaux des axes à câbler',
+    h('p', { class: 'hint' }, 'Ces signaux sont gérés par le pilote de l’axe. Choisissez la voie de l’automate sur laquelle chacun est branché. STEP et DIR d’un pas-à-pas exigent une sortie GPIO directe ; les signaux marqués « facultatif » peuvent rester non câblés.'),
     h(
       'table',
       { class: 'tbl' },
-      h('thead', {}, h('tr', {}, h('th', {}, 'Signal'), h('th', {}, 'Sortie'), h('th', { class: 'w-m' }, 'Symbole'))),
+      h('thead', {}, h('tr', {}, h('th', {}, 'Signal'), h('th', {}, 'Voie'), h('th', { class: 'w-m' }, 'Symbole'))),
       h(
         'tbody',
         {},
         signals.map((v) => {
+          const def = signalDef(p, v) || {};
+          const dir = v.kind === 'input' ? 'in' : 'out';
+          const channels = all.filter((c) => c.group.dir === dir && (!def.gpio || c.group.gpio));
           const current = v.binding ? `${v.binding.eq}/${v.binding.group}/${v.binding.channel}` : '';
-          const options = [{ value: '', label: '— non câblé —' }].concat(
+          const options = [{ value: '', label: def.optional ? '— non câblé (facultatif) —' : '— non câblé —' }].concat(
             channels
               .filter((c) => c.eq.uid !== v.system.eq && (!c.variable || c.variable === v))
               .map((c) => ({ value: c.key, label: `${c.eq.label} · ${c.group.label} · ${c.name}` }))
@@ -208,7 +211,7 @@ function signalsCard(store, signals) {
             },
             options.map((o) => h('option', { value: o.value, selected: o.value === current }, o.label))
           );
-          return h('tr', { class: v.binding ? '' : 'has-error' }, h('td', {}, v.label), h('td', {}, sel), h('td', { class: 'mono' }, v.symbol));
+          return h('tr', { class: v.binding || def.optional ? '' : 'has-error' }, h('td', {}, v.label, def.optional ? h('small', { class: 'muted' }, ' (facultatif)') : null), h('td', {}, sel), h('td', { class: 'mono' }, v.symbol));
         })
       )
     )

@@ -77,3 +77,88 @@ export function pressProject({ servo = true } = {}) {
   };
   return p;
 }
+
+// Table XYZ : automate KinCony KC868-A16v3, deux SureServo (X, Y) et un axe pas-à-pas (Z).
+// lichuan : ajoute un plateau tournant Lichuan A6 et un convoyeur Lichuan A5.
+export function multiAxisProject({ lichuan = false } = {}) {
+  const p = newProject('TableXYZ');
+  p.wifi = [{ name: 'Atelier', ssid: 'atelier', pwd: 'secret123', dhcp: true }];
+  const plc = addEquipment(p, 'Kincony_KC868_A16v3');
+  const x = addEquipment(p, 'SureServo', 'Axe X');
+  const y = addEquipment(p, 'SureServo', 'Axe Y');
+  const z = addEquipment(p, 'Stepper', 'Axe Z');
+  y.address = 2;
+  const r = lichuan ? addEquipment(p, 'LichuanA6', 'Plateau') : null;
+  const c = lichuan ? addEquipment(p, 'LichuanA5', 'Convoyeur') : null;
+  if (r) {
+    r.address = 3;
+    r.options.accelTime = 200;
+    c.address = 4;
+  }
+  x.options.maxRange = 200000;
+  y.options.maxRange = 100000;
+  z.options.maxRange = 20000;
+  add(p, { label: 'AU OK', symbol: 'AU_OK', kind: 'input', dataType: 'bool', binding: { eq: plc.uid, group: 'di', channel: 1 } });
+  add(p, { label: 'Départ cycle', symbol: 'Depart', kind: 'input', dataType: 'bool', binding: { eq: plc.uid, group: 'di', channel: 2 } });
+  add(p, { label: 'Pince', symbol: 'Pince', kind: 'output', dataType: 'bool', binding: { eq: plc.uid, group: 'do', channel: 10 }, fallback: 'off' });
+  add(p, { label: 'Acquitter', symbol: 'Acquit', kind: 'command', dataType: 'bool' });
+  add(p, { label: 'Manuel', symbol: 'Manuel', kind: 'command', dataType: 'bool' });
+  add(p, { label: 'Jog Z +', symbol: 'JogZP', kind: 'command', dataType: 'bool' });
+  add(p, { label: 'Jog Z -', symbol: 'JogZM', kind: 'command', dataType: 'bool' });
+  add(p, { label: 'Cible X', symbol: 'CibleX', kind: 'parameter', dataType: 'int', initial: 50000 });
+  add(p, { label: 'Cible Y', symbol: 'CibleY', kind: 'parameter', dataType: 'int', initial: 30000 });
+  add(p, { label: 'Cible Z', symbol: 'CibleZ', kind: 'parameter', dataType: 'int', initial: 4000 });
+  // Signaux des servos sur Y1-Y6, STEP/DIR du pas-à-pas sur GPIO38/GPIO39, ENABLE sur Y7.
+  const sig = (eq, key) => p.variables.find((v) => v.system?.eq === eq.uid && v.system.signal === key);
+  ['servoOn', 'immediateStop', 'alarmsReset'].forEach((k, i) => {
+    sig(x, k).binding = { eq: plc.uid, group: 'do', channel: 1 + i };
+    sig(y, k).binding = { eq: plc.uid, group: 'do', channel: 4 + i };
+  });
+  sig(z, 'step').binding = { eq: plc.uid, group: 'gpio', channel: 1 };
+  sig(z, 'dir').binding = { eq: plc.uid, group: 'gpio', channel: 2 };
+  sig(z, 'enable').binding = { eq: plc.uid, group: 'do', channel: 7 };
+  sig(z, 'home').binding = { eq: plc.uid, group: 'di', channel: 3 };
+  p.logic = {
+    steps: [
+      { id: 's0', num: 0, label: 'Attente', initial: true, actions: [] },
+      {
+        id: 's1',
+        num: 1,
+        label: 'Positionnement',
+        actions: [
+          { type: 'SERVO_MOVE', axis: x.uid, position: 'CibleX', speed: '10' },
+          { type: 'SERVO_MOVE', axis: y.uid, position: 'CibleY', speed: '8' },
+          { type: 'SERVO_MOVE', axis: z.uid, position: 'CibleZ', speed: '3000' },
+          ...(r ? [{ type: 'SERVO_MOVE', axis: r.uid, position: '3600', speed: '300' }, { type: 'SERVO_HOME', axis: c.uid }] : []),
+        ],
+      },
+      { id: 's2', num: 2, label: 'Prise', actions: [{ type: 'N', target: 'Pince' }] },
+      {
+        id: 's3',
+        num: 3,
+        label: 'Retour',
+        actions: [
+          { type: 'SERVO_MOVE', axis: x.uid, position: '0', speed: '15' },
+          { type: 'SERVO_MOVE', axis: y.uid, position: '0', speed: '15' },
+          { type: 'SERVO_MOVE', axis: z.uid, position: '0', speed: '5000' },
+        ],
+      },
+    ],
+    transitions: [
+      { id: 't0', num: 0, from: ['s0'], to: ['s1'], condition: 'FM(Depart)' },
+      { id: 't1', num: 1, from: ['s1'], to: ['s2'], condition: 'Axe_X.enPosition ET Axe_Y.enPosition ET Axe_Z.enPosition' },
+      { id: 't2', num: 2, from: ['s2'], to: ['s3'], condition: 'X2.t >= 500ms' },
+      { id: 't3', num: 3, from: ['s3'], to: ['s0'], condition: 'Axe_X.enPosition ET Axe_Y.enPosition ET Axe_Z.enPosition' },
+    ],
+    blocks: {
+      emergency: { condition: 'NON AU_OK', reset: 'Acquit' },
+      run: { start: '', stop: '' },
+      axes: {
+        [z.uid]: { homing: 'auto', homingOrder: 1, jogEnabled: true, jogMode: 'Manuel', jogPlus: 'JogZP', jogMinus: 'JogZM', jogSpeed: '2000' },
+        [x.uid]: { homing: 'auto', homingOrder: 2 },
+        [y.uid]: { homing: 'auto', homingOrder: 2, torque: '70' },
+      },
+    },
+  };
+  return p;
+}
