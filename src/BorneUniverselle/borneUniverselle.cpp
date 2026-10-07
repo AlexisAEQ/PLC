@@ -1,4 +1,5 @@
 #include "BorneUniverselle/borneUniverselle.h"
+#include "IoExpander/IoExpander.h"
 #include <typeinfo>
 
 void WebSocketMessageDeleter::operator()(WEB_SOCKET_MESSAGE* c) const {
@@ -3057,10 +3058,7 @@ bool BorneUniverselle::parseHardwares(JsonDocument& doc, bool check, float proje
             return false;
         }
         
-        if (strstr(fileName, "A8S") && !isKinconyA8S){
-            Serial.println(F("Card is an Kincony A8S, pin 2 must be set after go ip"));
-            isKinconyA8S = true;
-        } 
+        applyBoardSettings(nodesDoc, fileName);
         
 
         if (nodesDoc[HARDWARE].isNull()){
@@ -3186,7 +3184,7 @@ bool BorneUniverselle::parseHardwares(JsonDocument& doc, bool check, float proje
                         //Serial.printf("Refreh interval: %u\r\n", refreshInterval);
                     } 
                     
-                    if (!strcmp(type, RX_BOOL) || !strcmp(type, PF8574_RX_BOOL)){
+                    if (!strcmp(type, RX_BOOL) || !strcmp(type, PF8574_RX_BOOL) || !strcmp(type, EXP_RX_BOOL)){
                         bool inverted = false;
                         if (!c[INPUT_INVERTED].isNull()){
                             inverted = c[INPUT_INVERTED].as<bool>();
@@ -3200,7 +3198,7 @@ bool BorneUniverselle::parseHardwares(JsonDocument& doc, bool check, float proje
                             return false;
                         }
                         found = true;
-                    }  else  if (!strcmp(type, TX_BOOL) || !strcmp(type, PF8574_TX_BOOL) || !strcmp(type, PCA9554_TX_BOOL)){
+                    }  else  if (!strcmp(type, TX_BOOL) || !strcmp(type, PF8574_TX_BOOL) || !strcmp(type, PCA9554_TX_BOOL) || !strcmp(type, EXP_TX_BOOL)){
                             bool inverted = false;
                             if (!c[INPUT_INVERTED].isNull()){
                                 inverted = c[INPUT_INVERTED].as<bool>();
@@ -3602,10 +3600,18 @@ bool BorneUniverselle::i2cInit(JsonDocument& contextDoc){
             Wire.begin(sda, scl);
             isI2CInitialised = true;
             if (!contextDoc[I2C][RTC_PRESENT].isNull()){
+                // "RTC": true (détection automatique), false, ou le chip : "DS3231", "PCF85063", "PCF8563", "RX8130", "none"
+                JsonVariant rtcSetting = contextDoc[I2C][RTC_PRESENT];
+                const char *rtcChip = "auto";
+                if (rtcSetting.is<const char*>()) {
+                    rtcChip = rtcSetting.as<const char*>();
+                } else if (rtcSetting.is<bool>() && !rtcSetting.as<bool>()) {
+                    rtcChip = "none";
+                }
                 RTC_Service* rtc = RTC_Service::getInstance();
-                bool success = rtc->begin(true, sda, scl);
+                bool success = rtc->beginWithChip(rtcChip);
                 if (!success) {
-                    setPlcBroken("i2cInit:: Unable to initialise DS3231 RTC over I2C");
+                    setPlcBroken("i2cInit:: Unable to initialise RTC over I2C");
                     return false;
                 }
             }
@@ -3663,6 +3669,10 @@ bool BorneUniverselle::RS485Init(JsonDocument& contextDoc) {
         config = SERIAL_8E1;
     } else if (!strcmp(configStr, "SERIAL_8E2")) {
         config = SERIAL_8E2;
+    } else if (!strcmp(configStr, "SERIAL_8O1")) {
+        config = SERIAL_8O1;
+    } else if (!strcmp(configStr, "SERIAL_8O2")) {
+        config = SERIAL_8O2;
     } else {
         setPlcBroken("RS485Init:: Unrecognised protocol");
         return false;
@@ -3678,6 +3688,18 @@ bool BorneUniverselle::RS485Init(JsonDocument& contextDoc) {
    
     myRS485->setRxBufferSize(256);
     myRS485->begin(speed, config, rxPin, txPin); 
+
+    // Transceiver à validation d'émission (DE/RE) : pilotée par l'UART en mode RS485 semi-duplex
+    if (!rs485[DE_PIN].isNull() && rs485[DE_PIN].as<int>() >= 0) {
+        int8_t dePin = rs485[DE_PIN].as<int>();
+        if (!myRS485->setPins(rxPin, txPin, -1, dePin) || !myRS485->setMode(UART_MODE_RS485_HALF_DUPLEX)) {
+            setPlcBroken("RS485Init:: Unable to set RS485 half-duplex mode (DE pin)");
+            delete myRS485;
+            myRS485 = nullptr;
+            return false;
+        }
+        Serial.printf("RS485 DE pin: %d (half-duplex)\r\n", dePin);
+    }
 
     if (!myRS485->availableForWrite()) {
         setPlcBroken("RS485Init:: Failed to initialize HardwareSerial");
@@ -3762,11 +3784,20 @@ bool BorneUniverselle::createRxBoolNode(char *name,  char *parentName, uint16_t 
     if (!strcmp(type, RX_BOOL)){
         //Serial.println("type RX_BOOL");
 
+        bool activeLow = hardSection[ACTIVE_LOW] | false;
+        const char *pull = hardSection[PULL] | "up";
+        uint8_t pullMode = INPUT_PULLUP;
+        if (!strcmp(pull, "down")) {
+            pullMode = INPUT_PULLDOWN;
+        } else if (!strcmp(pull, "none")) {
+            pullMode = INPUT;
+        }
+
         if (PLC_Tools::isPSRAM_available()){
             void * a = ps_malloc(sizeof(HardwareBooleanInputNode));
-            node = new (a) HardwareBooleanInputNode(name, parentName, id, *hash, pin, inverted, refreshInterval, webRefreshInterval); 
+            node = new (a) HardwareBooleanInputNode(name, parentName, id, *hash, pin, inverted, refreshInterval, webRefreshInterval, activeLow, pullMode); 
         } else {
-            node = new HardwareBooleanInputNode(name, parentName, id, *hash, pin, inverted, refreshInterval, webRefreshInterval);
+            node = new HardwareBooleanInputNode(name, parentName, id, *hash, pin, inverted, refreshInterval, webRefreshInterval, activeLow, pullMode);
         }
         
         Serial.printf("Node %s created with succes (ESP32 pin %d), with type HardwareBooleanInputNode and hash: %lu, inverted: %s, refresh interval: %u, web refresh interval: %u\r\n", node->getName(), pin, (unsigned long)*hash, inverted ? "true" : "false", refreshInterval, webRefreshInterval);
@@ -3781,6 +3812,8 @@ bool BorneUniverselle::createRxBoolNode(char *name,  char *parentName, uint16_t 
                 } else {
                     node = new PF8574BooleanInputNode(name, parentName, id, *hash, i2cAddr, pin, inverted, refreshInterval, webRefreshInterval);
                 }
+                // Ligne INT du PCF8574 : GPIO14 sur la KinCony A8S (historique), sinon "I2C"."int_pin"
+                PF8574BooleanInputNode::attachInterruptPin(contextDoc[I2C][INT_PIN] | 14);
                 Serial.printf("Node %s created with succes with type PF8574BooleanInputNode and hash: %lu, inverted: %s, refresh interval: %u, web refresh interval: %u\r\n", node->getName(), (unsigned long)*hash, inverted ? "true" : "false", refreshInterval, webRefreshInterval);
             } else {
                 sprintf(buff, "createRxBoolNode:: Unable to find key %s in hardware file for section %s", RX_ADDR, parentName);
@@ -3793,6 +3826,20 @@ bool BorneUniverselle::createRxBoolNode(char *name,  char *parentName, uint16_t 
             return false;
         } 
 
+    } else if (!strcmp(type, EXP_RX_BOOL)){
+        IoExpander *expander = getExpanderFor(hardSection, "createRxBoolNode", parentName);
+        if (expander == nullptr) {
+            return false;
+        }
+        bool activeLow = hardSection[ACTIVE_LOW] | false;
+        if (PLC_Tools::isPSRAM_available()){
+            void * a = ps_malloc(sizeof(PF8574BooleanInputNode));
+            node = new (a) PF8574BooleanInputNode(name, parentName, id, *hash, expander, pin, activeLow, inverted, refreshInterval, webRefreshInterval);
+        } else {
+            node = new PF8574BooleanInputNode(name, parentName, id, *hash, expander, pin, activeLow, inverted, refreshInterval, webRefreshInterval);
+        }
+        PF8574BooleanInputNode::attachInterruptPin(contextDoc[I2C][INT_PIN] | -1);
+        Serial.printf("Node %s created with succes on %s 0x%02X pin %u (active %s), hash: %lu\r\n", node->getName(), expander->chipName(), expander->address(), pin, activeLow ? "low" : "high", (unsigned long)*hash);
     } else {
         sprintf(buff, "createRxBoolNode:: Unable to match type  %s from config with type for hardware file.\r\n", type);
         prepareMessage(ERROR, buff);
@@ -3821,11 +3868,12 @@ bool BorneUniverselle::createTxBoolNode(char *name, char *parentName, uint16_t i
     Node *node;
     if (!strcmp(type, TX_BOOL)){
         //Serial.println("type TX bool"); 
+        bool activeLow = hardSection[ACTIVE_LOW] | false;
         if (PLC_Tools::isPSRAM_available()){
             void * a = ps_malloc(sizeof(HardwareBooleanOutputNode));
-            node = new (a) HardwareBooleanOutputNode(name, parentName, id, *hash, pin, webRefreshInterval);
+            node = new (a) HardwareBooleanOutputNode(name, parentName, id, *hash, pin, webRefreshInterval, activeLow);
         } else {  
-            node = new HardwareBooleanOutputNode(name, parentName, id, *hash, pin, webRefreshInterval);
+            node = new HardwareBooleanOutputNode(name, parentName, id, *hash, pin, webRefreshInterval, activeLow);
         }
 
         Serial.printf("Node %s created with succes (ESP32 pin %d) with type HardwareBooleanOutputNode and hash: %lu\r\n", node->getName(), pin, (unsigned long)*hash); 
@@ -3877,6 +3925,19 @@ bool BorneUniverselle::createTxBoolNode(char *name, char *parentName, uint16_t i
             prepareMessage(ERROR, buff);
             return false;
         }
+    } else if (!strcmp(type, EXP_TX_BOOL)){
+        IoExpander *expander = getExpanderFor(hardSection, "createTxBoolNode", parentName);
+        if (expander == nullptr) {
+            return false;
+        }
+        bool activeLow = hardSection[ACTIVE_LOW] | false;
+        if (PLC_Tools::isPSRAM_available()){
+            void * a = ps_malloc(sizeof(PF8574BooleanOutputNode));
+            node = new (a) PF8574BooleanOutputNode(name, parentName, id, *hash, expander, pin, activeLow, webRefreshInterval);
+        } else {
+            node = new PF8574BooleanOutputNode(name, parentName, id, *hash, expander, pin, activeLow, webRefreshInterval);
+        }
+        Serial.printf("Node %s created with succes on %s 0x%02X pin %u (active %s), hash: %lu\r\n", node->getName(), expander->chipName(), expander->address(), pin, activeLow ? "low" : "high", (unsigned long)*hash);
     } else {
         sprintf(buff, "createTxBoolNode:: Unable to match type  %s from config with type for hardware file.\r\n", type);
         prepareMessage(ERROR, buff);
@@ -4022,7 +4083,44 @@ bool BorneUniverselle::createVirtualNode(char *name, char *sectionName, uint16_t
 }
 
 bool BorneUniverselle::getIsKinconyA8S(){
-    return isKinconyA8S;
+    return buzzerPin >= 0;
+}
+
+void BorneUniverselle::applyBoardSettings(JsonDocument& hardwareDoc, const char *fileName){
+    // Seuls les fichiers des cartes (pas ceux des équipements Modbus) décrivent le buzzer.
+    if (!hardwareDoc[BOARD].isNull()) {
+        JsonVariant buzzer = hardwareDoc[BOARD][BU_BUZZER];
+        buzzerPin = buzzer[PIN] | -1;
+        buzzerActiveLow = buzzer[ACTIVE_LOW] | false;
+        Serial.printf("Board buzzer: %s\r\n", buzzerPin >= 0 ? "declared" : "none");
+    } else if (strstr(fileName, "A8S")) {
+        Serial.println(F("Card is an Kincony A8S, pin 2 must be set after go ip"));
+        buzzerPin = 2;
+        buzzerActiveLow = false;
+    }
+}
+
+IoExpander *BorneUniverselle::getExpanderFor(JsonObject &hardSection, const char *context, const char *parentName){
+    char buff[160];
+    if (!isI2CInitialised) {
+        snprintf(buff, sizeof(buff), "%s:: I/O expander used by section %s, but I2C bus is not initialised", context, parentName);
+        prepareMessage(ERROR, buff);
+        return nullptr;
+    }
+    const char *chip = hardSection[CHIP].is<const char*>() ? hardSection[CHIP].as<const char*>() : nullptr;
+    if (chip == nullptr || hardSection[ADDR].isNull()) {
+        snprintf(buff, sizeof(buff), "%s:: keys %s and %s are required in hardware file for section %s", context, CHIP, ADDR, parentName);
+        prepareMessage(ERROR, buff);
+        return nullptr;
+    }
+    uint8_t i2cAddr = hardSection[ADDR].as<uint8_t>();
+    IoExpander *expander = IoExpanderManager::getOrCreate(chip, i2cAddr);
+    if (expander == nullptr) {
+        snprintf(buff, sizeof(buff), "%s:: I/O expander %s not found at I2C address 0x%02X", context, chip, i2cAddr);
+        setPlcBroken(buff);
+        return nullptr;
+    }
+    return expander;
 }
 
 bool BorneUniverselle::notifyWebClient(bool sendAllStates){

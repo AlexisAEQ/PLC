@@ -35,7 +35,6 @@ MemoryMonitor memoryMonitor;
 uint32_t lastMessageTime = 0;
 uint32_t lastTime = 0;
 
-#define BEEP 2
 
 long start;
 bool scheduleReconnect = false;
@@ -116,14 +115,17 @@ void WiFiStationConnected() {
 }
 
 void turnOffBuzzer(){
-    pinMode(BEEP, OUTPUT);
-    digitalWrite(BEEP, false);
+    // Buzzer déclaré par le fichier matériel de la carte (KinCony A8S : GPIO2)
+    int8_t pin = bu->getBuzzerPin();
+    if (pin < 0) {
+        return;
+    }
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, bu->isBuzzerActiveLow() ? HIGH : LOW);
 }
 
 void processWifiGotIP() {
-    if (bu->getIsKinconyA8S()) {
-        turnOffBuzzer();
-    }
+    turnOffBuzzer();
     bu->setWifiConnected(true);
 
     // Vérifier si MDNS est déjà initialisé (mdnsInitialized globalisée)

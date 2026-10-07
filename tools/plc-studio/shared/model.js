@@ -5,6 +5,11 @@ import { CATALOG } from './catalog.js';
 export const FORMAT = 'plc-studio-project';
 export const FORMAT_VERSION = 1;
 
+// Bloc de modes d'un axe (voir grafcet.js) : prise d'origine (auto | condition | none, par
+// ordre homingOrder croissant), jog en mode manuel, couple maximal. jogSpeed vide : vitesse
+// de jog par défaut du type d'axe.
+export const DEFAULT_AXIS_BLOCK = { homing: 'auto', homingCondition: '', homingOrder: 1, jogEnabled: false, jogMode: '', jogPlus: '', jogMinus: '', jogSpeed: '', torque: '' };
+
 export function uid(prefix = 'id') {
   const rnd = Math.random().toString(36).slice(2, 8);
   return `${prefix}_${Date.now().toString(36)}${rnd}`;
@@ -79,7 +84,37 @@ export function normalizeProject(p) {
   project.hmi = project.hmi && Array.isArray(project.hmi.pages) ? project.hmi : { auto: true, pages: [] };
   if (project.hmi.auto === undefined) project.hmi.auto = true;
   project.logic = project.logic || { steps: [], transitions: [], blocks: {} };
+  migrateSingleServo(project);
+  if (project.logic.blocks?.axes) {
+    project.logic.blocks.axes = Object.fromEntries(Object.entries(project.logic.blocks.axes).map(([k, b]) => [k, { ...DEFAULT_AXIS_BLOCK, ...(b || {}) }]));
+  }
   return project;
+}
+
+// Projets d'avant les axes multiples (un seul SureServo) : bloc « servo », actions sans axe
+// et références « servo:<champ> » des écrans sont rattachés à l'axe unique du projet.
+function migrateSingleServo(project) {
+  const axes = project.equipment.filter((e) => CATALOG[e.type]?.role === 'axis');
+  if (axes.length !== 1) return;
+  const axisUid = axes[0].uid;
+  const logic = project.logic;
+  if (logic.blocks?.servo) {
+    if (!logic.blocks.axes) logic.blocks = { ...logic.blocks, axes: { [axisUid]: logic.blocks.servo } };
+    const { servo, ...rest } = logic.blocks;
+    logic.blocks = rest;
+  }
+  for (const st of logic.steps || []) {
+    for (const a of st.actions || []) {
+      if (/^SERVO_/.test(a.type) && !a.axis) a.axis = axisUid;
+    }
+  }
+  for (const page of project.hmi?.pages || []) {
+    for (const sec of page.sections || []) {
+      for (const it of sec.items || []) {
+        if (typeof it.ref === 'string' && it.ref.startsWith('servo:')) it.ref = `axis:${axisUid}:${it.ref.slice(6)}`;
+      }
+    }
+  }
 }
 
 export function normalizeEquipment(e) {
@@ -123,6 +158,13 @@ export function variableByUid(project, varUid) {
   return project.variables.find((v) => v.uid === varUid) || null;
 }
 
+// Nom affiché d'une voie : préfixe + numéro (numérotation à partir de 1 pour les bancs
+// Waveshare), ou nom imposé par le catalogue (GPIO de l'automate).
+export function channelName(group, ch) {
+  if (group.names?.[ch]) return group.names[ch];
+  return `${group.prefix}${group.bank ? ch + 1 : ch}`;
+}
+
 // Liste des voies câblables de tout le projet, avec la variable affectée le cas échéant.
 export function listChannels(project) {
   const used = new Map();
@@ -142,7 +184,7 @@ export function listChannels(project) {
           eq,
           group: g,
           channel: ch,
-          name: `${g.prefix}${g.bank ? ch + 1 : ch}`,
+          name: channelName(g, ch),
           variable: used.get(key) || null,
         });
       }
@@ -151,12 +193,14 @@ export function listChannels(project) {
   return channels;
 }
 
+// Premier axe du projet (ancien nom : un seul servo par projet).
 export function servoEquipment(project) {
-  return project.equipment.find((e) => CATALOG[e.type]?.role === 'servo') || null;
+  return project.equipment.find((e) => CATALOG[e.type]?.role === 'axis') || null;
 }
 
-// Les signaux TOR d'un équipement (ex. servo ON) sont des variables "système" de type
-// sortie, créées automatiquement et à câbler sur une sortie d'un autre équipement.
+// Les signaux TOR d'un équipement (ex. servo ON, STEP/DIR, capteur d'origine) sont des
+// variables "système", créées automatiquement et à câbler sur une voie d'un autre équipement :
+// sortie (défaut) ou entrée (dir: 'in'). "optional" : le câblage peut rester vide.
 export function systemVariablesFor(eq) {
   const entry = CATALOG[eq.type];
   return (entry?.signals || []).map((sig) =>
@@ -164,13 +208,20 @@ export function systemVariablesFor(eq) {
       uid: `sys_${eq.uid}_${sig.key}`,
       symbol: toSymbol(`${eq.label}_${sig.key}`),
       label: `${eq.label} : ${sig.label}`,
-      kind: 'output',
+      kind: sig.dir === 'in' ? 'input' : 'output',
       dataType: 'bool',
-      fallback: 'off',
+      ...(sig.dir === 'in' ? {} : { fallback: 'off' }),
       system: { eq: eq.uid, signal: sig.key, field: sig.field },
       hmi: { show: false },
     })
   );
+}
+
+// Définition catalogue du signal d'une variable système (null sinon).
+export function signalDef(project, v) {
+  if (!v?.system) return null;
+  const eq = project.equipment.find((e) => e.uid === v.system.eq);
+  return (CATALOG[eq?.type]?.signals || []).find((s) => s.key === v.system.signal) || null;
 }
 
 // Ajoute un équipement et ses variables système.

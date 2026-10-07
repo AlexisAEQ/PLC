@@ -1,0 +1,97 @@
+{
+    // Variateur Lichuan A6 / LCDA6 piloté en Modbus RTU (classe LichuanServo, famille A6).
+    // Adresse Modbus = numéro hexadécimal du paramètre (PA_1A4 -> 0x1A4 = 420) : les offsets
+    // ci-dessous sont ces adresses en décimal, d'où registersOffset = 0.
+    // Bus : 8 bits, parité paire, 1 stop (fixe sur A6), vitesse PA_00D, adresse PA_000.
+    // Paramétrage du variateur et ids : docs/axes/lichuan.md
+    "hardware": "Lichuan_A6",
+    "registersOffset": 0,
+
+    // Informatif (non lu par le firmware) : bits par défaut de LichuanOptions::defaultsFor(A6)
+    "lichuan": {
+        "family": "A6",
+        "virtualInputBits": { "servoOn": 0, "alarmReset": 1, "startMove": 5, "homingStart": 7 },
+        "statusBits": { "ready": 0, "alarm": 1, "inPosition": 2, "zeroSpeed": 4, "homeDone": 5 }
+    },
+
+    "ModbusReadHoldingRegister":
+    [
+        {
+            // [status] PA_1D3 : état des sorties DO0..DO5 (bit n = DOn, fonctions PA_088..PA_08D)
+            "id": 1,
+            "offset": 467
+        },
+        {
+            // [alarmCode] PA_1C9 : code d'erreur courant (0 = aucune)
+            "id": 2,
+            "offset": 457
+        },
+        {
+            // [actualSpeed] PA_1C1 : vitesse moteur mesurée, tr/min (signée)
+            "id": 3,
+            "offset": 449
+        },
+        {
+            // [virtualInputsReadback] PA_1A4 relu : détection d'un redémarrage du variateur
+            "id": 4,
+            "offset": 420
+        },
+        {
+            // Diagnostic : PA_1D2 état des entrées DI0..DI7
+            "id": 5,
+            "offset": 466
+        }
+    ],
+
+    "ModbusWriteHoldingRegister":
+    [
+        {
+            // [virtualInputs] PA_1A4 : entrées DI pilotées par communication (bits activés par PA_1A0)
+            "id": 1,
+            "offset": 420
+        },
+        {
+            // [moveSpeed] PA_190 : vitesse de la position interne 0, tr/min (0..3000)
+            "id": 2,
+            "offset": 400
+        },
+        {
+            // [accelTime] PA_058 : temps d'accélération, ms pour 0 -> 1000 tr/min (0..2500)
+            "id": 3,
+            "offset": 88
+        },
+        {
+            // [decelTime] PA_059 : temps de décélération, ms pour 1000 -> 0 tr/min (0..2500)
+            "id": 4,
+            "offset": 89
+        },
+        {
+            // [torqueLimit] PA_05E : 1re limite de couple, 0,1 % du couple nominal (0..3000)
+            "id": 6,
+            "offset": 94
+        }
+    ],
+
+    "ModbusReadDobbleHoldingRegister":
+    [
+        {
+            // [position] PA_1B8/PA_1B9 : position commande courante, unités de commande (mot bas d'abord)
+            "id": 1,
+            "offset": 440
+        },
+        {
+            // [feedbackPosition] PA_1BC/PA_1BD : position retour codeur, unités codeur (diagnostic)
+            "id": 2,
+            "offset": 444
+        }
+    ],
+
+    "ModbusWriteDobbleHoldingRegister":
+    [
+        {
+            // [targetPosition] PA_168/PA_169 : position interne 0, 32 bits signés (mot bas d'abord, FC 0x10)
+            "id": 1,
+            "offset": 360
+        }
+    ]
+}

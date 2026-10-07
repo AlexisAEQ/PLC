@@ -45,6 +45,16 @@ public:
      * NOTE: Doit être appelé une fois au démarrage par BorneUniverselle
      */
     bool begin(bool enableDS3231 = true, uint8_t sda = 4, uint8_t scl = 5);
+
+    /**
+     * @brief Initialise le service avec un chip désigné par le fichier matériel de la carte
+     * @param chip "auto" (DS3231, PCF85063, RX8130 sondés dans cet ordre), "DS3231",
+     *             "PCF85063", "PCF8563", "RX8130", ou "none" (pas d'horloge : millis())
+     *
+     * Le PCF8563 partage l'adresse 0x51 du PCF85063 avec des registres différents :
+     * il n'est jamais choisi par la détection automatique.
+     */
+    bool beginWithChip(const char* chip);
     
     /**
      * @brief Obtient un timestamp formaté pour logs

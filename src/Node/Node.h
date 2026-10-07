@@ -14,6 +14,7 @@
 class MyModbus; // forward declaration
 class BorneUniverselle; // forward declaration
 class Pca9554Driver; // forward declaration
+class IoExpander; // forward declaration
 
 #define NAME_LENGHT                 80
 
@@ -341,18 +342,31 @@ class TextOutputNode: public OutputNode{
 
 class HardwareBooleanInputNode: public BooleanInputNode{
     public:
-        HardwareBooleanInputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t _pin, bool inputInverted, uint16_t refreshInterval, uint16_t webRefreshInterval);
+        // activeLow : l'entrée est vraie au niveau bas (fichier matériel de la carte).
+        // pullMode : INPUT_PULLUP (défaut historique), INPUT_PULLDOWN ou INPUT.
+        HardwareBooleanInputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t _pin, bool inputInverted, uint16_t refreshInterval, uint16_t webRefreshInterval,
+                                 bool activeLow = false, uint8_t pullMode = INPUT_PULLUP);
         virtual int classType() const { return CLASS_HW_BOOLEAN_INPUT_NODE; }
         
     private:
         uint8_t pin;
+        bool activeLow;
         bool getNewValue(bool& value);
 };
 
+/**
+ * Entrée booléenne sur expandeur d'E/S I2C (PCF8574, PCF8575, TCA9554, AW9523...).
+ * Le nom de classe est historique (KinCony A8S) : la classe sert à tous les expandeurs.
+ */
 class PF8574BooleanInputNode: public BooleanInputNode{
     public:
+        // Historique : PCF8574 à l'adresse i2cAddr, entrées actives à l'état bas.
         PF8574BooleanInputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t  i2cAddr, uint8_t pin, bool inputInverted, uint16_t refreshInterval, uint16_t webRefreshInterval);
+        // Expandeur quelconque (section "EXP_rx-bool" du fichier matériel).
+        PF8574BooleanInputNode(char *name, char *parentName, uint16_t id, uint32_t hash, IoExpander *expander, uint8_t pin, bool activeLow, bool inputInverted, uint16_t refreshInterval, uint16_t webRefreshInterval);
         virtual int classType() const { return CLASS_PFC8574_BOOLEAN_INPUT_NODE; }
+        // Branche la ligne d'interruption des expandeurs (front descendant) ; une seule fois, gpio < 0 : aucune.
+        static void attachInterruptPin(int8_t gpio);
         static void interruptHandler();
         static bool isInterrupt();
         static void clearInterruptFlag(){
@@ -364,10 +378,12 @@ class PF8574BooleanInputNode: public BooleanInputNode{
 
     private:
         uint8_t pin;
+        bool activeLow = true;
         bool getNewValue(bool& value);
-        PCF8574 *pcfRx = nullptr;
+        IoExpander *expander = nullptr;
         static long timeOfInterrupt;
         static bool interruptFlag;
+        static int8_t interruptPin;
 };
 
 class ModbusNode {
@@ -540,26 +556,38 @@ class ModbusReadInputRegister: public Uint16InputNode, public ModbusNode {
 
 class HardwareBooleanOutputNode: public BooleanOutputNode{
     public:
-        HardwareBooleanOutputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t _pin, uint16_t webRefreshInterval);
+        // activeLow : la sortie est active au niveau bas ; la broche est mise au repos à sa première création.
+        HardwareBooleanOutputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t _pin, uint16_t webRefreshInterval, bool activeLow = false);
         virtual int classType() const { return CLASS_HW_BOOLEAN_OUTPUT_NODE; }
         uint8_t getPinNumber() const;
+        bool isActiveLow() const { return activeLow; }
     private:
         bool setNewValue(bool newValue);
 
         uint16_t address;  // Adresse de l'esclave Modbus
         uint16_t offset;   // Offset du registre
         uint8_t pin;
+        bool activeLow;
 };
 
+/**
+ * Sortie booléenne sur expandeur d'E/S I2C (PCF8574, PCF8575, TCA9554, AW9523...).
+ * Le nom de classe est historique (KinCony A8S) : la classe sert à tous les expandeurs.
+ */
 class PF8574BooleanOutputNode: public BooleanOutputNode{
     public:
+        // Historique : PCF8574 à l'adresse i2cAddr, sorties actives à l'état bas.
         PF8574BooleanOutputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t  i2cAddr, uint8_t pin, uint16_t webRefreshInterval);
+        // Expandeur quelconque (section "EXP_tx-bool" du fichier matériel).
+        PF8574BooleanOutputNode(char *name, char *parentName, uint16_t id, uint32_t hash, IoExpander *expander, uint8_t pin, bool activeLow, uint16_t webRefreshInterval);
         virtual int classType() const { return CLASS_PFC8574_BOOLEAN_OUTPUT_NODE; }
     
     private:
         uint8_t pin;
+        bool activeLow = true;
         bool setNewValue(bool newValue);
-        PCF8574 *pcfTx = nullptr;
+        void setupPin();
+        IoExpander *expander = nullptr;
 };
 
 class PCA9554BooleanOutputNode: public BooleanOutputNode{

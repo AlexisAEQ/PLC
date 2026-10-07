@@ -4,7 +4,7 @@
 // et par le simulateur : chaque élément adressable est identifié par une "ref" :
 //   var:<uid>          variable du projet
 //   bank:<eq>:<group>  nœud "banc" Waveshare (plusieurs voies dans un seul nœud)
-//   servo:<field>      nœud SureServo (champ de ServoNodes)
+//   axis:<eq>:<field>  nœud d'un axe (champ de la structure de nœuds du drive : ServoNodes...)
 //   sys:state          texte "état machine"
 //   sys:clock          texte "horloge"
 
@@ -17,6 +17,8 @@ const CPP_CLASS = {
   'rx-bool@hw': 'BooleanInputNode',
   'PF8574_tx-bool': 'BooleanOutputNode',
   'PCA9554_tx-bool': 'BooleanOutputNode',
+  'EXP_rx-bool': 'BooleanInputNode',
+  'EXP_tx-bool': 'BooleanOutputNode',
   'tx-bool@hw': 'BooleanOutputNode',
   ModbusReadMultipleInputsStatus: 'ModbusReadMultipleInputsRegistersNode',
   ModbusWriteMultipleCoils: 'ModbusWriteMultipleCoilslNode',
@@ -69,6 +71,24 @@ function effectiveKind(v) {
   return v.kind;
 }
 
+// Variante du fichier matériel d'un automate : sans horloge et/ou avec un autre réglage RS485.
+// Ex. Kincony_KC868_A8S_noRTC, Waveshare_ESP32S3_POE_8DI8DO_19200_8N1.
+export function hardwareVariantFor(eq, entry) {
+  if (entry.role !== 'controller') return null;
+  const hasOption = (key) => (entry.options || []).some((o) => o.key === key);
+  const removeRtc = hasOption('rtc') && eq.options?.rtc === false;
+  const speed = hasOption('rs485Speed') && eq.options?.rs485Speed ? Number(eq.options.rs485Speed) : null;
+  const config = hasOption('rs485Config') && eq.options?.rs485Config ? String(eq.options.rs485Config) : null;
+  if (!removeRtc && !speed && !config) return null;
+  let name = entry.hardware;
+  if (removeRtc) name += '_noRTC';
+  if (speed || config) name += `_${speed || 'def'}_${config ? config.replace(/^SERIAL_/, '') : 'def'}`;
+  const variant = { base: entry.hardware, name, removeRtc };
+  if (speed) variant.rs485Speed = speed;
+  if (config) variant.rs485Config = config;
+  return variant;
+}
+
 export function buildLayout(project) {
   const sections = [];
   const nodes = new Map(); // ref -> descripteur de nœud
@@ -118,9 +138,10 @@ export function buildLayout(project) {
       continue;
     }
     let hardware = entry.hardware;
-    if (eq.type === 'Kincony_KC868_A8S' && eq.options?.rtc === false) {
-      hardware = `${entry.hardware}_noRTC`;
-      hardwareVariants.push({ base: entry.hardware, name: hardware, removeRtc: true });
+    const variant = hardwareVariantFor(eq, entry);
+    if (variant) {
+      hardware = variant.name;
+      hardwareVariants.push(variant);
     }
 
     for (const g of entry.groups) {
@@ -166,7 +187,7 @@ export function buildLayout(project) {
 
     for (const s of entry.sections || []) {
       const section = addSection({
-        name: s.name,
+        name: s.name || `${eq.label} ${s.suffix}`,
         hardware: s.virtual ? 'virtual' : hardware,
         type: s.type,
         address: s.modbus ? Number(eq.address) : undefined,
@@ -176,7 +197,7 @@ export function buildLayout(project) {
       for (const n of s.nodes) {
         const extra = {};
         if (n.refreshInterval) extra.refreshInterval = n.refreshInterval;
-        addNode(section, { id: n.id, name: n.name, ref: `servo:${n.field}`, extra, cppClass: n.cpp, label: n.label || n.name, field: n.field });
+        addNode(section, { id: n.id, name: n.name, ref: `axis:${eq.uid}:${n.field}`, extra, cppClass: n.cpp, label: n.label || n.name, field: n.field, axis: eq.uid });
       }
     }
   }

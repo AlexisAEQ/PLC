@@ -1,40 +1,17 @@
 #include "Node/Node.h"
 #include "BorneUniverselle/BorneUniverselle.h"
 #include "Pca9554Driver/Pca9554Driver.h"
+#include "IoExpander/IoExpander.h"
+#include "driver/gpio.h"
 
-// Gestionnaire centralisé de PCF8574 par adresse I2C
-class PCF8574Manager {
-private:
-    static std::map<uint8_t, PCF8574*> instances;
-    
-public:
-    static PCF8574* getOrCreate(uint8_t i2cAddr) {
-        // Vérifier si cette adresse existe déjà
-        auto it = instances.find(i2cAddr);
-        
-        if (it != instances.end()) {
-            Serial.printf("ℹ️  PCF8574 at 0x%02X already initialized, reusing\n", i2cAddr);
-            return it->second;
-        }
-        
-        // Créer nouvelle instance
-        Serial.printf("🔧 Initializing PCF8574 at 0x%02X...\n", i2cAddr);
-        PCF8574* newPcf = new PCF8574(i2cAddr);
-        
-        if (!newPcf->begin()) {
-            Serial.printf("❌ PCF8574 initialization FAILED at 0x%02X\n", i2cAddr);
-            delete newPcf;
-            BorneUniverselle::getInstance()->setPlcBroken(PFC_INIT_ERROR);
-            return nullptr;
-        }
-        
-        Serial.printf("✅ PCF8574 initialized successfully at 0x%02X\n", i2cAddr);
-        instances[i2cAddr] = newPcf;
-        return newPcf;
+// Les PCF8574 (et autres expandeurs I2C) sont partagés par adresse via IoExpanderManager.
+static IoExpander* getLegacyPcf8574(uint8_t i2cAddr) {
+    IoExpander* expander = IoExpanderManager::getOrCreate("PCF8574", i2cAddr);
+    if (expander == nullptr) {
+        BorneUniverselle::getInstance()->setPlcBroken(PFC_INIT_ERROR);
     }
-};
-
-std::map<uint8_t, PCF8574*> PCF8574Manager::instances;
+    return expander;
+}
 
 // Gestionnaire centralisé de PCA9554 par adresse I2C
 class PCA9554Manager {
@@ -712,11 +689,21 @@ void TextOutputNode::setValue(const char * _value) {
     }
 }
 
-HardwareBooleanInputNode::HardwareBooleanInputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t _pin, bool _inputInverted, uint16_t refreshInterval, uint16_t webRefreshInterval): BooleanInputNode(name, parentName, id, hash, _inputInverted, refreshInterval, webRefreshInterval){
+// GPIO déjà préparés en sortie : les nœuds sont recréés lors de la vérification d'une nouvelle
+// configuration et ne doivent pas remettre au repos une sortie en service.
+static uint64_t hardwareOutputsReady = 0;
+
+HardwareBooleanInputNode::HardwareBooleanInputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t _pin, bool _inputInverted, uint16_t refreshInterval, uint16_t webRefreshInterval,
+                                                   bool _activeLow, uint8_t pullMode): BooleanInputNode(name, parentName, id, hash, _inputInverted, refreshInterval, webRefreshInterval){
     //Serial.println("Constructeur de HardwareBoolanInputNode");
     pin = _pin;
-    Serial.printf("Pin %d will be set as input\r\n", pin);
-    pinMode(pin, INPUT_PULLUP);
+    activeLow = _activeLow;
+    Serial.printf("Pin %d will be set as input (%s, active %s)\r\n", pin,
+                  pullMode == INPUT_PULLUP ? "pull-up" : (pullMode == INPUT_PULLDOWN ? "pull-down" : "no pull"), activeLow ? "low" : "high");
+    pinMode(pin, pullMode);
+    if (pin < 64) {
+        hardwareOutputsReady &= ~(1ULL << pin);
+    }
     //Serial.println("Fin du constructeur HardwareBooleanInputNode");
 }
 
@@ -724,35 +711,56 @@ bool HardwareBooleanInputNode::getNewValue(bool& value){
     char text[256];
     sprintf(text, "HardwareBooleanInputNode::getNewValue() for node: %s, pin: %u, inverted: %s", name, pin, inputInverted ? "true" : "false");
     showMessage(text);
-    value =  digitalRead(pin);
+    bool level = digitalRead(pin);
+    value = activeLow ? !level : level;
     return true; // Pas d'erreur possible....
 }
 
 bool PF8574BooleanInputNode::interruptFlag = false;
 long PF8574BooleanInputNode::timeOfInterrupt;
+int8_t PF8574BooleanInputNode::interruptPin = -1;
 
-PF8574BooleanInputNode::PF8574BooleanInputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t  i2cAddr, uint8_t _pin, bool _inputInverted, uint16_t refreshInterval, uint16_t webRefreshInterval): BooleanInputNode(name, parentName, id, hash, _inputInverted, refreshInterval, webRefreshInterval){
+PF8574BooleanInputNode::PF8574BooleanInputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t  i2cAddr, uint8_t _pin, bool _inputInverted, uint16_t refreshInterval, uint16_t webRefreshInterval)
+    : PF8574BooleanInputNode(name, parentName, id, hash, getLegacyPcf8574(i2cAddr), _pin, true, _inputInverted, refreshInterval, webRefreshInterval) {
+    // Historique : PCF8574 de la KinCony A8S, entrées actives à l'état bas.
+}
+
+PF8574BooleanInputNode::PF8574BooleanInputNode(char *name, char *parentName, uint16_t id, uint32_t hash, IoExpander *_expander, uint8_t _pin, bool _activeLow, bool _inputInverted, uint16_t refreshInterval, uint16_t webRefreshInterval)
+    : BooleanInputNode(name, parentName, id, hash, _inputInverted, refreshInterval, webRefreshInterval){
     pin = _pin;
-    pcfRx = PCF8574Manager::getOrCreate(i2cAddr);
-    
-    if (pcfRx == nullptr) {
-        Serial.printf("❌ Failed to get PCF8574 instance for input node %s at 0x%02X\n", name, i2cAddr);
+    activeLow = _activeLow;
+    expander = _expander;
+
+    if (expander == nullptr) {
+        Serial.printf("❌ No I/O expander for input node %s\n", name);
         return;
     }
-     // add interrupt
-    attachInterrupt(14, PF8574BooleanInputNode::interruptHandler, FALLING); // Désactivé le 7 décembre pour test
-    //Serial.printf("PF8574BooleanInputNode::PF8574BooleanInputNode for node %s, pin %u, i2cAddr: %u, interrupt handle attached\r\n", getName(), pin, i2cAddr);
-    
+    if (!expander->setupInput(pin)) {
+        Serial.printf("❌ Unable to configure pin %u of %s at 0x%02X as input for node %s\n", pin, expander->chipName(), expander->address(), name);
+    }
+
     if (refreshInterval != 0){
         Serial.printf("PF8574BooleanInputNode::RefreshInterval for node %s is %u\r\n", getName(), refreshInterval);
     }
+}
+
+void PF8574BooleanInputNode::attachInterruptPin(int8_t gpio){
+    if (gpio < 0 || gpio == interruptPin) {
+        return;
+    }
+    if (interruptPin >= 0) {
+        detachInterrupt(interruptPin);
+    }
+    interruptPin = gpio;
+    pinMode(gpio, INPUT_PULLUP);  // sortie INT des expandeurs : drain ouvert
+    attachInterrupt(gpio, PF8574BooleanInputNode::interruptHandler, FALLING);
+    Serial.printf("I/O expander interrupt attached on GPIO %d\r\n", gpio);
 }
 
 void IRAM_ATTR PF8574BooleanInputNode::interruptHandler(){
     //Serial.println("PF8574BooleanInputNode::interruptHandler called");
     interruptFlag = true;
     timeOfInterrupt = millis();
-   // int x = pcfRx->read8();
 }
 
 bool PF8574BooleanInputNode::isInterrupt(){
@@ -764,8 +772,12 @@ bool PF8574BooleanInputNode::isInterrupt(){
 bool PF8574BooleanInputNode::getNewValue(bool& value){
     char text[256];
     sprintf(text, "PF8574BooleanInputNode::getNewValue() for node: %s, pin: %u", name, pin);
-    value = !pcfRx->read(pin); // Les entrées sont inversées !
-    return true; // Pas d'erreur possible....
+    bool level = false;
+    if (expander == nullptr || !expander->readPin(pin, level)) {
+        return false;
+    }
+    value = activeLow ? !level : level;
+    return true;
 }
 
 ModbusNode::ModbusNode(uint16_t _address, uint16_t _offset)
@@ -940,11 +952,19 @@ bool ModbusReadInputRegister::getNewValue(uint16_t& value){
     return true;
 }
 
-HardwareBooleanOutputNode::HardwareBooleanOutputNode(char *name, char *parentName,  uint16_t id, uint32_t hash, uint8_t _pin, uint16_t webRefreshInterval): BooleanOutputNode(name, parentName, id, hash, webRefreshInterval){
+HardwareBooleanOutputNode::HardwareBooleanOutputNode(char *name, char *parentName,  uint16_t id, uint32_t hash, uint8_t _pin, uint16_t webRefreshInterval, bool _activeLow): BooleanOutputNode(name, parentName, id, hash, webRefreshInterval){
     //Serial.printf("Constructeur de HardwareBoolanOutputNode, hash: %u\r\n", hash);
     pin = _pin;
-    Serial.printf("Will set pin %d as output\r\n", pin);
+    activeLow = _activeLow;
+    uint64_t bit = (pin < 64) ? (1ULL << pin) : 0;
+    if (bit && (hardwareOutputsReady & bit)) {
+        return;
+    }
+    Serial.printf("Will set pin %d as output (active %s)\r\n", pin, activeLow ? "low" : "high");
+    gpio_set_level((gpio_num_t)pin, activeLow ? 1 : 0);  // niveau de repos avant le passage en sortie
     pinMode(pin, OUTPUT);
+    digitalWrite(pin, activeLow ? HIGH : LOW);
+    hardwareOutputsReady |= bit;
 }
 
 uint8_t HardwareBooleanOutputNode::getPinNumber() const{
@@ -955,30 +975,43 @@ bool HardwareBooleanOutputNode::setNewValue(bool newValue){
     char text[256];
     sprintf(text, "HardwareBooleanOutputNode::setNewValue for node: %s, pin: %u, new value: %s", name, pin, newValue ? "true" : "false");
     showMessage(text);
-    digitalWrite(pin, newValue);
+    digitalWrite(pin, (newValue != activeLow) ? HIGH : LOW);
     return true;
 }
 
-PF8574BooleanOutputNode::PF8574BooleanOutputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t  i2cAddr, uint8_t _pin, uint16_t webRefreshInterval): BooleanOutputNode(name, parentName, id, hash, webRefreshInterval){
-   // Serial.printf("Constructeur de la classe PF8574BooleanOutputNode, hash: %u\r\n", hash);
+PF8574BooleanOutputNode::PF8574BooleanOutputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t  i2cAddr, uint8_t _pin, uint16_t webRefreshInterval)
+    : PF8574BooleanOutputNode(name, parentName, id, hash, getLegacyPcf8574(i2cAddr), _pin, true, webRefreshInterval) {
+    // Historique : PCF8574 de la KinCony A8S, sorties actives à l'état bas.
+}
+
+PF8574BooleanOutputNode::PF8574BooleanOutputNode(char *name, char *parentName, uint16_t id, uint32_t hash, IoExpander *_expander, uint8_t _pin, bool _activeLow, uint16_t webRefreshInterval)
+    : BooleanOutputNode(name, parentName, id, hash, webRefreshInterval){
     pin = _pin;
-    pcfTx = PCF8574Manager::getOrCreate(i2cAddr);
-    
-    if (pcfTx == nullptr) {
-        Serial.printf("❌ Failed to get PCF8574 instance for output node %s at 0x%02X\n", name, i2cAddr);
+    activeLow = _activeLow;
+    expander = _expander;
+    setupPin();
+}
+
+void PF8574BooleanOutputNode::setupPin(){
+    if (expander == nullptr) {
+        Serial.printf("❌ No I/O expander for output node %s\n", name);
         return;
     }
-    
-    Serial.printf("✅ Output node %s created (pin %d on PCF8574 at 0x%02X)\n", name, _pin, i2cAddr);
+    if (!expander->setupOutput(pin, activeLow)) {  // repos : niveau haut si la sortie est active à l'état bas
+        Serial.printf("❌ Unable to configure pin %u of %s at 0x%02X as output for node %s\n", pin, expander->chipName(), expander->address(), name);
+        return;
+    }
+    Serial.printf("✅ Output node %s created (pin %d on %s at 0x%02X, active %s)\n", name, pin, expander->chipName(), expander->address(), activeLow ? "low" : "high");
 }
 
 bool PF8574BooleanOutputNode::setNewValue(bool newValue){
     char text[256];
     sprintf(text, "PF8574BooleanOutputNode::setNewValue for node: %s, pin: %u, new value: %s", name, pin, newValue ? "true" : "false");
     showMessage(text);
-    Serial.printf(text);
-    pcfTx->write(pin, !newValue); // sorties inversées !
-    return true;
+    if (expander == nullptr) {
+        return false;
+    }
+    return expander->writePin(pin, newValue != activeLow);
 }
 
 PCA9554BooleanOutputNode::PCA9554BooleanOutputNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint8_t i2cAddr, uint8_t _pin, bool _outputInverted, uint16_t webRefreshInterval): BooleanOutputNode(name, parentName, id, hash, webRefreshInterval){

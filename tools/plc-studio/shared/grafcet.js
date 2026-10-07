@@ -3,18 +3,19 @@
 // project.logic = {
 //   steps:       [{ id, num, label, initial, x, y, actions: [Action] }],
 //   transitions: [{ id, num, from: [stepId], to: [stepId], condition, comment, x, y }],
-//   blocks:      { emergency, run, servo }   (modes de marche, voir DEFAULT_BLOCKS)
+//   blocks:      { emergency, run, axes: { <uid axe>: bloc d'axe } }   (modes de marche, voir DEFAULT_BLOCKS)
 // }
 //
-// Action = { id, type, target?, value?, condition?, position?, speed?, level?, text? }
+// Action = { id, type, target?, value?, condition?, axis?, position?, speed?, level?, text? }
 //   N        sortie vraie tant que l'étape est active (condition optionnelle)
 //   S / R    mise à 1 / à 0 mémorisée à l'activation
 //   SET      affectation à l'activation          (target := value)
 //   NSET     affectation continue tant qu'active (target := value)
 //   INC/DEC  +1 / -1 à l'activation
-//   SERVO_MOVE  déplacement (position, vitesse 0-15) à l'activation
-//   SERVO_HOME  prise d'origine à l'activation
-//   SERVO_STOP  arrêt du mouvement à l'activation
+//   SERVO_MOVE  déplacement d'un axe (position, vitesse en unités du drive) à l'activation
+//   SERVO_HOME  prise d'origine d'un axe à l'activation
+//   SERVO_STOP  arrêt du mouvement d'un axe à l'activation
+//   (axis = uid de l'équipement ; facultatif quand le projet n'a qu'un axe)
 //   MSG      message à l'écran à l'activation (level : info | warning | error | success)
 //
 // Sémantique d'un cycle (identique en simulation et en C++) :
@@ -25,7 +26,8 @@
 //   5. mémorisation des valeurs pour les fronts
 
 import { parse, tryParse, projectContext, walk, edgeKey, usedSymbols } from './expr.js';
-import { CATALOG } from './catalog.js';
+import { axisList } from './axes.js';
+import { DEFAULT_AXIS_BLOCK } from './model.js';
 
 export const ACTION_TYPES = {
   N: { label: 'Continue (N)', help: 'Vraie tant que l’étape est active', needs: ['target'], targetType: 'bool', optional: ['condition'] },
@@ -35,20 +37,24 @@ export const ACTION_TYPES = {
   NSET: { label: 'Affecter en continu', help: 'cible := valeur à chaque cycle', needs: ['target', 'value'] },
   INC: { label: 'Incrémenter (+1)', help: 'À l’activation', needs: ['target'], targetType: 'int' },
   DEC: { label: 'Décrémenter (-1)', help: 'À l’activation', needs: ['target'], targetType: 'int' },
-  SERVO_MOVE: { label: 'Servo : aller à', help: 'Position (impulsions) et vitesse (0-15)', needs: ['position', 'speed'], servo: true },
-  SERVO_HOME: { label: 'Servo : prise d’origine', help: 'À l’activation', needs: [], servo: true },
-  SERVO_STOP: { label: 'Servo : arrêt', help: 'Arrêt immédiat du mouvement', needs: [], servo: true },
+  SERVO_MOVE: { label: 'Axe : aller à', help: 'Position et vitesse dans les unités de l’axe (SureServo : impulsions, vitesse 0-15)', needs: ['axis', 'position', 'speed'], servo: true },
+  SERVO_HOME: { label: 'Axe : prise d’origine', help: 'À l’activation', needs: ['axis'], servo: true },
+  SERVO_STOP: { label: 'Axe : arrêt', help: 'Arrêt immédiat du mouvement', needs: ['axis'], servo: true },
   MSG: { label: 'Message à l’écran', help: 'Notification à l’activation', needs: ['text'] },
 };
+
+export { DEFAULT_AXIS_BLOCK };
 
 export const DEFAULT_BLOCKS = {
   emergency: { condition: '', reset: '' },
   run: { start: '', stop: '' },
-  servo: { homing: 'auto', homingCondition: '', jogEnabled: false, jogMode: '', jogPlus: '', jogMinus: '', jogSpeed: '500', torque: '' },
+  servo: DEFAULT_AXIS_BLOCK, // ancien nom (bloc de l'axe unique)
 };
 
 // Texte d'une action tel qu'affiché dans l'éditeur de grafcet (sert aussi à la mise en page).
-export function actionText(a) {
+// axisName(uid) : nom de l'axe d'une action SERVO_* (facultatif).
+export function actionText(a, axisName) {
+  const ax = (a.axis && axisName && axisName(a.axis)) || 'Axe';
   switch (a.type) {
     case 'N':
       return `N  ${a.target || '?'}${a.condition ? `  si ${a.condition}` : ''}`;
@@ -65,11 +71,11 @@ export function actionText(a) {
     case 'DEC':
       return `${a.target || '?'} − 1`;
     case 'SERVO_MOVE':
-      return `Servo → ${a.position || '?'}  (vitesse ${a.speed || '?'})`;
+      return `${ax} → ${a.position || '?'}  (vitesse ${a.speed || '?'})`;
     case 'SERVO_HOME':
-      return 'Servo : prise d’origine';
+      return `${ax} : prise d’origine`;
     case 'SERVO_STOP':
-      return 'Servo : arrêt';
+      return `${ax} : arrêt`;
     case 'MSG':
       return `Message : ${a.text || ''}`;
     default:
@@ -77,15 +83,21 @@ export function actionText(a) {
   }
 }
 
-export function normalizeLogic(logic) {
+// project (facultatif) : rattache le bloc « servo » des anciens projets à l'axe unique.
+export function normalizeLogic(logic, project) {
   const l = logic || {};
+  let axesBlocks = l.blocks?.axes || {};
+  if (l.blocks?.servo && project) {
+    const axes = axisList(project);
+    if (axes.length === 1 && !axesBlocks[axes[0].uid]) axesBlocks = { ...axesBlocks, [axes[0].uid]: l.blocks.servo };
+  }
   return {
     steps: Array.isArray(l.steps) ? l.steps.map((s) => ({ actions: [], ...s, actions: Array.isArray(s.actions) ? s.actions : [] })) : [],
     transitions: Array.isArray(l.transitions) ? l.transitions.map((t) => ({ from: [], to: [], condition: '', ...t })) : [],
     blocks: {
       emergency: { ...DEFAULT_BLOCKS.emergency, ...(l.blocks?.emergency || {}) },
       run: { ...DEFAULT_BLOCKS.run, ...(l.blocks?.run || {}) },
-      servo: { ...DEFAULT_BLOCKS.servo, ...(l.blocks?.servo || {}) },
+      axes: Object.fromEntries(Object.entries(axesBlocks).map(([uid, b]) => [uid, { ...DEFAULT_AXIS_BLOCK, ...(b || {}) }])),
     },
   };
 }
@@ -110,17 +122,20 @@ export function isWritable(v) {
   return v && writableKinds.has(v.kind) && !v.system;
 }
 
-function hasServo(project) {
-  return project.equipment.some((e) => CATALOG[e.type]?.role === 'servo');
+// Bloc d'un axe (valeurs par défaut si l'axe n'a jamais été réglé).
+export function axisBlock(logic, uid) {
+  return { ...DEFAULT_AXIS_BLOCK, ...(logic?.blocks?.axes?.[uid] || {}) };
 }
 
 // Compile le grafcet. Retourne { ir, issues }.
 export function compileLogic(project) {
-  const logic = normalizeLogic(project.logic);
+  const logic = normalizeLogic(project.logic, project);
   const issues = [];
   const err = (message, ref) => issues.push({ level: 'error', step: 'logic', message, ref });
   const warn = (message, ref) => issues.push({ level: 'warning', step: 'logic', message, ref });
-  const servo = hasServo(project);
+  const axes = axisList(project);
+  const axisByUid = new Map(axes.map((a) => [a.uid, a]));
+  const defaultAxis = axes.length === 1 ? axes[0].uid : null;
 
   const steps = [...logic.steps].sort((a, b) => a.num - b.num);
   const stepNums = new Set();
@@ -134,7 +149,7 @@ export function compileLogic(project) {
   if (steps.length && !steps.some((s) => s.initial)) err('Le grafcet doit avoir au moins une étape initiale.');
   if (steps.length > 250) err('250 étapes au maximum.');
 
-  const ctx = projectContext(project, { steps: stepNums, servo });
+  const ctx = projectContext(project, { steps: stepNums });
   const varBySym = new Map(project.variables.map((v) => [v.symbol, v]));
   const edges = new Map(); // clé -> { key, ast }
   const collectEdges = (ast) =>
@@ -198,11 +213,23 @@ export function compileLogic(project) {
         err(`${where} : type inconnu.`, s.id);
         continue;
       }
-      if (def.servo && !servo) {
-        err(`${where} : aucun servo dans le projet.`, s.id);
-        continue;
-      }
       const out = { type: a.type };
+      if (def.servo) {
+        if (!axes.length) {
+          err(`${where} : aucun axe dans le projet.`, s.id);
+          continue;
+        }
+        const uid = a.axis || defaultAxis;
+        if (!uid) {
+          err(`${where} : choisissez l’axe.`, s.id);
+          continue;
+        }
+        if (!axisByUid.has(uid)) {
+          err(`${where} : axe introuvable (équipement supprimé ?).`, s.id);
+          continue;
+        }
+        out.axis = uid;
+      }
       if (def.needs.includes('target')) {
         const v = varBySym.get(a.target);
         if (!a.target) {
@@ -214,7 +241,7 @@ export function compileLogic(project) {
           continue;
         }
         if (!isWritable(v)) {
-          err(`${where} : « ${v.symbol} » ne peut pas être écrite par la logique (${v.system ? 'signal piloté par le bloc servo' : 'entrée'}).`, s.id);
+          err(`${where} : « ${v.symbol} » ne peut pas être écrite par la logique (${v.system ? 'signal piloté par le drive de l’axe' : 'entrée'}).`, s.id);
           continue;
         }
         if (def.targetType === 'bool' && v.dataType !== 'bool') err(`${where} : « ${v.symbol} » doit être booléenne.`, s.id);
@@ -243,7 +270,7 @@ export function compileLogic(project) {
       }
       if (a.type === 'SERVO_MOVE') {
         out.position = parseField(a.position, `${where} (position)`, s.id, 'num');
-        out.speed = parseField(a.speed || '5', `${where} (vitesse)`, s.id, 'num');
+        out.speed = parseField(a.speed || String(axisByUid.get(out.axis)?.entry.axis?.defaultSpeed ?? 5), `${where} (vitesse)`, s.id, 'num');
         if (!out.position || !out.speed) continue;
       }
       if (a.type === 'MSG') {
@@ -264,26 +291,32 @@ export function compileLogic(project) {
 
   // Blocs (modes de marche)
   const b = logic.blocks;
-  const blocks = { emergency: null, emergencyReset: null, start: null, stop: null, servo: null };
+  const blocks = { emergency: null, emergencyReset: null, start: null, stop: null, axes: [] };
   if (String(b.emergency.condition).trim()) blocks.emergency = parseField(b.emergency.condition, 'Arrêt d’urgence (condition)', 'blocks', 'bool');
   else if (steps.length) warn('Aucune condition d’arrêt d’urgence n’est définie (Modes et sécurités).');
   if (String(b.emergency.reset).trim()) blocks.emergencyReset = parseField(b.emergency.reset, 'Arrêt d’urgence (acquittement)', 'blocks', 'bool');
   if (String(b.run.start).trim()) blocks.start = parseField(b.run.start, 'Mise en marche', 'blocks', 'bool');
   if (String(b.run.stop).trim()) blocks.stop = parseField(b.run.stop, 'Arrêt', 'blocks', 'bool');
-  if (servo) {
-    const sv = b.servo;
-    const s = { homing: ['auto', 'condition', 'none'].includes(sv.homing) ? sv.homing : 'auto' };
-    if (s.homing === 'condition') s.homingCondition = parseField(sv.homingCondition || 'FAUX', 'Prise d’origine (condition)', 'blocks', 'bool');
+  for (const axis of axes) {
+    const sv = axisBlock(logic, axis.uid);
+    const def = axis.entry.axis || {};
+    const name = axes.length > 1 ? ` — ${axis.label}` : '';
+    const s = { uid: axis.uid, symbol: axis.symbol, label: axis.label, type: axis.eq.type, homing: ['auto', 'condition', 'none'].includes(sv.homing) ? sv.homing : 'auto' };
+    s.homingOrder = Number.isInteger(Number(sv.homingOrder)) && Number(sv.homingOrder) > 0 ? Number(sv.homingOrder) : 1;
+    if (s.homing === 'condition') s.homingCondition = parseField(sv.homingCondition || 'FAUX', `Prise d’origine (condition)${name}`, 'blocks', 'bool');
     if (sv.jogEnabled) {
       s.jog = {
-        mode: parseField(sv.jogMode || 'FAUX', 'Jog (mode manuel)', 'blocks', 'bool'),
-        plus: parseField(sv.jogPlus || 'FAUX', 'Jog +', 'blocks', 'bool'),
-        minus: parseField(sv.jogMinus || 'FAUX', 'Jog -', 'blocks', 'bool'),
-        speed: parseField(sv.jogSpeed || '500', 'Jog (vitesse)', 'blocks', 'num'),
+        mode: parseField(sv.jogMode || 'FAUX', `Jog (mode manuel)${name}`, 'blocks', 'bool'),
+        plus: parseField(sv.jogPlus || 'FAUX', `Jog +${name}`, 'blocks', 'bool'),
+        minus: parseField(sv.jogMinus || 'FAUX', `Jog -${name}`, 'blocks', 'bool'),
+        speed: parseField(String(sv.jogSpeed ?? '').trim() || String(def.defaultJogSpeed ?? 500), `Jog (vitesse)${name}`, 'blocks', 'num'),
       };
     }
-    if (String(sv.torque || '').trim()) s.torque = parseField(sv.torque, 'Couple maximal', 'blocks', 'num');
-    blocks.servo = s;
+    if (String(sv.torque || '').trim()) {
+      if (def.torque === false) warn(`Couple maximal${name} : non géré par ce type d’axe, ignoré.`);
+      else s.torque = parseField(sv.torque, `Couple maximal${name}`, 'blocks', 'num');
+    }
+    blocks.axes.push(s);
   }
 
   // Symboles utilisés (pour la génération des accès aux nœuds)
@@ -299,10 +332,10 @@ export function compileLogic(project) {
   Object.values(blocks).forEach((x) => {
     if (x && x.k) addUsed(x);
   });
-  if (blocks.servo) {
-    addUsed(blocks.servo.homingCondition);
-    if (blocks.servo.jog) Object.values(blocks.servo.jog).forEach(addUsed);
-    addUsed(blocks.servo.torque);
+  for (const ax of blocks.axes) {
+    addUsed(ax.homingCondition);
+    if (ax.jog) Object.values(ax.jog).forEach(addUsed);
+    addUsed(ax.torque);
   }
 
   // Sorties pilotées en continu (N / S / R) : recalculées à chaque cycle.
@@ -315,7 +348,8 @@ export function compileLogic(project) {
     blocks,
     driven,
     used: [...used],
-    servo,
+    axes: blocks.axes,
+    servo: axes.length > 0,
   };
   return { ir, issues };
 }

@@ -1,6 +1,7 @@
 // Disposition des écrans opérateur (pages / sections / éléments) et valeurs par défaut des widgets.
 
 import { CATALOG, widgetsFor } from './catalog.js';
+import { axisList } from './axes.js';
 
 let counter = 0;
 const id = (p) => `${p}_${Date.now().toString(36)}${(counter++).toString(36)}`;
@@ -24,7 +25,7 @@ export function describeRef(project, layout, ref) {
   const node = layout.nodes.get(ref);
   if (!node) return null;
   if (ref === 'sys:state' || ref === 'sys:clock') return { label: node.label, widgets: ['rx-label'] };
-  if (ref.startsWith('servo:')) {
+  if (ref.startsWith('axis:')) {
     if (node.cppClass === 'BooleanOutputNode') return { label: node.label, widgets: ['rx-indicator', 'rx-bool'] };
     return { label: node.label || node.name, widgets: ['rx-numeric', 'rx-level-bar'] };
   }
@@ -43,15 +44,28 @@ export function unplacedRefs(project, layout, pages = project.hmi.pages) {
   }
   for (const [ref, node] of layout.nodes) {
     if (ref.startsWith('var:') || ref.startsWith('bank:') || ref.startsWith('mirror:') || placed.has(ref)) continue;
-    // Registres internes du servo : seuls les états booléens, la position et les alarmes sont utiles à l'écran.
-    if (ref.startsWith('servo:') && node.cppClass !== 'BooleanOutputNode' && !SERVO_NUMERIC.includes(node.field)) continue;
+    // Registres internes d'un axe : seuls les états booléens, la position et les alarmes sont utiles à l'écran.
+    if (ref.startsWith('axis:') && node.cppClass !== 'BooleanOutputNode' && !axisNumericFields(project, node.axis).includes(node.field)) continue;
     refs.push(ref);
   }
   return refs;
 }
 
-const SERVO_NUMERIC = ['position', 'alarms', 'status'];
-const SERVO_DEFAULT = ['servoReady', 'servoActivated', 'driveInitialised', 'homeDone', 'targetPositionReached', 'servoAlarm', 'modbusError'];
+// Valeurs par défaut (SureServo) ; chaque type d'axe peut les redéfinir dans catalog.js (axis.hmi).
+const AXIS_HMI_DEFAULT = {
+  numeric: ['position', 'alarms', 'status'],
+  indicators: ['servoReady', 'servoActivated', 'driveInitialised', 'homeDone', 'targetPositionReached', 'servoAlarm', 'modbusError'],
+  alarms: ['servoAlarm', 'modbusError'],
+};
+
+function axisHmi(entry) {
+  return { ...AXIS_HMI_DEFAULT, ...(entry?.axis?.hmi || {}) };
+}
+
+function axisNumericFields(project, eqUid) {
+  const eq = project.equipment.find((e) => e.uid === eqUid);
+  return axisHmi(CATALOG[eq?.type]).numeric;
+}
 
 export function autoLayout(project, layout) {
   const shown = (v) => v.hmi?.show !== false && layout.nodes.has(`var:${v.uid}`);
@@ -81,15 +95,20 @@ export function autoLayout(project, layout) {
   if (outputs.length) io.sections.push({ id: id('sec'), name: 'Sorties', orientation: 'horizontal', items: outputs });
   if (io.sections.length) pages.push(io);
 
-  const servo = project.equipment.find((e) => CATALOG[e.type]?.role === 'servo');
-  if (servo) {
-    const items = SERVO_DEFAULT.filter((f) => layout.nodes.has(`servo:${f}`)).map((f) => {
-      const n = layout.nodes.get(`servo:${f}`);
-      return { ref: `servo:${f}`, label: n.label, widget: 'rx-indicator', props: f === 'servoAlarm' || f === 'modbusError' ? { color: 'red' } : {} };
+  // Axes : une page « <axe> » pour un axe seul, sinon une page « Axes » avec une section par axe.
+  const axes = axisList(project);
+  const axisSections = axes.map((a) => {
+    const hmi = axisHmi(a.entry);
+    const ref = (f) => `axis:${a.uid}:${f}`;
+    const items = hmi.indicators.filter((f) => layout.nodes.has(ref(f))).map((f) => {
+      const n = layout.nodes.get(ref(f));
+      return { ref: ref(f), label: n.label, widget: 'rx-indicator', props: hmi.alarms.includes(f) ? { color: 'red' } : {} };
     });
-    if (layout.nodes.has('servo:position')) items.push({ ref: 'servo:position', label: 'Position actuelle', widget: 'rx-numeric' });
-    pages.push({ id: id('page'), name: 'Servo', sections: [{ id: id('sec'), name: 'État servo', orientation: 'horizontal', items }] });
-  }
+    if (layout.nodes.has(ref('position'))) items.push({ ref: ref('position'), label: 'Position actuelle', widget: 'rx-numeric' });
+    return { id: id('sec'), name: `État ${axes.length === 1 ? a.label.toLowerCase() : a.label}`, orientation: 'horizontal', items };
+  });
+  if (axes.length === 1) pages.push({ id: id('page'), name: axes[0].label, sections: axisSections });
+  else if (axes.length > 1) pages.push({ id: id('page'), name: 'Axes', sections: axisSections });
 
   const params = pick((v) => v.kind === 'parameter');
   if (params.length) {

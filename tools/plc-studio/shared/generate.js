@@ -117,6 +117,10 @@ export function generateHardwareVariant(variant, baseDoc) {
   const doc = JSON.parse(JSON.stringify(baseDoc));
   doc.hardware = variant.name;
   if (variant.removeRtc && doc.I2C) delete doc.I2C.RTC;
+  if (doc.RS485) {
+    if (variant.rs485Speed) doc.RS485.speed = variant.rs485Speed;
+    if (variant.rs485Config) doc.RS485.config = variant.rs485Config;
+  }
   return doc;
 }
 

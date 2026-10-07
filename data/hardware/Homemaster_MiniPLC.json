@@ -1,0 +1,42 @@
+{
+    "hardware": "Homemaster_MiniPLC",
+
+    "board": {"mcu": "ESP32", "buzzer": {"pin": 2}},
+
+    "I2C": {"SDA": 32, "SCL": 33, "RTC": "PCF8563"},
+
+    "RS485": {"rx": 16, "tx": 17, "speed": 115200, "config": "SERIAL_8E1"},
+
+    "Modbus": {"modbusRTU": true, "timeout": 101},
+
+    "rx-bool": [
+        {"id": 1, "pin": 36, "activeLow": false, "pull": "none"},
+        {"id": 2, "pin": 39, "activeLow": false, "pull": "none"},
+        {"id": 3, "pin": 34, "activeLow": false, "pull": "none"},
+        {"id": 4, "pin": 35, "activeLow": false, "pull": "none"}
+    ],
+
+    "EXP_rx-bool": [
+        {"id": 1, "chip": "PCF8574", "addr": 32, "pin": 0, "activeLow": true},
+        {"id": 2, "chip": "PCF8574", "addr": 32, "pin": 1, "activeLow": true},
+        {"id": 3, "chip": "PCF8574", "addr": 32, "pin": 2, "activeLow": true},
+        {"id": 4, "chip": "PCF8574", "addr": 32, "pin": 3, "activeLow": true}
+    ],
+
+    "EXP_tx-bool": [
+        {"id": 1, "chip": "PCF8574", "addr": 33, "pin": 2, "activeLow": true},
+        {"id": 2, "chip": "PCF8574", "addr": 33, "pin": 1, "activeLow": true},
+        {"id": 3, "chip": "PCF8574", "addr": 33, "pin": 0, "activeLow": true},
+        {"id": 4, "chip": "PCF8574", "addr": 32, "pin": 6, "activeLow": true},
+        {"id": 5, "chip": "PCF8574", "addr": 32, "pin": 5, "activeLow": true},
+        {"id": 6, "chip": "PCF8574", "addr": 32, "pin": 4, "activeLow": true},
+        {"id": 7, "chip": "PCF8574", "addr": 33, "pin": 3, "activeLow": true},
+        {"id": 8, "chip": "PCF8574", "addr": 33, "pin": 4, "activeLow": true}
+    ],
+
+    "tx-bool": [
+        {"id": 1, "pin": 5},
+        {"id": 2, "pin": 4},
+        {"id": 9, "pin": 2}
+    ]
+}

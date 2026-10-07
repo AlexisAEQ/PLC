@@ -3,6 +3,8 @@
 #include "IRtcDriver/IRtcDriver.h"
 #include "Ds3231Driver/Ds3231Driver.h"
 #include "Pcf85063Driver/Pcf85063Driver.h"
+#include "Pcf8563Driver/Pcf8563Driver.h"
+#include "Rx8130Driver/Rx8130Driver.h"
 
 // Initialisation du pointeur statique (singleton)
 RTC_Service* RTC_Service::_instance = nullptr;
@@ -30,6 +32,21 @@ RTC_Service* RTC_Service::getInstance() {
 }
 
 bool RTC_Service::begin(bool enableDS3231, uint8_t sda, uint8_t scl) {
+    (void)sda;
+    (void)scl;  // le bus I2C est initialisé par BorneUniverselle (fichier matériel de la carte)
+    return beginWithChip(enableDS3231 ? "auto" : "none");
+}
+
+// Crée le driver correspondant au nom donné par le fichier matériel (nullptr si inconnu).
+static IRtcDriver* createRtcDriver(const char* chip) {
+    if (strcasecmp(chip, "DS3231") == 0)   return new Ds3231Driver();
+    if (strcasecmp(chip, "PCF85063") == 0) return new Pcf85063Driver();
+    if (strcasecmp(chip, "PCF8563") == 0)  return new Pcf8563Driver();
+    if (strcasecmp(chip, "RX8130") == 0)   return new Rx8130Driver();
+    return nullptr;
+}
+
+bool RTC_Service::beginWithChip(const char* chip) {
     // Évite la double initialisation
     if (_initialized) {
         Serial.println("[RTC] Service déjà initialisé");
@@ -38,18 +55,28 @@ bool RTC_Service::begin(bool enableDS3231, uint8_t sda, uint8_t scl) {
     
     _bootMillis = millis();
     _initialized = true;
+    if (chip == nullptr) chip = "auto";
     
-    Serial.println("[RTC] Initialisation service d'horodatage...");
+    Serial.printf("[RTC] Initialisation service d'horodatage (horloge : %s)...\n", chip);
     
-    if (enableDS3231) {
+    if (strcasecmp(chip, "none") != 0 && strcasecmp(chip, "false") != 0) {
         delay(10);
 
-        // Sonde successivement les chips connus : DS3231 (0x68) puis PCF85063ATL (0x51)
-        _driver = new Ds3231Driver();
-        if (!_driver->detect()) {
-            delete _driver;
-            _driver = new Pcf85063Driver();
-            if (!_driver->detect()) {
+        if (strcasecmp(chip, "auto") == 0) {
+            // Sonde successivement les chips connus : DS3231 (0x68), PCF85063ATL (0x51), RX8130 (0x32)
+            static const char* const AUTO_CHIPS[] = { "DS3231", "PCF85063", "RX8130" };
+            for (const char* candidate : AUTO_CHIPS) {
+                _driver = createRtcDriver(candidate);
+                if (_driver && _driver->detect()) break;
+                delete _driver;
+                _driver = nullptr;
+            }
+        } else {
+            _driver = createRtcDriver(chip);
+            if (_driver == nullptr) {
+                Serial.printf("[RTC] ⚠️ Horloge inconnue « %s » (DS3231, PCF85063, PCF8563, RX8130, auto, none)\n", chip);
+            } else if (!_driver->detect()) {
+                Serial.printf("[RTC] ⚠️ %s absent du bus I2C\n", _driver->chipName());
                 delete _driver;
                 _driver = nullptr;
             }
@@ -86,7 +113,7 @@ bool RTC_Service::begin(bool enableDS3231, uint8_t sda, uint8_t scl) {
             return true;
         }
 
-        Serial.println("[RTC] Aucune horloge matérielle détectée (DS3231/PCF85063ATL)");
+        Serial.println("[RTC] Aucune horloge matérielle détectée");
     }
 
     // Fallback sur millis()

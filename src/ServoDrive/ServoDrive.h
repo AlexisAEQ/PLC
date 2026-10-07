@@ -97,6 +97,28 @@ public:
     virtual const char* getLastError() const = 0;
     virtual bool getHomeDone() const = 0;
 
+    // ========================================
+    // AXES MULTIPLES (AxisController, code généré par PLC Studio)
+    // Valeurs par défaut compatibles avec les drives existants.
+    // ========================================
+
+    // Position mesurée (lue sur le variateur ou le compteur d'impulsions), sans trace Serial.
+    virtual int32_t getActualPosition() const { return getPosition(); }
+
+    // Vitesse des prochains déplacements, en unités natives du drive :
+    // SureServo = index 0-15 de la table de vitesses, Lichuan = tr/min, pas-à-pas = pas/s.
+    virtual bool setMoveSpeed(int32_t speed) {
+        if (speed < 0) speed = 0;
+        if (speed > 255) speed = 255;
+        return setSpeedAndRamp((uint8_t)speed, 0);
+    }
+
+    // Vrai pendant la fenêtre où un nouveau déplacement serait refusé après un arrêt.
+    virtual bool isImmediateStopActive() const { return false; }
+
+    // Libellé de l'alarme courante (vide si inconnue).
+    virtual const char* getAlarmDescription() const { return ""; }
+
     // handler pour la machine d'état (dans la classe métier)
     virtual bool handleInitializing(OperationStatus& status) = 0;
     virtual bool handleHoming(OperationStatus& status, uint32_t homingSpeed = 0, uint32_t timeoutMs = 0) = 0;

@@ -20,7 +20,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CATALOG } from '../shared/catalog.js';
-import { normalizeProject, listChannels } from '../shared/model.js';
+import { normalizeProject, listChannels, channelName } from '../shared/model.js';
 import { parseJsonc } from '../shared/jsonc.js';
 import { buildFromSpec, specFromProject } from '../shared/spec.js';
 import { generateFiles } from '../shared/generate.js';
@@ -148,7 +148,7 @@ function cmdCatalog() {
     console.log(`  ${e.description}`);
     if (e.modbus) console.log(`  Modbus : adresse par défaut ${e.defaultAddress} (1 à 247, unique)`);
     for (const g of e.groups) {
-      const names = g.bank ? Array.from({ length: g.bank.bits }, (_, i) => `${g.prefix}${i + 1}`) : g.ids.map((id) => (g.key === 'gpio' ? 'GPIO2' : `${g.prefix}${id}`));
+      const names = g.bank ? Array.from({ length: g.bank.bits }, (_, i) => channelName(g, i)) : g.ids.map((id) => channelName(g, id));
       console.log(`  ${g.dir === 'in' ? 'entrées' : 'sorties'} ${g.dataType.padEnd(4)} ${g.label} : ${names.join(' ')}${g.supportsInverse ? '  (inverse possible)' : ''}`);
     }
     for (const o of e.options || []) console.log(`  option ${o.key} (défaut ${JSON.stringify(o.default)}) : ${o.label}${o.choices ? ' — ' + o.choices.map((c) => c.value).join(' | ') : ''}`);
@@ -250,7 +250,7 @@ function cmdDescribe() {
   };
   const chName = (b) => {
     const ch = channels.find((c) => c.eq.uid === b?.eq && c.group.key === b?.group && c.channel === b?.channel);
-    return ch ? `${ch.eq.label} · ${ch.group.label} · ${ch.name === 'GPIO2_1' ? 'GPIO2' : ch.name}` : '— non câblée —';
+    return ch ? `${ch.eq.label} · ${ch.group.label} · ${ch.name}` : '— non câblée —';
   };
   out.push(md ? `# ${project.name}` : `Projet ${project.name} (${rel(file)})`);
   if (project.description) out.push(md ? `\n${project.description}` : project.description);

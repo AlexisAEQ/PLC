@@ -5,7 +5,7 @@ import { addEquipment, removeEquipment } from '/shared/model.js';
 import { h, input, checkbox, select, field, card, pageHead, button, confirmDialog } from '../ui.js';
 import { issueBlock } from './project.js';
 
-const ROLE_LABEL = { controller: 'Automate', 'modbus-io': 'E/S Modbus', servo: 'Servo Modbus' };
+const ROLE_LABEL = { controller: 'Automate', 'modbus-io': 'E/S Modbus', servo: 'Servo Modbus', axis: 'Axe' };
 
 export function renderEquipment(root, store) {
   const p = store.project;
@@ -15,7 +15,8 @@ export function renderEquipment(root, store) {
     { class: 'catalog' },
     Object.entries(CATALOG).map(([type, entry]) => {
       const count = p.equipment.filter((e) => e.type === type).length;
-      const full = entry.max && count >= entry.max;
+      const otherController = entry.role === 'controller' && !count && p.equipment.some((e) => CATALOG[e.type]?.role === 'controller');
+      const full = (entry.max && count >= entry.max) || otherController;
       const channels = entry.groups.map((g) => `${g.bank ? g.bank.bits : g.ids.length} ${g.label.toLowerCase()}`);
       return h(
         'div',
@@ -28,7 +29,7 @@ export function renderEquipment(root, store) {
           'div',
           { class: 'btn-row' },
           button(
-            full ? 'Déjà ajouté' : '+ Ajouter',
+            otherController ? 'Un automate est déjà présent' : full ? 'Déjà ajouté' : '+ Ajouter',
             () => {
               addEquipment(p, type);
               store.changed({ render: true });
@@ -44,7 +45,7 @@ export function renderEquipment(root, store) {
 
   const list = h('div', {});
   if (!p.equipment.length) {
-    list.append(h('div', { class: 'empty-state' }, 'Aucun équipement. Commencez par ajouter l’automate (Kincony KC868-A8S).'));
+    list.append(h('div', { class: 'empty-state' }, 'Aucun équipement. Commencez par ajouter l’automate (KinCony, Waveshare ESP32-S3, M5Stack StamPLC, Homemaster MiniPLC…).'));
   }
   const ordered = [...p.equipment].sort((a, b) => (CATALOG[a.type]?.rs485 ? 0 : 1) - (CATALOG[b.type]?.rs485 ? 0 : 1));
   for (const eq of ordered) list.append(equipmentCard(store, eq));
@@ -81,6 +82,7 @@ function equipmentCard(store, eq) {
   for (const g of entry?.groups || []) summary.push(`${g.label} : ${g.bank ? g.bank.bits : g.ids.length}`);
   if (entry?.signals) summary.push(`Signaux à câbler : ${entry.signals.map((s) => s.label).join(', ')}`);
   if (entry?.sections) summary.push(`${entry.sections.reduce((a, s) => a + s.nodes.length, 0)} nœuds créés automatiquement`);
+  if (entry?.pioEnv) summary.push(`Compilation : environnement PlatformIO « ${entry.pioEnv} »`);
 
   return h(
     'div',

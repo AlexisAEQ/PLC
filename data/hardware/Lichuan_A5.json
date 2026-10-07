@@ -1,0 +1,113 @@
+{
+    // Variateur Lichuan A5 / LCDA630P / LC10E piloté en Modbus RTU (classe LichuanServo, famille A5).
+    // Adresse Modbus de Pgg-nn = (gg hexadécimal << 8) | nn décimal (P31-00 -> 0x3100 = 12544,
+    // P11-12 -> 0x110C = 4364) : les offsets ci-dessous sont ces adresses en décimal,
+    // d'où registersOffset = 0.
+    // Prérequis : P0C-13 = 0 (pas d'écriture EEPROM), P0C-26 = 1 (mot bas d'abord), P0C-03 = 1
+    // (parité paire), P0C-09 = 1 (VDI), P0C-11 = 1 (VDO). Voir docs/axes/lichuan.md
+    "hardware": "Lichuan_A5",
+    "registersOffset": 0,
+
+    // Informatif (non lu par le firmware) : bits par défaut de LichuanOptions::defaultsFor(A5)
+    "lichuan": {
+        "family": "A5",
+        "virtualInputBits": { "servoOn": 0, "startMove": 1, "homingStart": 2, "alarmReset": 3, "stop": 4, "jogPlus": 5, "jogMinus": 6 },
+        "statusBits": { "ready": 0, "alarm": 1, "inPosition": 2, "zeroSpeed": 4, "homeDone": 5 }
+    },
+
+    "ModbusReadHoldingRegister":
+    [
+        {
+            // [status] P17-32 (0x1720) : niveau des sorties virtuelles VDO1..VDO16 (bit n = VDO n+1)
+            "id": 1,
+            "offset": 5920
+        },
+        {
+            // [alarmCode] P0B-34 (0x0B22) : code du défaut sélectionné par P0B-33 (0 = défaut courant)
+            "id": 2,
+            "offset": 2850
+        },
+        {
+            // [actualSpeed] P0B-00 (0x0B00) : vitesse moteur, tr/min (signée)
+            "id": 3,
+            "offset": 2816
+        },
+        {
+            // [virtualInputsReadback] P31-00 (0x3100) relu : détection d'un redémarrage du variateur
+            "id": 4,
+            "offset": 12544
+        },
+        {
+            // Diagnostic : P0B-03 (0x0B03) état des entrées DI
+            "id": 5,
+            "offset": 2819
+        },
+        {
+            // Diagnostic : P0B-05 (0x0B05) état des sorties DO
+            "id": 6,
+            "offset": 2821
+        }
+    ],
+
+    "ModbusWriteHoldingRegister":
+    [
+        {
+            // [virtualInputs] P31-00 (0x3100) : niveau des entrées virtuelles VDI1..VDI16 (bit n = VDI n+1)
+            "id": 1,
+            "offset": 12544
+        },
+        {
+            // [moveSpeed] P11-14 (0x110E) : vitesse max du segment 1, tr/min (1..6000)
+            "id": 2,
+            "offset": 4366
+        },
+        {
+            // [accelTime] P11-15 (0x110F) : rampe d'accélération/décélération du segment 1, ms
+            "id": 3,
+            "offset": 4367
+        },
+        {
+            // [jogSpeed] P06-04 (0x0604) : vitesse de jog (JOGCMD+/-), tr/min (0..6000)
+            "id": 5,
+            "offset": 1540
+        },
+        {
+            // [torqueLimit] P07-09 (0x0709) : limite de couple interne avant, 0,1 % (0..3000)
+            "id": 6,
+            "offset": 1801
+        },
+        {
+            // [torqueLimitReverse] P07-10 (0x070A) : limite de couple interne arrière, 0,1 % (0..3000)
+            "id": 7,
+            "offset": 1802
+        },
+        {
+            // [faultReset] P0D-01 (0x0D01) : acquittement défaut (1 = acquitter), servo OFF
+            "id": 8,
+            "offset": 3329
+        }
+    ],
+
+    "ModbusReadDobbleHoldingRegister":
+    [
+        {
+            // [position] P0B-07 (0x0B07) : compteur de position absolue, unités de commande (32 bits, mot bas d'abord)
+            "id": 1,
+            "offset": 2823
+        },
+        {
+            // [feedbackPosition] P0B-17 (0x0B11) : compteur d'impulsions de retour, unités codeur (diagnostic)
+            "id": 2,
+            "offset": 2833
+        }
+    ],
+
+    "ModbusWriteDobbleHoldingRegister":
+    [
+        {
+            // [targetPosition] P11-12 (0x110C) : déplacement du segment 1, 32 bits signés (FC 0x10, mot bas d'abord)
+            "id": 1,
+            "offset": 4364
+        }
+    ]
+}

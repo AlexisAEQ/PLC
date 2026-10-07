@@ -95,7 +95,7 @@ test('alarme servo : urgence, puis reprise après acquittement', () => {
   sim.servo.raiseAlarm(0x0301);
   sim.run(20);
   assert.equal(sim.mode, 'EMERGENCY');
-  assert.ok(sim.messages.some((m) => /Alarme servo 0x0301/.test(m.text)));
+  assert.ok(sim.messages.some((m) => /Alarme Servo 0x0301/.test(m.text)));
   sim.set('Acquit', true);
   sim.run(3000);
   assert.equal(sim.servo.alarm, false);
@@ -279,8 +279,8 @@ test('arrêt puis déplacement immédiat du servo : attente du verrou de 500 ms,
   sim.set('Depart', true);
   sim.set('Verin_sorti', true);
   sim.run(200);
-  sim.servoHalt(); // arrêt explicite pendant le déplacement…
-  sim.servoMoveTo(1000, 5); // …suivi aussitôt d'un nouveau déplacement
+  sim.axes[0].halt(); // arrêt explicite pendant le déplacement…
+  sim.axes[0].moveTo(1000, 5); // …suivi aussitôt d'un nouveau déplacement
   sim.run(100);
   assert.notEqual(sim.mode, 'EMERGENCY');
   sim.run(1000);

@@ -1,0 +1,40 @@
+{
+    "hardware": "Kincony_KC868_A8v3",
+
+    "board": {"mcu": "ESP32-S3", "buzzer": null},
+
+    "I2C": {"SDA": 8, "SCL": 18, "RTC": "auto"},
+
+    "RS485": {"rx": 38, "tx": 39, "speed": 115200, "config": "SERIAL_8E1"},
+
+    "Modbus": {"modbusRTU": true, "timeout": 101},
+
+    "EXP_rx-bool": [
+        {"id": 1, "chip": "PCF8575", "addr": 34, "pin": 8, "activeLow": true},
+        {"id": 2, "chip": "PCF8575", "addr": 34, "pin": 9, "activeLow": true},
+        {"id": 3, "chip": "PCF8575", "addr": 34, "pin": 10, "activeLow": true},
+        {"id": 4, "chip": "PCF8575", "addr": 34, "pin": 11, "activeLow": true},
+        {"id": 5, "chip": "PCF8575", "addr": 34, "pin": 12, "activeLow": true},
+        {"id": 6, "chip": "PCF8575", "addr": 34, "pin": 13, "activeLow": true},
+        {"id": 7, "chip": "PCF8575", "addr": 34, "pin": 14, "activeLow": true},
+        {"id": 8, "chip": "PCF8575", "addr": 34, "pin": 15, "activeLow": true}
+    ],
+
+    "EXP_tx-bool": [
+        {"id": 1, "chip": "PCF8575", "addr": 34, "pin": 0, "activeLow": true},
+        {"id": 2, "chip": "PCF8575", "addr": 34, "pin": 1, "activeLow": true},
+        {"id": 3, "chip": "PCF8575", "addr": 34, "pin": 2, "activeLow": true},
+        {"id": 4, "chip": "PCF8575", "addr": 34, "pin": 3, "activeLow": true},
+        {"id": 5, "chip": "PCF8575", "addr": 34, "pin": 4, "activeLow": true},
+        {"id": 6, "chip": "PCF8575", "addr": 34, "pin": 5, "activeLow": true},
+        {"id": 7, "chip": "PCF8575", "addr": 34, "pin": 6, "activeLow": true},
+        {"id": 8, "chip": "PCF8575", "addr": 34, "pin": 7, "activeLow": true}
+    ],
+
+    "tx-bool": [
+        {"id": 1, "pin": 13},
+        {"id": 2, "pin": 14},
+        {"id": 3, "pin": 40},
+        {"id": 4, "pin": 48}
+    ]
+}

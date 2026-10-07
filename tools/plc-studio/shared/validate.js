@@ -5,6 +5,8 @@ import { CATALOG, VARIABLE_KINDS, widgetsFor } from './catalog.js';
 import { utf8Length } from './hash.js';
 import { buildLayout } from './layout.js';
 import { compileLogic } from './grafcet.js';
+import { signalDef } from './model.js';
+import { axisList } from './axes.js';
 
 const CPP_RESERVED = new Set(
   (
@@ -73,6 +75,7 @@ export function validateProject(project, layout = buildLayout(project)) {
   const labels = new Set();
   const addresses = new Map();
   let hasController = false;
+  let controllerCount = 0;
   let hasHardware = false;
   for (const eq of project.equipment) {
     const entry = CATALOG[eq.type];
@@ -82,6 +85,7 @@ export function validateProject(project, layout = buildLayout(project)) {
     }
     hasHardware = true;
     if (entry.rs485) hasController = true;
+    if (entry.role === 'controller' && ++controllerCount > 1) err('equipment', `${eq.label} : un seul automate par projet.`, eq.uid);
     counts[eq.type] = (counts[eq.type] || 0) + 1;
     if (entry.max && counts[eq.type] > entry.max) err('equipment', `${entry.label} : ${entry.max} exemplaire(s) maximum.`, eq.uid);
     if (!eq.label?.trim()) err('equipment', 'Chaque équipement doit avoir un nom.', eq.uid);
@@ -99,9 +103,20 @@ export function validateProject(project, layout = buildLayout(project)) {
     }
   }
   if (hasHardware && !hasController) {
-    err('equipment', "Ajoutez l'automate (Kincony KC868-A8S) : il porte le bus RS485 et doit être déclaré en premier.");
+    err('equipment', "Ajoutez l'automate (KinCony, Waveshare ESP32-S3, M5Stack StamPLC, Homemaster MiniPLC…) : il porte le bus RS485 et doit être déclaré en premier.");
   }
   if (addresses.size > 8) warn('equipment', 'Plus de 8 esclaves Modbus : les statistiques du bus ne suivent que les 8 premiers.');
+
+  // Axes : leur nom sert de préfixe dans les expressions (Axe_X.enPosition) et en C++ (ax_Axe_X).
+  const axisSymbols = new Map();
+  for (const a of axisList(project)) {
+    const key = a.symbol.toLowerCase();
+    if (axisSymbols.has(key)) err('equipment', `Les axes « ${axisSymbols.get(key)} » et « ${a.label} » ont le même nom dans les expressions (${a.symbol}) : renommez l'un des deux.`, a.uid);
+    axisSymbols.set(key, a.label);
+    if (/^X\d+$/i.test(a.symbol) || EXPR_RESERVED.has(a.symbol.toUpperCase()) || ['FM', 'FD'].includes(a.symbol.toUpperCase())) {
+      err('equipment', `L'axe « ${a.label} » porte un nom réservé dans les expressions (${a.symbol}) : renommez-le.`, a.uid);
+    }
+  }
 
   // --- Variables --------------------------------------------------------
   const symbols = new Map();
@@ -122,20 +137,23 @@ export function validateProject(project, layout = buildLayout(project)) {
 
     if (v.kind === 'input' || v.kind === 'output') {
       if (!v.binding?.eq) {
-        if (v.system) err('variables', `${where} : signal obligatoire, câblez-le sur une sortie.`, v.uid);
+        if (v.system && !signalDef(project, v)?.optional) err('variables', `${where} : signal obligatoire, câblez-le sur une ${v.kind === 'input' ? 'entrée' : 'sortie'}.`, v.uid);
         else warn('variables', `${where} : pas encore câblée sur une voie.`, v.uid);
       } else {
         const eq = project.equipment.find((e) => e.uid === v.binding.eq);
         const group = eq && CATALOG[eq.type]?.groups.find((g) => g.key === v.binding.group);
         if (!group) err('variables', `${where} : voie introuvable (équipement supprimé ?).`, v.uid);
         else {
-          if (eq.type === 'Kincony_KC868_A8S' && group.key === 'gpio') {
-            warn('variables', `${where} : GPIO2 est le buzzer de la carte ; main.cpp le remet à 0 à chaque connexion WiFi (turnOffBuzzer).`, v.uid);
+          if ((eq.type === 'Kincony_KC868_A8S' && group.key === 'gpio') || group.key === 'buzzer') {
+            warn('variables', `${where} : buzzer de la carte ; main.cpp le remet au repos à chaque connexion WiFi (turnOffBuzzer).`, v.uid);
           }
           const expectedDir = v.kind === 'input' ? 'in' : 'out';
           if (group.dir !== expectedDir) err('variables', `${where} : une ${v.kind === 'input' ? 'entrée' : 'sortie'} ne peut pas être câblée sur « ${group.label} ».`, v.uid);
           if (group.dataType !== v.dataType) err('variables', `${where} : type ${v.dataType} incompatible avec « ${group.label} » (${group.dataType}).`, v.uid);
-          if (v.system && group.bank) err('variables', `${where} : un signal du servo doit être câblé sur une sortie de l'automate, pas sur un module Waveshare.`, v.uid);
+          if (v.system && group.bank) err('variables', `${where} : un signal d'axe doit être câblé sur une voie de l'automate, pas sur un module Waveshare.`, v.uid);
+          if (v.system && signalDef(project, v)?.gpio && !group.gpio) {
+            err('variables', `${where} : signal d'impulsions, à câbler sur une sortie GPIO directe de l'automate (groupe « GPIO »), pas sur « ${group.label} ».`, v.uid);
+          }
           const chKey = `${v.binding.eq}/${v.binding.group}/${v.binding.channel}`;
           if (channelUse.has(chKey)) err('variables', `${where} et « ${channelUse.get(chKey).label} » sont câblées sur la même voie.`, v.uid);
           channelUse.set(chKey, v);

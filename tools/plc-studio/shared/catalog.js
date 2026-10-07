@@ -7,6 +7,64 @@
 
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
+// Options communes des automates : variantes du fichier matériel générées par l'outil.
+const RS485_OPTIONS = [
+  {
+    key: 'rs485Speed',
+    label: 'Vitesse RS485 (bauds)',
+    type: 'select',
+    default: '',
+    choices: [
+      { value: '', label: 'Celle du fichier matériel' },
+      { value: '9600', label: '9600' },
+      { value: '19200', label: '19200' },
+      { value: '38400', label: '38400' },
+      { value: '57600', label: '57600' },
+      { value: '115200', label: '115200' },
+    ],
+    help: 'Tous les équipements Modbus du bus doivent être réglés à cette vitesse.',
+  },
+  {
+    key: 'rs485Config',
+    label: 'Format RS485',
+    type: 'select',
+    default: '',
+    choices: [
+      { value: '', label: 'Celui du fichier matériel' },
+      { value: 'SERIAL_8N1', label: '8N1 (sans parité)' },
+      { value: 'SERIAL_8E1', label: '8E1 (parité paire)' },
+      { value: 'SERIAL_8O1', label: '8O1 (parité impaire)' },
+      { value: 'SERIAL_8N2', label: '8N2 (2 bits de stop)' },
+    ],
+  },
+];
+
+const rtcOption = (chip) => ({
+  key: 'rtc',
+  label: `Horloge ${chip} installée`,
+  type: 'bool',
+  default: true,
+  help: "Si décoché, l'outil génère une variante du fichier matériel sans horloge (l'heure part alors de la mise sous tension).",
+});
+
+// Voies d'une carte : "names" donne le nom d'une voie quand il ne suit pas le préfixe (GPIO).
+// "gpio: true" : sorties directes de l'ESP32, seules utilisables pour les impulsions d'un pas-à-pas.
+const di = (type, n, prefix = 'X', extra = {}) => ({ key: 'di', label: 'Entrées TOR', short: 'Entrees', type, dir: 'in', dataType: 'bool', ids: range(1, n), prefix, supportsInverse: true, ...extra });
+const dout = (type, n, prefix = 'Y', label = 'Sorties relais', short = 'Relais') => ({ key: 'do', label, short, type, dir: 'out', dataType: 'bool', ids: range(1, n), prefix });
+const gpio = (pins, label = 'Sorties directes GPIO') => ({
+  key: 'gpio',
+  label,
+  short: 'GPIO',
+  type: 'tx-bool',
+  dir: 'out',
+  dataType: 'bool',
+  ids: pins.map((_, i) => i + 1),
+  prefix: 'GPIO',
+  names: Object.fromEntries(pins.map((pin, i) => [i + 1, `GPIO${pin}`])),
+  gpio: true,
+});
+const buzzer = (pin) => ({ key: 'buzzer', label: `Buzzer (GPIO${pin})`, short: 'Buzzer', type: 'tx-bool', dir: 'out', dataType: 'bool', ids: [9], prefix: 'BUZZER', names: { 9: 'BUZZER' } });
+
 export const CATALOG = {
   Kincony_KC868_A8S: {
     defaultLabel: 'Automate',
@@ -14,22 +72,111 @@ export const CATALOG = {
     description: 'Automate ESP32 : 8 entrées optocouplées, 8 relais, RS485 (Modbus maître), horloge DS3231.',
     role: 'controller',
     hardware: 'Kincony_KC868_A8S',
+    pioEnv: 'esp32dev',
     max: 1,
     modbus: false,
     rs485: true,
-    options: [
-      {
-        key: 'rtc',
-        label: 'Horloge DS3231 installée',
-        type: 'bool',
-        default: true,
-        help: "Si décoché, l'outil génère une variante du fichier matériel sans la clé RTC (sinon le démarrage bloque quand l'horloge est absente).",
-      },
-    ],
+    options: [rtcOption('DS3231'), ...RS485_OPTIONS],
     groups: [
-      { key: 'di', label: 'Entrées TOR', short: 'Entrees', type: 'PF8574_rx-bool', dir: 'in', dataType: 'bool', ids: range(1, 8), prefix: 'X', supportsInverse: true },
-      { key: 'do', label: 'Sorties relais', short: 'Relais', type: 'PF8574_tx-bool', dir: 'out', dataType: 'bool', ids: range(1, 8), prefix: 'Y' },
-      { key: 'gpio', label: 'Sortie directe GPIO2', short: 'GPIO', type: 'tx-bool', dir: 'out', dataType: 'bool', ids: [1], prefix: 'GPIO2_' },
+      di('PF8574_rx-bool', 8),
+      dout('PF8574_tx-bool', 8),
+      { ...gpio([2], 'Sortie directe GPIO2 (buzzer)'), key: 'gpio' },
+    ],
+  },
+
+  Waveshare_ESP32S3_POE_8DI8DO: {
+    defaultLabel: 'Automate',
+    label: 'Waveshare ESP32-S3-POE-ETH-8DI-8DO',
+    description: 'Automate ESP32-S3 : 8 entrées optocouplées, 8 sorties transistor (TCA9554), RS485 isolé, horloge PCF85063, buzzer. Ethernet/PoE non utilisé (WiFi).',
+    role: 'controller',
+    hardware: 'Waveshare_ESP32S3_POE_8DI8DO',
+    pioEnv: 'esp32s3_n16r8',
+    max: 1,
+    modbus: false,
+    rs485: true,
+    options: [rtcOption('PCF85063'), ...RS485_OPTIONS],
+    groups: [
+      di('rx-bool', 8, 'DI'),
+      dout('EXP_tx-bool', 8, 'DO', 'Sorties transistor', 'Sorties'),
+      gpio([40, 1, 47, 48], 'GPIO libres (à repiquer ; 47/48 : lecteur TF inutilisé)'),
+      buzzer(46),
+    ],
+  },
+
+  Kincony_KC868_A16: {
+    defaultLabel: 'Automate',
+    label: 'Kincony KC868-A16',
+    description: 'Automate ESP32 : 16 entrées optocouplées, 16 sorties MOSFET (PCF8574), RS485, 3 GPIO libres (HT1-HT3). Pas d’horloge.',
+    role: 'controller',
+    hardware: 'Kincony_KC868_A16',
+    pioEnv: 'quatre_mb_huge',
+    max: 1,
+    modbus: false,
+    rs485: true,
+    options: [...RS485_OPTIONS],
+    groups: [di('EXP_rx-bool', 16), dout('EXP_tx-bool', 16, 'Y', 'Sorties MOSFET', 'Sorties'), gpio([32, 33, 14], 'GPIO libres HT1-HT3')],
+  },
+
+  Kincony_KC868_A16v3: {
+    defaultLabel: 'Automate',
+    label: 'Kincony KC868-A16v3',
+    description: 'Automate ESP32-S3 : 16 entrées optocouplées, 16 sorties MOSFET (PCF8574), RS485, 6 GPIO libres, horloge DS3231.',
+    role: 'controller',
+    hardware: 'Kincony_KC868_A16v3',
+    pioEnv: 'esp32s3_n16r8',
+    max: 1,
+    modbus: false,
+    rs485: true,
+    options: [rtcOption('DS3231'), ...RS485_OPTIONS],
+    groups: [di('EXP_rx-bool', 16), dout('EXP_tx-bool', 16, 'Y', 'Sorties MOSFET', 'Sorties'), gpio([38, 39, 40, 41, 47, 48], 'GPIO libres')],
+  },
+
+  Kincony_KC868_A8v3: {
+    defaultLabel: 'Automate',
+    label: 'Kincony KC868-A8v3',
+    description: 'Automate ESP32-S3 : 8 entrées optocouplées, 8 relais (PCF8575), RS485, 4 GPIO libres, horloge DS3231.',
+    role: 'controller',
+    hardware: 'Kincony_KC868_A8v3',
+    pioEnv: 'esp32s3_n16r8',
+    max: 1,
+    modbus: false,
+    rs485: true,
+    options: [rtcOption('DS3231'), ...RS485_OPTIONS],
+    groups: [di('EXP_rx-bool', 8), dout('EXP_tx-bool', 8), gpio([13, 14, 40, 48], 'GPIO libres')],
+  },
+
+  M5Stack_StamPLC: {
+    defaultLabel: 'Automate',
+    label: 'M5Stack StamPLC',
+    description: 'Automate ESP32-S3 : 8 entrées optocouplées, 4 relais (AW9523), RS485, horloge RX8130, buzzer, ports Grove (GPIO libres).',
+    role: 'controller',
+    hardware: 'M5Stack_StamPLC',
+    pioEnv: 'm5stack_stamplc',
+    max: 1,
+    modbus: false,
+    rs485: true,
+    options: [rtcOption('RX8130'), ...RS485_OPTIONS],
+    groups: [di('EXP_rx-bool', 8, 'DI'), dout('EXP_tx-bool', 4, 'DO'), gpio([4, 5, 1, 2], 'GPIO libres (ports Grove)'), buzzer(44)],
+  },
+
+  Homemaster_MiniPLC: {
+    defaultLabel: 'Automate',
+    label: 'Homemaster MiniPLC',
+    description: 'Automate ESP32 : 4 entrées 24 V, 4 boutons en façade, 6 relais (PCF8574), 2 LED, RS485 isolé, horloge PCF8563, buzzer, 2 GPIO libres (bornes 1-Wire).',
+    role: 'controller',
+    hardware: 'Homemaster_MiniPLC',
+    pioEnv: 'quatre_mb_huge',
+    max: 1,
+    modbus: false,
+    rs485: true,
+    options: [rtcOption('PCF8563'), ...RS485_OPTIONS],
+    groups: [
+      { ...di('rx-bool', 4, 'DI'), supportsInverse: true },
+      { key: 'btn', label: 'Boutons en façade', short: 'Boutons', type: 'EXP_rx-bool', dir: 'in', dataType: 'bool', ids: range(1, 4), prefix: 'BTN', supportsInverse: true },
+      dout('EXP_tx-bool', 6, 'DO'),
+      { key: 'led', label: 'LED en façade', short: 'LED', type: 'EXP_tx-bool', dir: 'out', dataType: 'bool', ids: [7, 8], prefix: 'LED', names: { 7: 'LED2', 8: 'LED3' } },
+      gpio([5, 4], 'GPIO libres (bornes 1-Wire)'),
+      buzzer(2),
     ],
   },
 
@@ -76,13 +223,29 @@ export const CATALOG = {
   SureServo: {
     defaultLabel: 'Servo',
     label: 'Servo AutomationDirect SureServo 2',
-    description: "Variateur piloté en Modbus RTU. Ses signaux TOR (servo ON, arrêt immédiat, reset alarmes) se câblent sur des sorties de l'automate.",
-    role: 'servo',
+    description: "Variateur piloté en Modbus RTU (plusieurs possibles, adresses distinctes). Ses signaux TOR (servo ON, arrêt immédiat, reset alarmes) se câblent sur des sorties de l'automate.",
+    role: 'axis',
     hardware: 'SureServo',
     modbus: true,
     defaultAddress: 127,
-    max: 1, // SureServo utilise des variables statiques locales : une seule instance possible.
     groups: [],
+    // Pilotage par AxisController (src/AxisController) : unités natives du drive.
+    axis: {
+      kind: 'sureservo',
+      cppClass: 'SureServo',
+      include: 'SureServo/SureServo.h',
+      nodesStruct: 'ServoNodes',
+      positionUnit: 'impulsions (PUU)',
+      speedUnit: 'index 0-15 de la table de vitesses',
+      speedMin: 0,
+      speedMax: 15,
+      defaultSpeed: 5,
+      jogSpeedUnit: 'tr/min',
+      jogSpeedMin: 1,
+      jogSpeedMax: 3000,
+      defaultJogSpeed: 500,
+      torque: true,
+    },
     options: [
       { key: 'pulsesPerUnit', label: 'Impulsions par unité', type: 'number', default: 1, help: '1 = travail direct en impulsions (PUU).' },
       { key: 'maxRange', label: 'Course maximale (unités)', type: 'number', default: 1000000, help: 'Butée logicielle : toute cible au-delà est refusée (avec 1 impulsion par unité, la course est en impulsions).' },
@@ -103,10 +266,11 @@ export const CATALOG = {
       { key: 'immediateStop', label: 'Arrêt immédiat', field: 'immediateStop' },
       { key: 'alarmsReset', label: 'Reset alarmes', field: 'alarmsReset' },
     ],
-    // Nœuds créés automatiquement (sections fixes). "field" = champ de ServoNodes.
+    // Nœuds créés automatiquement : une section « <nom de l'équipement> <suffix> » par entrée.
+    // "field" = champ de la structure de nœuds du drive (ServoNodes).
     sections: [
       {
-        name: 'Servo registres lus',
+        suffix: 'registres lus',
         type: 'ModbusReadHoldingRegister',
         modbus: true,
         nodes: [
@@ -116,7 +280,7 @@ export const CATALOG = {
         ],
       },
       {
-        name: 'Servo registres ecrits',
+        suffix: 'registres ecrits',
         type: 'ModbusWriteHoldingRegister',
         modbus: true,
         nodes: [
@@ -127,13 +291,13 @@ export const CATALOG = {
         ],
       },
       {
-        name: 'Servo position',
+        suffix: 'position',
         type: 'ModbusReadDobbleHoldingRegister',
         modbus: true,
         nodes: [{ id: 1, name: 'position', field: 'position', cpp: 'Uint32InputNode', refreshInterval: 250, label: 'Position actuelle' }],
       },
       {
-        name: 'Servo consignes',
+        suffix: 'consignes',
         type: 'ModbusWriteDobbleHoldingRegister',
         modbus: true,
         nodes: [
@@ -146,7 +310,7 @@ export const CATALOG = {
         ],
       },
       {
-        name: 'Servo etat',
+        suffix: 'etat',
         type: 'tx-bool',
         virtual: true,
         nodes: [
@@ -165,6 +329,102 @@ export const CATALOG = {
           { id: 15, name: 'erreur modbus', field: 'modbusError', cpp: 'BooleanOutputNode', label: 'Erreur Modbus' },
           { id: 16, name: 'initialise', field: 'driveInitialised', cpp: 'BooleanOutputNode', label: 'Variateur initialisé' },
         ],
+      },
+    ],
+  },
+
+  Stepper: {
+    defaultLabel: 'Axe',
+    label: 'Moteur pas-à-pas (STEP/DIR)',
+    description: "Driver pas-à-pas ou servo à entrée impulsions piloté par l'ESP32 (FastAccelStepper). STEP et DIR se câblent sur des GPIO directs de l'automate ; ENABLE, capteur d'origine, fins de course et alarme driver sont facultatifs.",
+    role: 'axis',
+    hardware: null,
+    modbus: false,
+    groups: [],
+    axis: {
+      kind: 'stepper',
+      cppClass: 'StepperMotor',
+      include: 'StepperMotor/StepperMotor.h',
+      nodesStruct: 'StepperNodes',
+      positionUnit: 'pas',
+      speedUnit: 'pas/s',
+      speedMin: 1,
+      speedMax: 200000,
+      defaultSpeed: 2000,
+      jogSpeedUnit: 'pas/s',
+      jogSpeedMin: 1,
+      jogSpeedMax: 200000,
+      defaultJogSpeed: 1000,
+      torque: false,
+      hmi: {
+        numeric: ['position'],
+        indicators: ['stepperReady', 'stepperActivated', 'driveInitialised', 'homeDone', 'targetPositionReached', 'stepperAlarm', 'limitError'],
+        alarms: ['stepperAlarm', 'limitError'],
+      },
+      refAliases: {
+        pret: 'stepperReady',
+        active: 'stepperActivated',
+        initialise: 'driveInitialised',
+        origineFaite: 'homeDone',
+        enPosition: 'targetPositionReached',
+        alarme: 'stepperAlarm',
+        finDeCourse: 'limitError',
+        position: 'position',
+      },
+    },
+    options: [
+      { key: 'stepsPerUnit', label: 'Pas par unité', type: 'number', default: 1, help: '1 = travail direct en pas (positions et course en pas).' },
+      { key: 'maxRange', label: 'Course maximale (unités)', type: 'number', default: 0, help: 'Butée logicielle après la prise d’origine ; 0 = pas de butée haute.' },
+      { key: 'acceleration', label: 'Accélération (pas/s²)', type: 'number', default: 5000 },
+      {
+        key: 'homingDirection',
+        label: 'Sens de la prise d’origine',
+        type: 'select',
+        default: '-1',
+        choices: [
+          { value: '-1', label: 'Vers le négatif' },
+          { value: '1', label: 'Vers le positif' },
+        ],
+        help: 'Sans capteur d’origine câblé, la position courante devient l’origine.',
+      },
+      { key: 'homingSpeed', label: 'Vitesse de prise d’origine (pas/s)', type: 'number', default: 1000 },
+      { key: 'homingBackoff', label: 'Dégagement après origine (pas)', type: 'number', default: 200 },
+      { key: 'invertDirection', label: 'Inverser le sens (DIR)', type: 'bool', default: false },
+      { key: 'enableActiveLow', label: 'ENABLE actif à l’état bas', type: 'bool', default: true, help: 'Coché : le driver est activé quand la sortie ENABLE est au repos (cas des drivers TB6600, DM542…).' },
+    ],
+    // Signaux à câbler : "gpio" = sortie GPIO directe obligatoire (impulsions), "dir: 'in'" = entrée.
+    signals: [
+      { key: 'step', label: 'STEP (impulsions)', field: 'stepPin', gpio: true, cppType: 'HardwareBooleanOutputNode', classId: 'CLASS_HW_BOOLEAN_OUTPUT_NODE' },
+      { key: 'dir', label: 'DIR (sens)', field: 'dirPin', gpio: true, cppType: 'HardwareBooleanOutputNode', classId: 'CLASS_HW_BOOLEAN_OUTPUT_NODE' },
+      { key: 'enable', label: 'ENABLE', field: 'enable', optional: true },
+      { key: 'alarmsReset', label: 'Reset alarme driver', field: 'alarmsReset', optional: true },
+      { key: 'home', label: "Capteur d'origine", field: 'homeSwitch', dir: 'in', optional: true },
+      { key: 'limitPlus', label: 'Fin de course +', field: 'limitSwitchPositive', dir: 'in', optional: true },
+      { key: 'limitMinus', label: 'Fin de course -', field: 'limitSwitchNegative', dir: 'in', optional: true },
+      { key: 'driverAlarm', label: 'Alarme driver (ALM)', field: 'hardwareStepperAlarm', dir: 'in', optional: true },
+    ],
+    // Recopies d'état pour l'écran (nœuds virtuels écrits par StepperMotor).
+    sections: [
+      {
+        suffix: 'etat',
+        type: 'tx-bool',
+        virtual: true,
+        nodes: [
+          { id: 1, name: 'pret', field: 'stepperReady', cpp: 'BooleanOutputNode', label: 'Axe prêt' },
+          { id: 2, name: 'active', field: 'stepperActivated', cpp: 'BooleanOutputNode', label: 'Driver activé' },
+          { id: 3, name: 'initialise', field: 'driveInitialised', cpp: 'BooleanOutputNode', label: 'Axe initialisé' },
+          { id: 4, name: 'origine faite', field: 'homeDone', cpp: 'BooleanOutputNode', label: 'Origine faite' },
+          { id: 5, name: 'en position', field: 'targetPositionReached', cpp: 'BooleanOutputNode', label: 'En position' },
+          { id: 6, name: 'alarme', field: 'stepperAlarm', cpp: 'BooleanOutputNode', label: 'Alarme axe' },
+          { id: 7, name: 'fin de course', field: 'limitError', cpp: 'BooleanOutputNode', label: 'Fin de course atteinte' },
+          { id: 8, name: 'arret', field: 'zeroSpeed', cpp: 'BooleanOutputNode', label: 'Moteur à l’arrêt' },
+        ],
+      },
+      {
+        suffix: 'position',
+        type: 'tx-uint32',
+        virtual: true,
+        nodes: [{ id: 1, name: 'position', field: 'position', cpp: 'Uint32OutputNode', label: 'Position (pas)' }],
       },
     ],
   },

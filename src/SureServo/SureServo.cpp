@@ -1,18 +1,79 @@
 #include "SureServo.h"
 
+#include <cstdarg>
+#include <cstdlib>
+#include <cstring>
+
 //#define SURESERVO_DEBUG 1
 
-// variables statiques
-BusinessLogic* SureServo::businessLogicInstance = nullptr;
+// Constantes du drive (TOLERANCE_PUU, STATUS_*, ALARMS...) : namespace sureservo (voir SureServo.h)
+using namespace sureservo;
+
+// ========================================
+// JOURNALISATION IDENTIFIÉE PAR DRIVE
+// ========================================
+
+void SureServo::logPrintf(const char* format, ...) const {
+    // Préfixe + message formatés dans un seul tampon puis écrits en une fois,
+    // pour ne pas entrelacer le préfixe d'un drive avec la sortie d'un autre.
+    char buffer[160];
+    int prefixLen = snprintf(buffer, sizeof(buffer), "[%s] ", servoId.c_str());
+    if (prefixLen < 0) return;
+    if ((size_t)prefixLen >= sizeof(buffer)) prefixLen = sizeof(buffer) - 1;
+
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(buffer + prefixLen, sizeof(buffer) - prefixLen, format, args);
+    va_end(args);
+    if (len < 0) return;
+
+    if ((size_t)(prefixLen + len) < sizeof(buffer)) {
+        Serial.print(buffer);
+        return;
+    }
+
+    // Message long : allocation dynamique (même stratégie que Print::printf)
+    size_t total = (size_t)prefixLen + (size_t)len + 1;
+    char* big = static_cast<char*>(malloc(total));
+    if (!big) {
+        Serial.print(buffer);   // à défaut, message tronqué
+        return;
+    }
+    memcpy(big, buffer, prefixLen);
+    va_start(args, format);
+    vsnprintf(big + prefixLen, total - prefixLen, format, args);
+    va_end(args);
+    Serial.print(big);
+    free(big);
+}
+
+void SureServo::logPrintln(const char* text) const {
+    logPrintf("%s\r\n", text ? text : "");
+}
+
+void SureServo::notifyUser(uint8_t type, const char* text) const {
+    char msg[200];
+    snprintf(msg, sizeof(msg), "[%s] %s", servoId.c_str(), text ? text : "");
+    BorneUniverselle::prepareMessage(type, msg);
+}
+
+void SureServo::notifyUserPeriodic(bool condition, uint8_t type, const char* text) const {
+    char msg[200];
+    snprintf(msg, sizeof(msg), "[%s] %s", servoId.c_str(), text ? text : "");
+    PLC_Tools::sendPeriodicMessage(condition, type, msg);
+}
 
 // ========================================
 // CONSTRUCTEUR SURESERVO - IMPLÉMENTATION COMPLÈTE
 // ========================================
 
-SureServo::SureServo(double pulsesPerUnit, const ServoNodes& nodes, HomePositionPolicy homePositionPolicy, float maxRangeInches, const char* servoId)
+SureServo::SureServo(double pulsesPerUnit, const ServoNodes& nodes, HomePositionPolicy homePositionPolicy, float maxRangeInches, const char* servoId, bool invertJogDirection)
     : ServoDrive(servoId),
     pulsesPerUnit(pulsesPerUnit),                    // 1
       _homePositionPolicy(homePositionPolicy),
+      // Sens JOG : true = câblage inversé (Formaca, valeurs historiques FWD 4999 / RWD 4998)
+      fwdJogValue(invertJogDirection ? JOG_RWD_VALUE_STANDARD : JOG_FWD_VALUE_STANDARD),
+      rwdJogValue(invertJogDirection ? JOG_FWD_VALUE_STANDARD : JOG_RWD_VALUE_STANDARD),
       reliablePosition(0),                             // 2
       hasReliablePosition(false),                      // 3
       nodes(nodes),                                    // 4
@@ -51,12 +112,12 @@ SureServo::SureServo(double pulsesPerUnit, const ServoNodes& nodes, HomePosition
     // de Formaca2::convToPUU() et éviter un écart d'arrondi entre les deux conversions)
     if (maxRangeInches > 0) {
         maxRangePuu = (uint32_t)((double)maxRangeInches * pulsesPerUnit);
-        Serial.printf("=== INITIALISATION SURESERVO ===\n");
-        Serial.printf("Limite physique: %.2f\" = %lu PUU\n", maxRangeInches, maxRangePuu);
+        logPrintf("=== INITIALISATION SURESERVO ===\n");
+        logPrintf("Limite physique: %.2f\" = %lu PUU\n", maxRangeInches, maxRangePuu);
     }
     
-    Serial.println("=== INITIALISATION SURESERVO ===");
-    Serial.println("Position interne: pas encore fiable - utilisation nodes");
+    logPrintln("=== INITIALISATION SURESERVO ===");
+    logPrintln("Position interne: pas encore fiable - utilisation nodes");
    
     
     // ========================================
@@ -85,7 +146,7 @@ SureServo::SureServo(double pulsesPerUnit, const ServoNodes& nodes, HomePosition
         if (!nodes.alarms) errorMsg += "alarms ";
         if (!nodes.absoluteCoordonateSystemStatus) errorMsg += "absoluteCoordonateSystemStatus ";
         
-        Serial.println(errorMsg);
+        logPrintln(errorMsg);
         setError(errorMsg);
         return; // Construction échouée, mais objet créé quand même
     }
@@ -99,7 +160,7 @@ SureServo::SureServo(double pulsesPerUnit, const ServoNodes& nodes, HomePosition
         return;
     }
 
-    Serial.printf("Pulses per unit: %.4f\n", pulsesPerUnit);
+    logPrintf("Pulses per unit: %.4f\n", pulsesPerUnit);
     
     // ========================================
     // INITIALISATION DES VARIABLES D'ÉTAT
@@ -128,7 +189,7 @@ SureServo::SureServo(double pulsesPerUnit, const ServoNodes& nodes, HomePosition
     currentJogSpeed = nodes.jogSpeed->getValue();  // Vitesse de jog par défaut
     currentPrSpeed = 8;      // Vitesse PR par défaut (0-15, 8 = vitesse moyenne)
     if (nodes.maxTorque == 0){
-        Serial.println("ATTENTION !!! Le couple max est a 0, on le met a 100 %");
+        logPrintln("ATTENTION !!! Le couple max est a 0, on le met a 100 %");
         nodes.maxTorque->setValue(100);  // Couple max par défaut (100%)
     }
     lastError = "";
@@ -169,26 +230,26 @@ SureServo::SureServo(double pulsesPerUnit, const ServoNodes& nodes, HomePosition
     // DIAGNOSTIC DE CONFIGURATION
     // ========================================
     
-    Serial.printf("Nodes obligatoires: OK (%zu)\n", 17); // Nombre de nodes obligatoires
-    Serial.printf("Nodes optionnels: %zu configurés\n", nodes.countOptional());
+    logPrintf("Nodes obligatoires: OK (%zu)\n", 17); // Nombre de nodes obligatoires
+    logPrintf("Nodes optionnels: %zu configurés\n", nodes.countOptional());
     
     // Liste des nodes optionnels configurés
     if (nodes.countOptional() > 0) {
-        Serial.println("Nodes optionnels disponibles:");
-        if (nodes.servoReady) Serial.println("  - servoReady");
-        if (nodes.servoActivated) Serial.println("  - servoActivated");
-        if (nodes.zeroSpeed) Serial.println("  - zeroSpeed");
-        if (nodes.targetSpeedRated) Serial.println("  - targetSpeedRated");
-        if (nodes.targetPositionReached) Serial.println("  - targetPositionReached");
-        if (nodes.servoAlarm) Serial.println("  - servoAlarm");
-        if (nodes.homeDone) Serial.println("  - homeDone");
-        if (nodes.modbusError) Serial.println("  - modbusError");
-        if (nodes.driveInitialised) Serial.println("  - driveInitialised");
-        if (nodes.absolutePositionLost) Serial.println("  - absolutePositionLost");
-        if (nodes.batteryAlarm) Serial.println("  - batteryAlarm");
-        if (nodes.multipleTurnsOverflow) Serial.println("  - multipleTurnsOverflow");
-        if (nodes.puuOverflow) Serial.println("  - puuOverflow");
-        if (nodes.absoluteCoordonateNotSet) Serial.println("  - absoluteCoordonateNotSet");
+        logPrintln("Nodes optionnels disponibles:");
+        if (nodes.servoReady) logPrintln("  - servoReady");
+        if (nodes.servoActivated) logPrintln("  - servoActivated");
+        if (nodes.zeroSpeed) logPrintln("  - zeroSpeed");
+        if (nodes.targetSpeedRated) logPrintln("  - targetSpeedRated");
+        if (nodes.targetPositionReached) logPrintln("  - targetPositionReached");
+        if (nodes.servoAlarm) logPrintln("  - servoAlarm");
+        if (nodes.homeDone) logPrintln("  - homeDone");
+        if (nodes.modbusError) logPrintln("  - modbusError");
+        if (nodes.driveInitialised) logPrintln("  - driveInitialised");
+        if (nodes.absolutePositionLost) logPrintln("  - absolutePositionLost");
+        if (nodes.batteryAlarm) logPrintln("  - batteryAlarm");
+        if (nodes.multipleTurnsOverflow) logPrintln("  - multipleTurnsOverflow");
+        if (nodes.puuOverflow) logPrintln("  - puuOverflow");
+        if (nodes.absoluteCoordonateNotSet) logPrintln("  - absoluteCoordonateNotSet");
     }
     
     // ========================================
@@ -198,16 +259,16 @@ SureServo::SureServo(double pulsesPerUnit, const ServoNodes& nodes, HomePosition
     // Lecture de l'état initial (nodes garantis non-null par validateRequired)
     status.statusRegister = nodes.status->getValue();
     status.decodeStatusRegister();
-    Serial.printf("Status initial: 0x%04X\n", status.statusRegister);
+    logPrintf("Status initial: 0x%04X\n", status.statusRegister);
     
     status.alarmsRegister = nodes.alarms->getValue();
-    Serial.printf("Alarms initial: 0x%04X\n", status.alarmsRegister);
+    logPrintf("Alarms initial: 0x%04X\n", status.alarmsRegister);
     
     status.coordSystemRegister = nodes.absoluteCoordonateSystemStatus->getValue();
     status.decodeCoordSystemRegister();
-    Serial.printf("Coord system initial: 0x%04X\n", status.coordSystemRegister);
+    logPrintf("Coord system initial: 0x%04X\n", status.coordSystemRegister);
     
-    Serial.printf("Position initiale: %lu PUU\n", nodes.position->getValue());
+    logPrintf("Position initiale: %lu PUU\n", nodes.position->getValue());
     
     // ========================================
     // MISE À JOUR INITIALE DES NODES DE SORTIE
@@ -220,23 +281,23 @@ SureServo::SureServo(double pulsesPerUnit, const ServoNodes& nodes, HomePosition
     // ========================================
     
     if (status.servoAlarm) {
-        Serial.printf("ATTENTION: Servo en alarme au démarrage (0x%04X)\n", status.alarmsRegister);
+        logPrintf("ATTENTION: Servo en alarme au démarrage (0x%04X)\n", status.alarmsRegister);
         setError("Servo en alarme au démarrage");
     } else if (!status.servoReady) {
-        Serial.println("INFO: Servo pas encore prêt - initialisation requise");
+        logPrintln("INFO: Servo pas encore prêt - initialisation requise");
     } else {
-        Serial.println("INFO: Servo prêt");
+        logPrintln("INFO: Servo prêt");
     }
 
     initializeEEPROMConfiguration();
 
-    Serial.println("Configuration EEPROM initialisée (auto-save désactivé)");
+    logPrintln("Configuration EEPROM initialisée (auto-save désactivé)");
     
-    Serial.println("=== SURESERVO INITIALISÉ ===");
+    logPrintln("=== SURESERVO INITIALISÉ ===");
 } // constructeur SureServo
 
 void SureServo::process() {
-#ifdef PERF_MONITOR
+#ifdef SURESERVO_PERF_MONITOR
     uint32_t _pm_t0 = micros();
 #endif
     uint32_t now = millis();
@@ -256,10 +317,10 @@ void SureServo::process() {
             // Le délai de sécurité est écoulé, autoriser les nouveaux mouvements
             if (movementCancelled) {
                 movementCancelled = false;
-                Serial.println("   → movementCancelled réinitialisé - mouvements autorisés");
+                logPrintln("   → movementCancelled réinitialisé - mouvements autorisés");
             }
             
-            Serial.printf("✅ immediateStop relâché après %lu ms (arrêt propre terminé)\n", elapsed);
+            logPrintf("✅ immediateStop relâché après %lu ms (arrêt propre terminé)\n", elapsed);
         }
     }
 
@@ -279,7 +340,7 @@ void SureServo::process() {
         
         // Log seulement si changement ou après délai
         if (moveState == OperationState::DRIVE_IN_PROGRESS) {
-           // Serial.printf("🎯 MOVING: État SureServo = %d\n", currentStatusValue);
+           // logPrintf("🎯 MOVING: État SureServo = %d\n", currentStatusValue);
         }
         
         lastLoggedStatusValue = currentStatusValue;
@@ -293,7 +354,7 @@ void SureServo::process() {
         if (millis() - homeAtCurrentPositionEndTime >= HOME_AT_POS_GUARD_MS) {
             homeAtCurrentPositionInProgress = false;
             homeAtCurrentPositionEndTime = 0;
-            Serial.println("✅ homeAtCurrentPosition guard expiré - détection redémarrage réactivée");
+            logPrintln("✅ homeAtCurrentPosition guard expiré - détection redémarrage réactivée");
         }
     }
 
@@ -302,8 +363,12 @@ void SureServo::process() {
     // ========================================
     detectDriveRestart(now);
 
-    static uint32_t lastValidCommunication = now;
-    static uint32_t consecutiveTimeouts = 0;
+    // Surveillance par instance (ex-static locaux) : le délai de grâce de MODBUS_TIMEOUT_MS
+    // démarre au premier appel de process(), comme l'ancien "static ... = now".
+    if (!commWatchStarted) {
+        lastValidCommunication = now;
+        commWatchStarted = true;
+    }
 
     // ✅ SURVEILLER LA COMMUNICATION MODBUS
     bool hasValidData = (nodes.status && nodes.status->getValue() > 0) ||
@@ -317,15 +382,14 @@ void SureServo::process() {
 
         // Détecter une perte de communication le drive
         if (now - lastValidCommunication > MODBUS_TIMEOUT_MS) {
-            Serial.printf("🚨 SureServo: Perte communication Modbus depuis %lu ms\n",
+            logPrintf("🚨 SureServo: Perte communication Modbus depuis %lu ms\n",
                          now - lastValidCommunication);
 
             // ✅ MESSAGE UTILISATEUR POUR PERTE COMMUNICATION
-            static uint32_t lastCommErrorMessage = 0;
-            if (now - lastCommErrorMessage > 10000) { // Une fois toutes les 10 secondes max
-                BorneUniverselle::prepareMessage(ERROR,
+            if (now - logThrottle.commErrorMessage > 10000) { // Une fois toutes les 10 secondes max
+                notifyUser(ERROR,
                     "Perte de communication avec le drive servo - Vérifiez les connexions");
-                lastCommErrorMessage = now;
+                logThrottle.commErrorMessage = now;
             }
 
             // Notifier la classe métier quel que soit l'état courant (idle inclus)
@@ -333,13 +397,13 @@ void SureServo::process() {
 
             // Interrompre les opérations en cours
             if (homingState == OperationState::DRIVE_IN_PROGRESS) {
-                Serial.println("⚠️ Interruption du homing - perte communication");
+                logPrintln("⚠️ Interruption du homing - perte communication");
                 setError("Perte communication pendant homing");
                 homingState = OperationState::DRIVE_FAILED;
             }
 
             if (moveState == OperationState::DRIVE_IN_PROGRESS) {
-                Serial.println("⚠️ Interruption du mouvement - perte communication");
+                logPrintln("⚠️ Interruption du mouvement - perte communication");
                 setError("Perte communication pendant mouvement");
                 moveState = OperationState::DRIVE_FAILED;
                 releaseFastStatusPolling();
@@ -347,11 +411,10 @@ void SureServo::process() {
         }
     }
 
-    static bool wasReady = false;
     bool currentlyReady = getIsReady();
     
     if (!wasReady && currentlyReady) {
-        Serial.println("🔄 Servo redevenu ready - Reset conditions resync");
+        logPrintln("🔄 Servo redevenu ready - Reset conditions resync");
         endPositionResync(false);
         previousIdlePosition = 0;
         lastIdlePositionReadTime = 0;
@@ -394,7 +457,7 @@ void SureServo::process() {
     if (eepromSaveInProgress && (now - lastEEPROMSaveTime) > EEPROM_SAVE_DELAY_MS) {
         setEEPROMMode(currentEEPROMMode);
         eepromSaveInProgress = false;
-        Serial.println("EEPROM: Sauvegarde terminée, mode restauré");
+        logPrintln("EEPROM: Sauvegarde terminée, mode restauré");
     }
 
     // ========================================
@@ -424,18 +487,17 @@ void SureServo::process() {
                                  (reliablePosition - nodePos);
             if (difference > (int32_t)TOLERANCE_PUU) {
                 hasReliablePosition = false;
-                // Serial.printf("❌ Position interne invalidée - divergence: %ld PUU\n", (long)difference);
+                // logPrintf("❌ Position interne invalidée - divergence: %ld PUU\n", (long)difference);
             }
         }
     }
     
-    static bool wasMoving = false;
     bool currentlyMoving = !status.zeroSpeed;
 
     if (!wasMoving && currentlyMoving) {
         if (hasReliablePosition) {
             hasReliablePosition = false;
-            Serial.printf("🔄 Re-sync status change: %s → %s\n", "FIABLE", "NON-FIABLE");
+            logPrintf("🔄 Re-sync status change: %s → %s\n", "FIABLE", "NON-FIABLE");
         }
     }
     wasMoving = currentlyMoving;
@@ -449,19 +511,18 @@ void SureServo::process() {
     // DIAGNOSTIC PÉRIODIQUE (OPTIONNEL)
     // ========================================
     
-    static uint32_t lastDiagnostic = 0;
-    if (now - lastDiagnostic > 30000) { // Toutes les 30 secondes
+    if (now - logThrottle.diagnostic > 30000) { // Toutes les 30 secondes
         // Log de santé périodique
         if (consecutiveTimeouts > 10) {
-            Serial.printf("⚠️ SureServo: %lu timeouts consécutifs détectés\n", consecutiveTimeouts);
+            logPrintf("⚠️ SureServo: %lu timeouts consécutifs détectés\n", consecutiveTimeouts);
         }
         
         // Vérification de cohérence d'état
         if (initialized && !getIsReady() && !getHasAlarms()) {
-            Serial.println("⚠️ SureServo: État incohérent - initialisé mais pas ready sans alarme");
+            logPrintln("⚠️ SureServo: État incohérent - initialisé mais pas ready sans alarme");
         }
         
-        lastDiagnostic = now;
+        logThrottle.diagnostic = now;
     }
 
     /*
@@ -478,7 +539,7 @@ void SureServo::process() {
         }
     }
     */
-#ifdef PERF_MONITOR
+#ifdef SURESERVO_PERF_MONITOR
     if (pm_active) {
         uint32_t _d = micros() - _pm_t0;
         pm_processTimeCumul += _d;
@@ -489,7 +550,7 @@ void SureServo::process() {
 }// process
 
 bool SureServo::startInitialize() {
-    Serial.println("🔧 SureServo::startInitialize() - DÉBUT");
+    logPrintln("🔧 SureServo::startInitialize() - DÉBUT");
     // Forcer alarmsReset à false au démarrage.
     // hideValue=false par défaut donc setValue(false) dans le constructeur
     // n'a pas déclenché d'écriture hardware — le relais peut avoir retenu
@@ -497,7 +558,7 @@ bool SureServo::startInitialize() {
     if (nodes.alarmsReset) {
         nodes.alarmsReset->setValue(true);   // force un changement de hideValue
         nodes.alarmsReset->setValue(false);  // écrit false au hardware
-        Serial.println("✅ SureServo: alarmsReset forcé à false (démarrage)");
+        logPrintln("✅ SureServo: alarmsReset forcé à false (démarrage)");
     }
 
     // Note: immediateStop sera forcé à true dans handleInitialize() Phase 0,
@@ -517,7 +578,7 @@ bool SureServo::startInitialize() {
     
     // ✅ NOUVEAU : AUTO-RECOVERY SI SERVO EN ALARME
     if (status.servoAlarm) {
-        Serial.println("⚠️ SureServo: Servo en alarme détecté - Tentative de reset automatique");
+        logPrintln("⚠️ SureServo: Servo en alarme détecté - Tentative de reset automatique");
         
         // Vérifier si un reset est déjà en cours
         if (resetState != OperationState::DRIVE_IDLE) {
@@ -531,7 +592,7 @@ bool SureServo::startInitialize() {
             return false;
         }
         
-        Serial.println("🔄 SureServo: Reset automatique démarré avant initialisation");
+        logPrintln("🔄 SureServo: Reset automatique démarré avant initialisation");
         
         // Passer en mode d'initialisation avec auto-recovery
         initState = OperationState::DRIVE_IN_PROGRESS;
@@ -540,7 +601,7 @@ bool SureServo::startInitialize() {
         phaseStartTime = millis();
         lastError = "";
         
-        Serial.println("✅ SureServo: Initialisation avec auto-recovery démarrée");
+        logPrintln("✅ SureServo: Initialisation avec auto-recovery démarrée");
         return true;
     }
     
@@ -553,24 +614,24 @@ bool SureServo::startInitialize() {
     // ✅ Clear l'erreur précédente
     lastError = "";
     
-    Serial.printf("✅ SureServo: Initialisation normale démarrée (phase=%d)\n", initPhase);
+    logPrintf("✅ SureServo: Initialisation normale démarrée (phase=%d)\n", initPhase);
     return true;
 }
 
 bool SureServo::startReset() {
     if (isPlcSuspended()) {
         setError("Reset refusé - PLC suspendu");
-        Serial.println("❌ SureServo: startReset refusé - PLC suspendu");
+        logPrintln("❌ SureServo: startReset refusé - PLC suspendu");
         return false;
     }
 
-    Serial.println("🔧 SureServo::startReset() - DÉBUT");
+    logPrintln("🔧 SureServo::startReset() - DÉBUT");
     
     // ✅ GESTION SIMPLE DES ÉTATS
     switch (resetState) {
         case OperationState::DRIVE_IDLE:
             // ✅ Prêt - continuer
-            Serial.println("✅ SureServo: Reset - état IDLE");
+            logPrintln("✅ SureServo: Reset - état IDLE");
             break;
             
         case OperationState::DRIVE_IN_PROGRESS:
@@ -581,7 +642,7 @@ bool SureServo::startReset() {
         case OperationState::DRIVE_FAILED:
         case OperationState::DRIVE_TIMEOUT:
             // ✅ Auto-clear des erreurs - retry autorisé
-            Serial.printf("⚠️ SureServo: Reset après erreur - retry autorisé\n");
+            logPrintf("⚠️ SureServo: Reset après erreur - retry autorisé\n");
             resetState = OperationState::DRIVE_IDLE;
             resetPhase = 0;
             lastError = "";
@@ -591,27 +652,28 @@ bool SureServo::startReset() {
     // ✅ DÉMARRAGE (inchangé)
     resetState = OperationState::DRIVE_IN_PROGRESS;
     resetPhase = 0;
+    resetSuccessStartTime = 0;  // nouvelle fenêtre de stabilité de 200 ms (audit MI-20)
     operationStartTime = millis();
     phaseStartTime = millis();
     lastError = "";
     
-    Serial.printf("✅ SureServo: Reset démarré (phase=%d)\n", resetPhase);
+    logPrintf("✅ SureServo: Reset démarré (phase=%d)\n", resetPhase);
     return true;
 }
     
 bool SureServo::startGoToPosition(int32_t positionPuu, bool waitForSync, uint32_t timeout) {
     if (isPlcSuspended()) {
         setError("Mouvement refusé - PLC suspendu");
-        Serial.printf("❌ SureServo: startGoToPosition(%lu) refusé - PLC suspendu\n", 
+        logPrintf("❌ SureServo: startGoToPosition(%lu) refusé - PLC suspendu\n", 
                      (unsigned long)positionPuu);
         return false;
     }
 
-    Serial.printf("🔧 SureServo::startGoToPosition(%lu) - DÉBUT\n", (unsigned long)positionPuu);
+    logPrintf("🔧 SureServo::startGoToPosition(%lu) - DÉBUT\n", (unsigned long)positionPuu);
     chainedPR1Complete = false;
     chainedMovingAway   = 0;
     chainedPrevPosition = nodes.position->getValueAsInt32();
-    Serial.printf("🔍 DEBUG chainedPR1Target=%ld, prevPos=%ld\n", (long)chainedPR1Target, (long)chainedPrevPosition);
+    logPrintf("🔍 DEBUG chainedPR1Target=%ld, prevPos=%ld\n", (long)chainedPR1Target, (long)chainedPrevPosition);
 
 
     // ========================================
@@ -620,7 +682,7 @@ bool SureServo::startGoToPosition(int32_t positionPuu, bool waitForSync, uint32_
     
     if (movementCancelled) {
         setError("Mouvement bloqué - annulation récente (attendez cycle complet)");
-        Serial.println("⛔ SureServo: startGoToPosition bloqué - movementCancelled actif");
+        logPrintln("⛔ SureServo: startGoToPosition bloqué - movementCancelled actif");
         return false;
     }
     
@@ -630,7 +692,7 @@ bool SureServo::startGoToPosition(int32_t positionPuu, bool waitForSync, uint32_
     
    switch (moveState) {
         case OperationState::DRIVE_IDLE:
-            Serial.println("✅ SureServo: État IDLE - démarrage autorisé");
+            logPrintln("✅ SureServo: État IDLE - démarrage autorisé");
             break;
             
         case OperationState::DRIVE_IN_PROGRESS:
@@ -649,7 +711,7 @@ bool SureServo::startGoToPosition(int32_t positionPuu, bool waitForSync, uint32_
     
     if (!getIsReady()) {
         setError("SureServo pas prêt pour mouvement");
-        Serial.printf("❌ SureServo: Refus - servo pas prêt (ready=%s, initialized=%s)\n",
+        logPrintf("❌ SureServo: Refus - servo pas prêt (ready=%s, initialized=%s)\n",
                      getServoReady() ? "true" : "false",
                      initialized ? "true" : "false");
         return false;
@@ -657,7 +719,7 @@ bool SureServo::startGoToPosition(int32_t positionPuu, bool waitForSync, uint32_
     
     if (getHasAlarms()) {
         setError("Servo en alarme - mouvement impossible");
-        Serial.printf("❌ SureServo: Refus - alarme active (0x%04X)\n", getAlarmCode());
+        logPrintf("❌ SureServo: Refus - alarme active (0x%04X)\n", getAlarmCode());
         return false;
     }
     
@@ -667,7 +729,7 @@ bool SureServo::startGoToPosition(int32_t positionPuu, bool waitForSync, uint32_
 
     if (maxRangePuu > 0 && positionPuu > (int32_t)(maxRangePuu + PHYSICAL_LIMIT_MARGIN_PUU)) {
         setError("Position cible au-delà de la butée physique");
-        Serial.printf("⛔ SureServo: Refus - cible %ld PUU > limite %lu PUU (marge: %lu)\n",
+        logPrintf("⛔ SureServo: Refus - cible %ld PUU > limite %lu PUU (marge: %lu)\n",
                      (long)positionPuu, maxRangePuu, (unsigned long)PHYSICAL_LIMIT_MARGIN_PUU);
         return false;
     }
@@ -685,7 +747,7 @@ bool SureServo::startGoToPosition(int32_t positionPuu, bool waitForSync, uint32_
         int32_t difference = (currentPos > positionPuu) ?
                              (currentPos - positionPuu) :
                              (positionPuu - currentPos);
-        Serial.printf("ℹ️ SureServo: Déjà à la position cible (écart: %ld PUU <= tolérance: %lu)\n",
+        logPrintf("ℹ️ SureServo: Déjà à la position cible (écart: %ld PUU <= tolérance: %lu)\n",
                      (long)difference, (unsigned long)TOLERANCE_PUU);
         
         moveState = OperationState::DRIVE_IDLE;
@@ -720,13 +782,13 @@ bool SureServo::startGoToPosition(int32_t positionPuu, bool waitForSync, uint32_
 bool SureServo::startHoming(uint32_t timeoutMs) {
     if (isPlcSuspended()) {
         setError("Homing refusé - PLC suspendu");
-        Serial.println("❌ SureServo: startHoming refusé - PLC suspendu");
+        logPrintln("❌ SureServo: startHoming refusé - PLC suspendu");
         return false;
     }
 
     currentHomingTimeoutMs = (timeoutMs > 0) ? timeoutMs : HOMING_TIMEOUT_MS;
 
-    Serial.println("🔧 SureServo::startHoming() - DÉBUT");
+    logPrintln("🔧 SureServo::startHoming() - DÉBUT");
 
     // Vérifications...
     if (!getIsReady()) return false;
@@ -736,7 +798,7 @@ bool SureServo::startHoming(uint32_t timeoutMs) {
     // ✅ ENVOI IMMÉDIAT DE LA COMMANDE
     nodes.trigger->setValue(120);  // Reset
     nodes.trigger->setValue(0);    // Commande homing
-    Serial.println("🏠 Commande homing envoyée");
+    logPrintln("🏠 Commande homing envoyée");
     
     // Démarrer la surveillance
     homingState = OperationState::DRIVE_IN_PROGRESS;
@@ -775,7 +837,7 @@ bool SureServo::jogForward(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
 
     if (isPlcSuspended()) {
         setError("Commande refusée - PLC suspendu");
-        Serial.println("❌ SureServo: jogForward refusé - PLC suspendu");
+        logPrintln("❌ SureServo: jogForward refusé - PLC suspendu");
         return false;
     }
 
@@ -790,7 +852,7 @@ bool SureServo::jogForward(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
     if (limit != INT32_MAX && nodes.homeDone && nodes.homeDone->getValue() && pos >= limit) {
         jogStop();
         jogForwardActive = false;
-        Serial.printf("⛔ SureServo: Limite forward atteinte (%ld >= %ld)\n", pos, limit);
+        logPrintf("⛔ SureServo: Limite forward atteinte (%ld >= %ld)\n", pos, limit);
         return false;
     }
 
@@ -800,9 +862,9 @@ bool SureServo::jogForward(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
             // **CYCLE 1 — Envoyer DIRECTION d'abord**
             _savedJogSpeed = currentJogSpeed;
             acquireFastPositionPolling();
-            nodes.jogSpeed->setValue(FWD_VALUE);  // ← CHANGEMENT : direction d'abord
+            nodes.jogSpeed->setValue(fwdJogValue);  // ← CHANGEMENT : direction d'abord
             _jogSpeedRestored = true;
-            Serial.println("JOG FWD Cycle 1: DIRECTION (FWD_VALUE)");
+            logPrintln("JOG FWD Cycle 1: DIRECTION (FWD_VALUE)");
             return true;  // ← attendre prochain cycle
         }
         
@@ -811,9 +873,9 @@ bool SureServo::jogForward(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
         uint16_t speed = currentJogSpeed;
         if (slowZonePuu > 0 && nodes.homeDone && nodes.homeDone->getValue() && pos >= slowLimit) {
             speed = slowSpeed;  // Démarrage dans slow zone
-            Serial.printf("JOG FWD Cycle 2: Démarrage dans SLOW ZONE (%u RPM)\n", speed);
+            logPrintf("JOG FWD Cycle 2: Démarrage dans SLOW ZONE (%u RPM)\n", speed);
         } else {
-            Serial.printf("JOG FWD Cycle 2: Démarrage vitesse normale (%u RPM)\n", speed);
+            logPrintf("JOG FWD Cycle 2: Démarrage vitesse normale (%u RPM)\n", speed);
         }
         
         setJogSpeed(speed);  // ← CHANGEMENT : vitesse ensuite
@@ -828,7 +890,7 @@ bool SureServo::jogForward(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
         uint16_t currentSpeed = nodes.jogSpeed->getValue();
         if (currentSpeed != slowSpeed) {
             nodes.jogSpeed->setValue(slowSpeed);
-            Serial.printf("JOG FWD: Entrée slow zone → %u RPM\n", slowSpeed);
+            logPrintf("JOG FWD: Entrée slow zone → %u RPM\n", slowSpeed);
         }
         return true;
     }
@@ -849,7 +911,7 @@ bool SureServo::jogReverse(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
 
     if (isPlcSuspended()) {
         setError("Commande refusée - PLC suspendu");
-        Serial.println("❌ SureServo: jogReverse refusé - PLC suspendu");
+        logPrintln("❌ SureServo: jogReverse refusé - PLC suspendu");
         return false;
     }
 
@@ -862,7 +924,7 @@ bool SureServo::jogReverse(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
     if (limitPuu != INT32_MIN && pos <= limit) {
         jogStop();
         jogReverseActive = false;
-        Serial.printf("⛔ SureServo: Limite reverse atteinte (%ld <= %ld)\n", pos, limit);
+        logPrintf("⛔ SureServo: Limite reverse atteinte (%ld <= %ld)\n", pos, limit);
         return false;
     }
 
@@ -872,9 +934,9 @@ bool SureServo::jogReverse(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
             // **CYCLE 1 — Envoyer DIRECTION d'abord**
             _savedJogSpeed = currentJogSpeed;
             acquireFastPositionPolling();
-            nodes.jogSpeed->setValue(RWD_VALUE);  // ← CHANGEMENT : direction d'abord
+            nodes.jogSpeed->setValue(rwdJogValue);  // ← CHANGEMENT : direction d'abord
             _jogSpeedRestored = true;
-            Serial.println("JOG REV Cycle 1: DIRECTION (RWD_VALUE)");
+            logPrintln("JOG REV Cycle 1: DIRECTION (RWD_VALUE)");
             return true;  // ← attendre prochain cycle
         }
         
@@ -884,9 +946,9 @@ bool SureServo::jogReverse(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
         if (slowZonePuu > 0 && nodes.homeDone && nodes.homeDone->getValue() &&
             pos <= slowLimit) {
             speed = slowSpeed;  // Démarrage dans slow zone
-            Serial.printf("JOG REV Cycle 2: Démarrage dans SLOW ZONE (%u RPM)\n", speed);
+            logPrintf("JOG REV Cycle 2: Démarrage dans SLOW ZONE (%u RPM)\n", speed);
         } else {
-            Serial.printf("JOG REV Cycle 2: Démarrage vitesse normale (%u RPM)\n", speed);
+            logPrintf("JOG REV Cycle 2: Démarrage vitesse normale (%u RPM)\n", speed);
         }
         
         setJogSpeed(speed);  // ← CHANGEMENT : vitesse ensuite
@@ -902,7 +964,7 @@ bool SureServo::jogReverse(int32_t limitPuu, uint32_t slowZonePuu, uint16_t slow
         uint16_t currentSpeed = nodes.jogSpeed->getValue();
         if (currentSpeed != slowSpeed) {
             nodes.jogSpeed->setValue(slowSpeed);
-            Serial.printf("JOG REV: Entrée slow zone → %u RPM\n", slowSpeed);
+            logPrintf("JOG REV: Entrée slow zone → %u RPM\n", slowSpeed);
         }
         return true;
     }
@@ -926,11 +988,11 @@ bool SureServo::jogStop() {
     jogToStopDetected = true;
     jogStopTimestamp = millis();
     
-    Serial.println("✅ SureServo: Jog arrêté - Re-sync programmée (non-bloquant)");
+    logPrintln("✅ SureServo: Jog arrêté - Re-sync programmée (non-bloquant)");
     
     if (moveState != OperationState::DRIVE_IDLE &&
         moveState != OperationState::DRIVE_FAILED) {
-        Serial.printf("Correction moveState après JOG: %d → IDLE\n",
+        logPrintf("Correction moveState après JOG: %d → IDLE\n",
                         static_cast<int>(moveState));
         moveState = OperationState::DRIVE_IDLE;
         releaseFastStatusPolling();
@@ -950,7 +1012,7 @@ bool SureServo::setJogSpeed(uint32_t speed) {
         nodes.jogSpeed->setValue(speed);
     }
     
-    Serial.printf("Vitesse jog définie: %lu\n", speed);
+    logPrintf("Vitesse jog définie: %lu\n", speed);
     return true;
 }
 
@@ -960,14 +1022,14 @@ uint32_t SureServo::getJogSpeed() const {
 
 bool SureServo::setServoEnabled(bool enable) {
     nodes.servoOn->setValue(enable);
-    Serial.printf("✅ SureServo: Servo %s\n", enable ? "activé" : "désactivé");
+    logPrintf("✅ SureServo: Servo %s\n", enable ? "activé" : "désactivé");
     return true;
 }
 
 bool SureServo::setSpeedAndRamp(uint8_t speed, uint8_t rampIndex) {
     if (isPlcSuspended()) {
         setError("Commande refusée - PLC suspendu");
-        Serial.println("❌ SureServo: setSpeedAndRamp refusé - PLC suspendu");
+        logPrintln("❌ SureServo: setSpeedAndRamp refusé - PLC suspendu");
         return false;
     }
 
@@ -984,7 +1046,7 @@ bool SureServo::setSpeedAndRamp(uint8_t speed, uint8_t rampIndex) {
     // Rampe accel/décel symétrique — excursion utile du drive limitée à 0-13
     uint8_t ramp = (rampIndex > 13) ? 13 : rampIndex;
     if (ramp != rampIndex) {
-        Serial.printf("⚠️ SureServo: rampIndex %u hors excursion, clampé à %u\r\n", rampIndex, ramp);
+        logPrintf("⚠️ SureServo: rampIndex %u hors excursion, clampé à %u\r\n", rampIndex, ramp);
     }
 
     uint32_t driveValue = ((uint32_t)speed << 16)   // vitesse PR (0-15)
@@ -992,7 +1054,7 @@ bool SureServo::setSpeedAndRamp(uint8_t speed, uint8_t rampIndex) {
                          | ((uint32_t)ramp << 8)     // accélération
                          | PR_TYPE_SINGLE;
 
-    Serial.printf("New user speed: %u, ramp: %u. Will set register with value 0x%08x\r\n",
+    logPrintf("New user speed: %u, ramp: %u. Will set register with value 0x%08x\r\n",
                   speed, ramp, driveValue);
     nodes.pr1Speed->setValue(driveValue);
     nodes.pr2Speed->setValue(driveValue);
@@ -1001,7 +1063,7 @@ bool SureServo::setSpeedAndRamp(uint8_t speed, uint8_t rampIndex) {
     currentPrSpeed = speed;
     currentRampIndex = ramp;
 
-    Serial.printf("Vitesse PR définie: %u, rampe: %u (table servo drive)\n", speed, ramp);
+    logPrintf("Vitesse PR définie: %u, rampe: %u (table servo drive)\n", speed, ramp);
     return true;
 }
 
@@ -1017,7 +1079,7 @@ bool SureServo::setMaxTorque(uint8_t torquePercent) {
     }
     
     nodes.maxTorque->setValue(torquePercent);
-    Serial.printf("✅ SureServo: Couple max défini à %u%%\n", torquePercent);
+    logPrintf("✅ SureServo: Couple max défini à %u%%\n", torquePercent);
     return true;
 }
 
@@ -1028,10 +1090,10 @@ uint8_t SureServo::getMaxTorque() const {
 void SureServo::setMaxRangeInches(float maxRangeInches) {
     if (maxRangeInches > 0) {
         maxRangePuu = (uint32_t)((double)maxRangeInches * pulsesPerUnit);
-        Serial.printf("Limite physique mise à jour à chaud: %.2f\" = %lu PUU\n", maxRangeInches, maxRangePuu);
+        logPrintf("Limite physique mise à jour à chaud: %.2f\" = %lu PUU\n", maxRangeInches, maxRangePuu);
     } else {
         maxRangePuu = 0;
-        Serial.println("Limite physique désactivée (maxRangeInches <= 0)");
+        logPrintln("Limite physique désactivée (maxRangeInches <= 0)");
     }
 }
 
@@ -1048,7 +1110,7 @@ bool SureServo::emergencyStop() {
     homingState= OperationState::DRIVE_FAILED;
     releaseFastStatusPolling(); // moveState quitte DRIVE_IN_PROGRESS sans repasser par processMove()
 
-    Serial.println("🚨 SureServo: Arrêt d'urgence activé");
+    logPrintln("🚨 SureServo: Arrêt d'urgence activé");
     return true;
 }
 
@@ -1058,10 +1120,10 @@ bool SureServo::saveParameters() {
 
 int32_t SureServo::getPosition() const {
     if (hasReliablePosition) {
-        Serial.println("Retour de la position effective (resychro terminé)");
+        logPrintln("Retour de la position effective (resychro terminé)");
         return reliablePosition;   // position effective (re-sync terminée)
     } else {
-         Serial.println("Retour de la position théorique (re synchro en cours)");
+         logPrintln("Retour de la position théorique (re synchro en cours)");
         return targetPosition;     // position théorique (confiance au drive)
     }
 }
@@ -1139,9 +1201,9 @@ const char* SureServo::getAlarmDescription() const {
     uint16_t alarmCode = getAlarmCode();
     
     // Recherche dans la table
-    for (size_t i = 0; i < SURESERVO_ALARMS_COUNT; i++) {
-        if (SURESERVO_ALARMS[i].code == alarmCode) {
-            return SURESERVO_ALARMS[i].description;
+    for (size_t i = 0; i < ALARMS_COUNT; i++) {
+        if (ALARMS[i].code == alarmCode) {
+            return ALARMS[i].description;
         }
     }
     
@@ -1152,9 +1214,9 @@ const char* SureServo::getAlarmAction() const {
     uint16_t alarmCode = getAlarmCode();
     
     // Recherche dans la table
-    for (size_t i = 0; i < SURESERVO_ALARMS_COUNT; i++) {
-        if (SURESERVO_ALARMS[i].code == alarmCode) {
-            return SURESERVO_ALARMS[i].action;
+    for (size_t i = 0; i < ALARMS_COUNT; i++) {
+        if (ALARMS[i].code == alarmCode) {
+            return ALARMS[i].action;
         }
     }
     
@@ -1162,128 +1224,128 @@ const char* SureServo::getAlarmAction() const {
 }
 
 void SureServo::printStatus() const {
-    Serial.println("==============================");
-    Serial.println("     SURESERVO STATUS");
-    Serial.println("==============================");
+    logPrintln("==============================");
+    logPrintln("     SURESERVO STATUS");
+    logPrintln("==============================");
     
     // ÉTAT GÉNÉRAL
-    Serial.printf("Ready: %s\n", getIsReady() ? "true" : "false");
-    Serial.printf("Initialized: %s\n", getIsInitialized() ? "true" : "false");
-    Serial.printf("Servo Activated: %s\n", getServoActivated() ? "true" : "false");
-    Serial.printf("Zero Speed: %s\n", status.zeroSpeed ? "true" : "false");
-    Serial.printf("Home Done: %s\n", getHomeDone() ? "true" : "false");
+    logPrintf("Ready: %s\n", getIsReady() ? "true" : "false");
+    logPrintf("Initialized: %s\n", getIsInitialized() ? "true" : "false");
+    logPrintf("Servo Activated: %s\n", getServoActivated() ? "true" : "false");
+    logPrintf("Zero Speed: %s\n", status.zeroSpeed ? "true" : "false");
+    logPrintf("Home Done: %s\n", getHomeDone() ? "true" : "false");
     
     // ALARMES
     if (getHasAlarms()) {
-        Serial.printf("ALARMES: OUI (0x%04X)\n", getAlarmCode());
-        Serial.printf("Description: %s\n", getAlarmDescription());
-        Serial.printf("Action: %s\n", getAlarmAction());
+        logPrintf("ALARMES: OUI (0x%04X)\n", getAlarmCode());
+        logPrintf("Description: %s\n", getAlarmDescription());
+        logPrintf("Action: %s\n", getAlarmAction());
     } else {
-        Serial.println("ALARMES: Aucune");
+        logPrintln("ALARMES: Aucune");
     }
     
     // POSITION (CŒUR DU SYSTÈME)
     if (hasReliablePosition) {
-        Serial.printf("Position Interne: %ld PUU (FIABLE)\n", (long)reliablePosition);
-        Serial.printf("Position Nodes: %ld PUU\n", (long)nodes.position->getValueAsInt32());
+        logPrintf("Position Interne: %ld PUU (FIABLE)\n", (long)reliablePosition);
+        logPrintf("Position Nodes: %ld PUU\n", (long)nodes.position->getValueAsInt32());
 
         int32_t difference = (reliablePosition > nodes.position->getValueAsInt32()) ?
                              (reliablePosition - nodes.position->getValueAsInt32()) :
                              (nodes.position->getValueAsInt32() - reliablePosition);
-        Serial.printf("Écart: %ld PUU\n", (long)difference);
+        logPrintf("Écart: %ld PUU\n", (long)difference);
         
         // Conversion en unités physiques
-        Serial.printf("Position (inch): %.3f\"\n", (float)reliablePosition / pulsesPerUnit);
+        logPrintf("Position (inch): %.3f\"\n", (float)reliablePosition / pulsesPerUnit);
     } else {
-        Serial.printf("Position: %lu PUU (depuis nodes - PAS FIABLE)\n", getPosition());
-        Serial.printf("Position (inch): %.3f\"\n", (float)getPosition() / pulsesPerUnit);
+        logPrintf("Position: %lu PUU (depuis nodes - PAS FIABLE)\n", getPosition());
+        logPrintf("Position (inch): %.3f\"\n", (float)getPosition() / pulsesPerUnit);
         
         // Info sur re-sync en cours
         if (resyncInProgress) {
-            Serial.printf("Re-sync: EN COURS (%d/5 lectures stables)\n", idleStableReadingsCount);
-            Serial.printf("Re-sync interval: %lu ms\n", getHomingPositionReadInterval());
+            logPrintf("Re-sync: EN COURS (%d/5 lectures stables)\n", idleStableReadingsCount);
+            logPrintf("Re-sync interval: %lu ms\n", getHomingPositionReadInterval());
         } else {
-            Serial.println("Re-sync: En attente d'immobilité");
+            logPrintln("Re-sync: En attente d'immobilité");
         }
     }
     
     // OPÉRATIONS EN COURS
-    Serial.println("--- OPÉRATIONS ---");
-    Serial.printf("Init State: %s\n", 
+    logPrintln("--- OPÉRATIONS ---");
+    logPrintf("Init State: %s\n", 
                  initState == OperationState::DRIVE_IDLE ? "IDLE" :
                  initState == OperationState::DRIVE_IN_PROGRESS ? "IN_PROGRESS" :
                  initState == OperationState::DRIVE_FAILED ? "FAILED" : "OTHER");
     
-    Serial.printf("Move State: %s\n", 
+    logPrintf("Move State: %s\n", 
                  moveState == OperationState::DRIVE_IDLE ? "IDLE" :
                  moveState == OperationState::DRIVE_IN_PROGRESS ? "IN_PROGRESS" :
                  moveState == OperationState::DRIVE_FAILED ? "FAILED" : "OTHER");
     
-    Serial.printf("Homing State: %s\n", 
+    logPrintf("Homing State: %s\n", 
                  homingState == OperationState::DRIVE_IDLE ? "IDLE" :
                  homingState == OperationState::DRIVE_IN_PROGRESS ? "IN_PROGRESS" :
                  homingState == OperationState::DRIVE_FAILED ? "FAILED" : "OTHER");
     
     // DÉTAILS HOMING SI EN COURS
     if (homingState == OperationState::DRIVE_IN_PROGRESS) {
-        Serial.printf("Homing Phase: %d\n", homingPhase);
+        logPrintf("Homing Phase: %d\n", homingPhase);
         if (homingPhase == 1) {
-            Serial.printf("Homing Lectures stables: %d/3\n", homingStableReadingsCount);
-            Serial.printf("Homing Interval: %lu ms\n", getHomingPositionReadInterval());
+            logPrintf("Homing Lectures stables: %d/3\n", homingStableReadingsCount);
+            logPrintf("Homing Interval: %lu ms\n", getHomingPositionReadInterval());
         }
     }
     
     // JOG ET VITESSES
-    Serial.println("--- JOG & VITESSES ---");
+    logPrintln("--- JOG & VITESSES ---");
     uint16_t jogValue = nodes.jogSpeed->getValue();
     if (jogValue != STOP_VALUE) {
-        Serial.printf("JOG: %s (%u)\n", 
-                     jogValue == FWD_VALUE ? "FORWARD" :
-                     jogValue == RWD_VALUE ? "REVERSE" : "UNKNOWN",
+        logPrintf("JOG: %s (%u)\n", 
+                     jogValue == fwdJogValue ? "FORWARD" :
+                     jogValue == rwdJogValue ? "REVERSE" : "UNKNOWN",
                      jogValue);
     } else {
-        Serial.println("JOG: STOPPED");
+        logPrintln("JOG: STOPPED");
     }
     
-    Serial.printf("Jog Speed: %lu\n", currentJogSpeed);
-    Serial.printf("PR Speed: %u\n", currentPrSpeed);
-    Serial.printf("Current PR: %u\n", currentPr);
-    Serial.printf("Max Torque: %u%%\n", nodes.maxTorque->getValue());
+    logPrintf("Jog Speed: %lu\n", currentJogSpeed);
+    logPrintf("PR Speed: %u\n", currentPrSpeed);
+    logPrintf("Current PR: %u\n", currentPr);
+    logPrintf("Max Torque: %u%%\n", nodes.maxTorque->getValue());
     
     // CONFIGURATION
-    Serial.println("--- CONFIGURATION ---");
-    Serial.printf("Pulses per unit: %.4f\n", pulsesPerUnit);
-    Serial.printf("Tolerance: %lu PUU\n", (unsigned long)TOLERANCE_PUU);
-    Serial.printf("Nodes Required: %s\n", nodes.validateRequired() ? "OK" : "MANQUANTS");
-    Serial.printf("Nodes Optional: %zu configurés\n", nodes.countOptional());
+    logPrintln("--- CONFIGURATION ---");
+    logPrintf("Pulses per unit: %.4f\n", pulsesPerUnit);
+    logPrintf("Tolerance: %lu PUU\n", (unsigned long)TOLERANCE_PUU);
+    logPrintf("Nodes Required: %s\n", nodes.validateRequired() ? "OK" : "MANQUANTS");
+    logPrintf("Nodes Optional: %zu configurés\n", nodes.countOptional());
     
     // ERREURS
     if (!lastError.isEmpty()) {
-        Serial.println("--- ERREUR ---");
-        Serial.printf("Last Error: %s\n", lastError.c_str());
+        logPrintln("--- ERREUR ---");
+        logPrintf("Last Error: %s\n", lastError.c_str());
     }
     
-    Serial.println("==============================");
+    logPrintln("==============================");
 }
 
 void SureServo::printAlarms() const {
     if (getHasAlarms()) {
-        Serial.println("=== ALARMES ACTIVES ===");
-        Serial.printf("Code: 0x%04X\n", getAlarmCode());
-        Serial.printf("Description: %s\n", getAlarmDescription());
-        Serial.printf("Action: %s\n", getAlarmAction());
-        Serial.println("=======================");
+        logPrintln("=== ALARMES ACTIVES ===");
+        logPrintf("Code: 0x%04X\n", getAlarmCode());
+        logPrintf("Description: %s\n", getAlarmDescription());
+        logPrintf("Action: %s\n", getAlarmAction());
+        logPrintln("=======================");
     } else {
-        Serial.println("Aucune alarme active");
+        logPrintln("Aucune alarme active");
     }
 }
 
 void SureServo::printConfiguration() const {
-    Serial.println("=== CONFIGURATION SERVO MOTOR ===");
-    Serial.printf("Pulses per unit: %.4f\n", pulsesPerUnit);
-    Serial.printf("Nodes required: %s\n", nodes.validateRequired() ? "OK" : "MANQUANTS");
-    Serial.printf("Nodes optional: %zu configurés\n", nodes.countOptional());
-    Serial.println("================================");
+    logPrintln("=== CONFIGURATION SERVO MOTOR ===");
+    logPrintf("Pulses per unit: %.4f\n", pulsesPerUnit);
+    logPrintf("Nodes required: %s\n", nodes.validateRequired() ? "OK" : "MANQUANTS");
+    logPrintf("Nodes optional: %zu configurés\n", nodes.countOptional());
+    logPrintln("================================");
 }
 
 // ========================================
@@ -1301,15 +1363,14 @@ void SureServo::processInitialize(uint32_t now) {
         operationStartTime = now;
         if (waitModbusStartTime == 0) {
             waitModbusStartTime = now;
-            Serial.printf("[%s] Attente drive sur adresse Modbus %u...\n", servoId.c_str(), slaveAddr);
+            logPrintf("Attente drive sur adresse Modbus %u...\n", slaveAddr);
         }
 
         // Message repetitif apres 5s d'attente
         if (now - waitModbusStartTime > 5000) {
-            static uint32_t lastWaitLog = 0;
-            if (now - lastWaitLog > 5000) {
-                Serial.printf("[%s] Attente drive addr %u - toujours injoignable...\n", servoId.c_str(), slaveAddr);
-                lastWaitLog = now;
+            if (now - logThrottle.initWaitDrive > 5000) {
+                logPrintf("Attente drive addr %u - toujours injoignable...\n", slaveAddr);
+                logThrottle.initWaitDrive = now;
             }
         }
         return;
@@ -1319,20 +1380,20 @@ void SureServo::processInitialize(uint32_t now) {
     if (waitModbusStartTime != 0) {
         char msg[128];
         snprintf(msg, sizeof(msg), "Drive servo addr %u: pas de reponse - verifier alimentation", slaveAddr);
-        PLC_Tools::sendPeriodicMessage(false, WARNING, msg);
+        notifyUserPeriodic(false, WARNING, msg);
         waitModbusStartTime = 0;
-        Serial.printf("[%s] Drive addr %u repond - demarrage initialisation\n", servoId.c_str(), slaveAddr);
+        logPrintf("Drive addr %u repond - demarrage initialisation\n", slaveAddr);
     }
 
     // Position marquee non fiable au demarrage
     if (initPhase == 0 && !initialized) {
         hasReliablePosition = false;
-        Serial.println("Initialisation : Position marquee NON fiable (demarrage)");
+        logPrintln("Initialisation : Position marquee NON fiable (demarrage)");
     }
 
     // VERIFIER TIMEOUT GLOBAL
     if (now - operationStartTime > INIT_TIMEOUT_MS) {
-        Serial.printf("Timeout initialisation apres %lu ms\n", now - operationStartTime);
+        logPrintf("Timeout initialisation apres %lu ms\n", now - operationStartTime);
         setError("Timeout initialisation");
         initState = OperationState::DRIVE_TIMEOUT;
         return;
@@ -1342,15 +1403,14 @@ void SureServo::processInitialize(uint32_t now) {
     if (initPhase == 100) {
         switch (resetState) {
             case OperationState::DRIVE_IN_PROGRESS:
-                static uint32_t lastProgressMsg = 0;
-                if (now - lastProgressMsg > 2000) {
-                    Serial.println("SureServo: Reset automatique en cours...");
-                    lastProgressMsg = now;
+                if (now - logThrottle.initAutoRecovery > 2000) {
+                    logPrintln("SureServo: Reset automatique en cours...");
+                    logThrottle.initAutoRecovery = now;
                 }
                 return;
 
             case OperationState::DRIVE_IDLE:
-                Serial.println("SureServo: Reset automatique reussi - Passage a l'initialisation normale");
+                logPrintln("SureServo: Reset automatique reussi - Passage a l'initialisation normale");
                 initPhase = 0;
                 phaseStartTime = now;
                 resetState = OperationState::DRIVE_IDLE;
@@ -1359,13 +1419,13 @@ void SureServo::processInitialize(uint32_t now) {
 
             case OperationState::DRIVE_FAILED:
             case OperationState::DRIVE_TIMEOUT:
-                Serial.println("SureServo: Reset automatique echoue");
+                logPrintln("SureServo: Reset automatique echoue");
                 setError("Reset automatique echoue - Servo toujours en alarme");
                 initState = OperationState::DRIVE_FAILED;
                 return;
 
             default:
-                Serial.println("SureServo: Etat reset inattendu pendant auto-recovery");
+                logPrintln("SureServo: Etat reset inattendu pendant auto-recovery");
                 setError("Etat reset inattendu pendant auto-recovery");
                 initState = OperationState::DRIVE_FAILED;
                 return;
@@ -1375,7 +1435,7 @@ void SureServo::processInitialize(uint32_t now) {
     // PHASES NORMALES D'INITIALISATION
     switch (initPhase) {
         case 0:
-            Serial.println("SureServo Init Phase 0: Configuration");
+            logPrintln("SureServo Init Phase 0: Configuration");
             if (status.servoAlarm) {
                 setError("Servo encore en alarme apres auto-recovery - Verifier manuellement");
                 initState = OperationState::DRIVE_FAILED;
@@ -1391,7 +1451,7 @@ void SureServo::processInitialize(uint32_t now) {
 
         case 1:
             if (now - phaseStartTime > 100) {
-                Serial.println("SureServo Init Phase 1: Verification etat");
+                logPrintln("SureServo Init Phase 1: Verification etat");
                 initPhase = 2;
                 phaseStartTime = now;
             }
@@ -1400,16 +1460,15 @@ void SureServo::processInitialize(uint32_t now) {
         case 2:
             // servoActivated non requis au repos
             if (status.servoReady && !status.servoAlarm) {
-                Serial.println("SureServo: Initialisation reussie");
+                logPrintln("SureServo: Initialisation reussie");
 
                 if (getHomeDone()) {
                     uint32_t lastRefresh = nodes.position->getLastRefresh();
                     if (lastRefresh < operationStartTime) {
-                        static uint32_t lastWaitLog = 0;
-                        if (now - lastWaitLog > 500) {
-                            Serial.printf("Attente lecture position (last refresh: %lu, start: %lu)...\n",
+                        if (now - logThrottle.initWaitPosition > 500) {
+                            logPrintf("Attente lecture position (last refresh: %lu, start: %lu)...\n",
                                         lastRefresh, operationStartTime);
-                            lastWaitLog = now;
+                            logThrottle.initWaitPosition = now;
                         }
                         return;
                     }
@@ -1418,18 +1477,18 @@ void SureServo::processInitialize(uint32_t now) {
                     bool positionError = false;
 
                     if (currentPos < 0 && currentPos > -(int32_t)TOLERANCE_PUU) {
-                        Serial.printf("Position legerement negative: %ld PUU -> corrigee a 0\n", (long)currentPos);
+                        logPrintf("Position legerement negative: %ld PUU -> corrigee a 0\n", (long)currentPos);
                         currentPos = 0;
-                        BorneUniverselle::prepareMessage(WARNING, "Position negative corrigee a 0");
+                        notifyUser(WARNING, "Position negative corrigee a 0");
                     } else if (_homePositionPolicy == HomePositionPolicy::NEGATIVE_INVALIDATES_HOME && currentPos < 0) {
                         // Position négative au-delà de la tolérance : homeDone n'est plus fiable,
                         // mais ce n'est pas une vraie sortie de course (le drive a juste dérivé sous 0)
-                        Serial.printf("Position negative detectee: %ld PUU -> home invalide, re-homing requis\n",
+                        logPrintf("Position negative detectee: %ld PUU -> home invalide, re-homing requis\n",
                                     (long)currentPos);
                         homeDoneInvalidated = true;
-                        BorneUniverselle::prepareMessage(WARNING, "Position negative - re-homing requis");
+                        notifyUser(WARNING, "Position negative - re-homing requis");
                     } else if (maxRangePuu > 0 && (uint32_t)currentPos > maxRangePuu) {
-                        Serial.printf("ERREUR: Position hors limites: %ld PUU (max: %lu)\n", (long)currentPos, maxRangePuu);
+                        logPrintf("ERREUR: Position hors limites: %ld PUU (max: %lu)\n", (long)currentPos, maxRangePuu);
                         setError("Position hors limites machine, veuillez reseter le drive");
                         positionError = true;
                     }
@@ -1440,22 +1499,22 @@ void SureServo::processInitialize(uint32_t now) {
                         initialized = false;
                         hasReliablePosition = false;
                         initState = OperationState::DRIVE_FAILED;
-                        PLC_Tools::sendPeriodicMessage(true, ERROR,
+                        notifyUserPeriodic(true, ERROR,
                             "Position incoherente - Eteignez et rallumez le drive");
                         return;
                     }
 
                     if (homeDoneInvalidated) {
-                        Serial.println("Home invalide - Homing necessaire");
+                        logPrintln("Home invalide - Homing necessaire");
                         hasReliablePosition = false;
                     } else {
                         reliablePosition = currentPos;
                         hasReliablePosition = true;
-                        Serial.printf("HomeDone - Position: %ld PUU (%.2f\")\n",
+                        logPrintf("HomeDone - Position: %ld PUU (%.2f\")\n",
                                     (long)reliablePosition, (float)reliablePosition / pulsesPerUnit);
                     }
                 } else {
-                    Serial.println("HomeDone=false - Homing necessaire");
+                    logPrintln("HomeDone=false - Homing necessaire");
                     hasReliablePosition = false;
                 }
 
@@ -1469,7 +1528,7 @@ void SureServo::processInitialize(uint32_t now) {
                 }
                 success = setSpeedAndRamp(currentPrSpeed, 0);
                 if (success){
-                    Serial.println("SureServo: Initialisation complete avec succes");
+                    logPrintln("SureServo: Initialisation complete avec succes");
                 } else {
                     char msg[64];
                     snprintf(msg, sizeof(msg), "Unable to set speed: %u, probably not in range\r\n", currentPrSpeed);
@@ -1478,11 +1537,10 @@ void SureServo::processInitialize(uint32_t now) {
 
             } else if (now - phaseStartTime > 5000) {
                 // Servo pas encore ready apres 5s - log periodique en attendant le timeout global
-                static uint32_t lastPhase2Log = 0;
-                if (now - lastPhase2Log > 2000) {
-                    Serial.printf("[%s] Phase 2: attente servoReady (status=0x%04X alarm=0x%04X)\n",
-                        servoId.c_str(), nodes.status->getValue(), nodes.alarms->getValue());
-                    lastPhase2Log = now;
+                if (now - logThrottle.initWaitReady > 2000) {
+                    logPrintf("Phase 2: attente servoReady (status=0x%04X alarm=0x%04X)\n",
+                        nodes.status->getValue(), nodes.alarms->getValue());
+                    logThrottle.initWaitReady = now;
                 }
             }
             break;
@@ -1499,12 +1557,13 @@ void SureServo::processReset(uint32_t now) {
     if (now - operationStartTime > RESET_TIMEOUT_MS) {
         setError("Timeout reset SureServo après 5 secondes");
         resetState = OperationState::DRIVE_TIMEOUT;
+        resetSuccessStartTime = 0;  // fenêtre de stabilité abandonnée (audit MI-20)
         return;
     }
     
     switch (resetPhase) {
         case 0:
-            Serial.println("🔧 SureServo Reset Phase 0: Activation relais");
+            logPrintln("🔧 SureServo Reset Phase 0: Activation relais");
             
             // S'assurer que le relais est d'abord OFF
             if (nodes.alarmsReset->getValue()) {
@@ -1516,22 +1575,22 @@ void SureServo::processReset(uint32_t now) {
             nodes.alarmsReset->setValue(true);
             resetPhase = 1;
             phaseStartTime = now;
-            Serial.println("✅ SureServo Reset: Relais activé");
+            logPrintln("✅ SureServo Reset: Relais activé");
             break;
             
        case 1: // Maintenir le pulse
             if (now - phaseStartTime >= RESET_PULSE_MS) {
-                Serial.println("🔧 SureServo Reset Phase 1: Désactivation relais");
+                logPrintln("🔧 SureServo Reset Phase 1: Désactivation relais");
                 nodes.alarmsReset->setValue(false);   
                 resetPhase = 2;
                 phaseStartTime = now;
-                Serial.println("✅ SureServo Reset: Relais désactivé");
+                logPrintln("✅ SureServo Reset: Relais désactivé");
             }
             break;
             
         case 2: // Stabilisation
             if (now - phaseStartTime >= RESET_STABILIZE_MS) {
-                Serial.println("🔧 SureServo Reset Phase 2: Vérification continue");
+                logPrintln("🔧 SureServo Reset Phase 2: Vérification continue");
                 resetPhase = 3;
                 phaseStartTime = now;
             }
@@ -1544,7 +1603,7 @@ void SureServo::processReset(uint32_t now) {
                 uint16_t currentAlarms = getAlarmCode();
                 bool currentServoAlarm = getHasAlarms();
 
-                Serial.printf("🔍 Reset check: servoOn=%d, immediateStop=%d, alarmRaw=%d\n", 
+                logPrintf("🔍 Reset check: servoOn=%d, immediateStop=%d, alarmRaw=%d\n", 
                     nodes.servoOn->getValue(), 
                     nodes.immediateStop->getValue(),
                     nodes.alarms->getValue());
@@ -1552,32 +1611,30 @@ void SureServo::processReset(uint32_t now) {
                 bool success = currentServoReady && !currentServoAlarm && (currentAlarms == 0);
 
                 if (success && !currentServoActivated) {
-                    Serial.println("🔧 Servo ready mais pas activated - activation...");
+                    logPrintln("🔧 Servo ready mais pas activated - activation...");
                     nodes.servoOn->setValue(true);
                 }
                 
                 if (success) {
                     // ✅ VÉRIFICATION STABILITÉ (succès pendant 200ms minimum)
-                    static uint32_t successStartTime = 0;
-                    
-                    if (successStartTime == 0) {
-                        successStartTime = now;
-                        Serial.println("🔍 SureServo Reset: Début période de stabilité");
+                    // (membre resetSuccessStartTime : ex-static local partagé entre instances)
+                    if (resetSuccessStartTime == 0) {
+                        resetSuccessStartTime = now;
+                        logPrintln("🔍 SureServo Reset: Début période de stabilité");
                     }
                     
-                    if (now - successStartTime >= 200) { // 200ms de stabilité
-                        Serial.println("✅ SureServo Reset: Succès stable confirmé");
+                    if (now - resetSuccessStartTime >= 200) { // 200ms de stabilité
+                        logPrintln("✅ SureServo Reset: Succès stable confirmé");
                         resetState = OperationState::DRIVE_IDLE;
-                        successStartTime = 0;
+                        resetSuccessStartTime = 0;
                         // Un reset réussi réinitialise tous les états bloqués
                         // (moveState, initState, driveInitStarted, initFailureReported, homingState)
                         clearMovementLock();
                     } else {
                         // Log périodique pendant stabilité
-                        static uint32_t lastStabilityLog = 0;
-                        if (now - lastStabilityLog > 50) {
-                            Serial.printf("🔍 Stabilité: %lu ms / 200 ms\n", now - successStartTime);
-                            lastStabilityLog = now;
+                        if (now - logThrottle.resetStability > 50) {
+                            logPrintf("🔍 Stabilité: %lu ms / 200 ms\n", now - resetSuccessStartTime);
+                            logThrottle.resetStability = now;
                         }
                     }
                     
@@ -1589,19 +1646,19 @@ void SureServo::processReset(uint32_t now) {
                         error += ", alarm=" + String(currentServoAlarm ? "1" : "0");
                         error += ", alarmCode=0x" + String(currentAlarms, HEX);
                         
-                        Serial.printf("❌ SureServo Reset: Échec définitif - %s\n", error.c_str());
+                        logPrintf("❌ SureServo Reset: Échec définitif - %s\n", error.c_str());
                         setError(error);
                         resetState = OperationState::DRIVE_FAILED;
+                        resetSuccessStartTime = 0;  // fenêtre de stabilité abandonnée (audit MI-20)
                     } else {
                         // Log périodique d'attente
-                        static uint32_t lastDebugLog = 0;
-                        if (now - lastDebugLog > 500) {
-                            Serial.printf("🔄 SureServo Reset: Attente... ready=%s, activated=%s, alarm=%s, code=0x%04X\n",
+                        if (now - logThrottle.resetWait > 500) {
+                            logPrintf("🔄 SureServo Reset: Attente... ready=%s, activated=%s, alarm=%s, code=0x%04X\n",
                                         currentServoReady ? "✅" : "❌",
                                         currentServoActivated ? "✅" : "❌", 
                                         currentServoAlarm ? "🚨" : "✅",
                                         currentAlarms);
-                            lastDebugLog = now;
+                            logThrottle.resetWait = now;
                         }
                     }
                 }
@@ -1611,6 +1668,7 @@ void SureServo::processReset(uint32_t now) {
         default:
             setError("Phase reset SureServo inconnue: " + String(resetPhase));
             resetState = OperationState::DRIVE_FAILED;
+            resetSuccessStartTime = 0;
             break;
     }
 }
@@ -1626,7 +1684,7 @@ bool SureServo::isCurrentlyHealthy() const {
 void SureServo::processMove(uint32_t now) {
     // 🔍 VÉRIFICATION : Pourquoi processMove() est appelé ?
     if (moveState != OperationState::DRIVE_IN_PROGRESS) {
-        Serial.printf("🚨 BUG: processMove() appelé avec moveState=%d (pas IN_PROGRESS)\n", 
+        logPrintf("🚨 BUG: processMove() appelé avec moveState=%d (pas IN_PROGRESS)\n", 
                      static_cast<int>(moveState));
         return;
     }
@@ -1634,20 +1692,20 @@ void SureServo::processMove(uint32_t now) {
     // ✅ VÉRIFIER TIMEOUT GLOBAL 
     uint32_t elapsed = now - operationStartTime;
     if (elapsed > currentMoveTimeoutMs) {
-        Serial.printf("⏰ SureServo: TIMEOUT mouvement après %lu ms (limite: %lu ms)\n",
+        logPrintf("⏰ SureServo: TIMEOUT mouvement après %lu ms (limite: %lu ms)\n",
                      elapsed, currentMoveTimeoutMs);
         
         // ✅ LOG DÉTAILLÉ DU TIMEOUT
-        Serial.printf("📊 TIMEOUT - État au moment du timeout:\n");
-        Serial.printf("   Position actuelle: %lu PUU (%.2f\")\n", 
+        logPrintf("📊 TIMEOUT - État au moment du timeout:\n");
+        logPrintf("   Position actuelle: %lu PUU (%.2f\")\n", 
                      (unsigned long)nodes.position->getValue(),
                      (float)nodes.position->getValue() / pulsesPerUnit);
-        Serial.printf("   Target: %ld PUU (%.2f\")\n",
+        logPrintf("   Target: %ld PUU (%.2f\")\n",
                      (long)targetPosition,
                      (float)targetPosition / pulsesPerUnit);
-        Serial.printf("   Phase: %d, PR: %d\n", movePhase, currentPr);
-        Serial.printf("   Signal validé: %s\n", signalValidated ? "OUI" : "NON");
-        Serial.printf("   TargetReached: %s\n", 
+        logPrintf("   Phase: %d, PR: %d\n", movePhase, currentPr);
+        logPrintf("   Signal validé: %s\n", signalValidated ? "OUI" : "NON");
+        logPrintf("   TargetReached: %s\n", 
                      nodes.targetPositionReached->getValue() ? "TRUE" : "FALSE");
         
         setError("Timeout mouvement après " + String(currentMoveTimeoutMs / 1000) + " secondes");
@@ -1659,7 +1717,7 @@ void SureServo::processMove(uint32_t now) {
 
     // ✅ VÉRIFICATION ALARMES CONTINUES
     if (getHasAlarms()) {
-        Serial.printf("🚨 Alarme pendant mouvement (0x%04X) - Arrêt immédiat\n", getAlarmCode());
+        logPrintf("🚨 Alarme pendant mouvement (0x%04X) - Arrêt immédiat\n", getAlarmCode());
         setError("Alarme détectée pendant le mouvement");
         moveState = OperationState::DRIVE_FAILED;
         movePhase = 0;
@@ -1672,9 +1730,9 @@ void SureServo::processMove(uint32_t now) {
             // ✅ PHASE 0: ENVOI DU TARGET AU PR ACTUEL
             // En mode chaîné, les targets PR sont déjà configurés via configurePR() — ne pas écraser
             if (chainedPRMode) {
-                Serial.printf("🔧 SureServo Move Phase 0: Mode chaîné - target PR%d déjà configuré\n", currentPr);
+                logPrintf("🔧 SureServo Move Phase 0: Mode chaîné - target PR%d déjà configuré\n", currentPr);
             } else {
-                Serial.printf("🔧 SureServo Move Phase 0: Envoi target %ld PUU au PR%d\n",
+                logPrintf("🔧 SureServo Move Phase 0: Envoi target %ld PUU au PR%d\n",
                              (long)targetPosition, currentPr);
                 sendTargetToPR(targetPosition);
             }
@@ -1682,18 +1740,18 @@ void SureServo::processMove(uint32_t now) {
             movePhase = 1;
             phaseStartTime = now;
             
-            Serial.printf("✅ SureServo: Target envoyé au PR%d - Attente 1 cycle PLC\n", currentPr);
+            logPrintf("✅ SureServo: Target envoyé au PR%d - Attente 1 cycle PLC\n", currentPr);
             break;
         }
         
         case 1: {
             // ✅ PHASE 1: ATTENTE 1 CYCLE PLC AVANT TRIGGER
-#ifdef TRIGGER_SMART_DELAY
+#ifdef SURESERVO_TRIGGER_SMART_DELAY
             Node* targetNode = (currentPr == 1) ?
                 (Node*)nodes.targetA : (Node*)nodes.targetB;
             bool targetWritten = (targetNode->getLastRefresh() > phaseStartTime);
             bool safetyTimeout = (now - phaseStartTime >= TRIGGER_DELAY_MS);
-            #ifdef PERF_MONITOR
+            #ifdef SURESERVO_PERF_MONITOR
             if (pm_active) {
                 if (targetWritten && !safetyTimeout) pm_smartDelayCount++;
                 if (safetyTimeout)                  pm_safetyTimeoutCount++;
@@ -1703,14 +1761,14 @@ void SureServo::processMove(uint32_t now) {
             if (targetWritten || safetyTimeout) {
             //if (now - phaseStartTime >= TRIGGER_DELAY_MS) {
                 if (safetyTimeout && !targetWritten)
-                    Serial.printf("⚠️ TRIGGER safety timeout %lu ms\n", now - phaseStartTime);
+                    logPrintf("⚠️ TRIGGER safety timeout %lu ms\n", now - phaseStartTime);
 #else
             if (now - phaseStartTime >= TRIGGER_DELAY_MS) {
 #endif
-                Serial.printf("🚀 SureServo Move Phase 1: Déclenchement trigger PR%d\n", currentPr);
+                logPrintf("🚀 SureServo Move Phase 1: Déclenchement trigger PR%d\n", currentPr);
                 
                 nodes.trigger->setValue(currentPr, true);
-#ifdef PERF_MONITOR
+#ifdef SURESERVO_PERF_MONITOR
                 if (pm_active) {
                     pm_writeTriggerCount++;
                     pm_triggerSentTime = now;
@@ -1723,7 +1781,7 @@ void SureServo::processMove(uint32_t now) {
                     }
                 }
 #endif
-                Serial.printf("✅ SureServo: Trigger déclenché PR%d vers %ld PUU\n",
+                logPrintf("✅ SureServo: Trigger déclenché PR%d vers %ld PUU\n",
                              currentPr, (long)targetPosition);
 
                 movePhase = 2;
@@ -1741,7 +1799,7 @@ void SureServo::processMove(uint32_t now) {
                 if (!status.targetPositionReached) {
                     // Mouvement long : bit passé à false
                     signalValidated = true;
-#ifdef PERF_MONITOR
+#ifdef SURESERVO_PERF_MONITOR
                     if (pm_active && pm_triggerSentTime > 0) {
                         uint32_t lat = now - pm_triggerSentTime;
                         pm_driveLatencyCumul += lat;
@@ -1749,11 +1807,11 @@ void SureServo::processMove(uint32_t now) {
                         pm_signalValidatedTime = now;
                     }
 #endif
-                    Serial.println("✅ SureServo: Mouvement long - transition false détectée");
+                    logPrintln("✅ SureServo: Mouvement long - transition false détectée");
                 } else if (!status.zeroSpeed) {
                     // Mouvement confirmé par vitesse non nulle
                     signalValidated = true;
-#ifdef PERF_MONITOR
+#ifdef SURESERVO_PERF_MONITOR
                     if (pm_active && pm_triggerSentTime > 0) {
                         uint32_t lat = now - pm_triggerSentTime;
                         pm_driveLatencyCumul += lat;
@@ -1761,13 +1819,13 @@ void SureServo::processMove(uint32_t now) {
                         pm_signalValidatedTime = now;
                     }
 #endif
-                    Serial.println("✅ SureServo: Mouvement détecté - vitesse non nulle");
+                    logPrintln("✅ SureServo: Mouvement détecté - vitesse non nulle");
                 } else if (timeSinceTrigger > 150 && 
                     nodes.position->getLastRefresh() > phaseStartTime &&
                     nodes.status->getLastRefresh() > phaseStartTime &&
                     !chainedPRMode) {
                     signalValidated = true;
-#ifdef PERF_MONITOR
+#ifdef SURESERVO_PERF_MONITOR
                     if (pm_active && pm_triggerSentTime > 0) {
                         uint32_t lat = now - pm_triggerSentTime;
                         pm_driveLatencyCumul += lat;
@@ -1775,13 +1833,12 @@ void SureServo::processMove(uint32_t now) {
                         pm_signalValidatedTime = now;
                     }
 #endif
-                    Serial.println("⚠️ SureServo: Mouvement court - status confirmé après trigger");
+                    logPrintln("⚠️ SureServo: Mouvement court - status confirmé après trigger");
                 }
                 // Log périodique
-                static uint32_t lastLogA = 0;
-                if (now - lastLogA > 2000) {
-                    Serial.printf("⏳ Attente début mouvement... (%lu ms)\n", timeSinceTrigger);
-                    lastLogA = now;
+                if (now - logThrottle.moveWaitStart > 2000) {
+                    logPrintf("⏳ Attente début mouvement... (%lu ms)\n", timeSinceTrigger);
+                    logThrottle.moveWaitStart = now;
                 }
                 break;
             }
@@ -1816,7 +1873,7 @@ void SureServo::processMove(uint32_t now) {
             if (movementDone) {
                 reliablePosition = targetPosition;
                 hasReliablePosition = !waitForSyncRequested;
-            #ifdef PERF_MONITOR
+            #ifdef SURESERVO_PERF_MONITOR
                 if (pm_active && pm_signalValidatedTime > 0) {
                     uint32_t mv = now - pm_signalValidatedTime;
                     pm_moveTimeCumul += mv;
@@ -1834,23 +1891,22 @@ void SureServo::processMove(uint32_t now) {
                 moveState = OperationState::DRIVE_IDLE;
                 movePhase = 0;
                 releaseFastStatusPolling();
-                Serial.printf("✅ Mouvement terminé vers %ld PUU%s\n",
+                logPrintf("✅ Mouvement terminé vers %ld PUU%s\n",
                             (long)targetPosition,
                             waitForSyncRequested ? " - resync en attente" : "");
                 return;
             }
 
             // Log périodique
-            static uint32_t lastLogB = 0;
-            if (now - lastLogB > 2000) {
-                Serial.printf("⏳ Attente target reached... (%lu ms)\n", timeSinceTrigger);
-                lastLogB = now;
+            if (now - logThrottle.moveWaitReached > 2000) {
+                logPrintf("⏳ Attente target reached... (%lu ms)\n", timeSinceTrigger);
+                logThrottle.moveWaitReached = now;
             }
             break;
         }
         
         default: {
-            Serial.printf("❌ SureServo: Phase mouvement inconnue: %d\n", movePhase);
+            logPrintf("❌ SureServo: Phase mouvement inconnue: %d\n", movePhase);
             setError("Phase mouvement invalide: " + String(movePhase));
             moveState = OperationState::DRIVE_FAILED;
             releaseFastStatusPolling();
@@ -1871,7 +1927,7 @@ void SureServo::processHoming(uint32_t now) {
     // ========================================
     
     if (totalElapsed > currentHomingTimeoutMs) {
-        Serial.printf("⏰ SureServo: Timeout homing après %lu ms (limite: %lu ms)\n", totalElapsed, currentHomingTimeoutMs);
+        logPrintf("⏰ SureServo: Timeout homing après %lu ms (limite: %lu ms)\n", totalElapsed, currentHomingTimeoutMs);
         setError("Timeout homing global");
         homingState = OperationState::DRIVE_TIMEOUT;
         
@@ -1885,7 +1941,7 @@ void SureServo::processHoming(uint32_t now) {
     // ========================================
     
     if (getHasAlarms()) {
-        Serial.printf("🚨 Alarme pendant homing (0x%04X)\n", getAlarmCode());
+        logPrintf("🚨 Alarme pendant homing (0x%04X)\n", getAlarmCode());
         setError("Alarme servo pendant homing");
         homingState = OperationState::DRIVE_FAILED;
         
@@ -1902,7 +1958,7 @@ void SureServo::processHoming(uint32_t now) {
         case 0: {
             // PHASE 0: Attendre que HomeDone devienne true
             if (getHomeDone()) {
-                Serial.println("✅ HomeDone détecté - début détection stabilisation position");
+                logPrintln("✅ HomeDone détecté - début détection stabilisation position");
                 
                 // Initialiser la détection de stabilisation
                 uint32_t currentPos = nodes.position->getValue();
@@ -1912,15 +1968,14 @@ void SureServo::processHoming(uint32_t now) {
                 homingPhase = 1;
                 
                 uint32_t readInterval = getHomingPositionReadInterval();
-                Serial.printf("🎯 Position initiale: %lu PUU (intervalle lecture: %lu ms)\n", 
+                logPrintf("🎯 Position initiale: %lu PUU (intervalle lecture: %lu ms)\n", 
                              currentPos, readInterval);
-                Serial.println("🔄 Attente stabilisation (déplacement vers index si nécessaire)...");
+                logPrintln("🔄 Attente stabilisation (déplacement vers index si nécessaire)...");
             } else {
                 // Attendre HomeDone
-                static uint32_t lastLog = 0;
-                if (now - lastLog > 2000) {
-                    Serial.printf("⏳ Attente HomeDone... (%lu ms écoulées)\n", totalElapsed);
-                    lastLog = now;
+                if (now - logThrottle.homingWaitHomeDone > 2000) {
+                    logPrintf("⏳ Attente HomeDone... (%lu ms écoulées)\n", totalElapsed);
+                    logThrottle.homingWaitHomeDone = now;
                 }
             }
             break;
@@ -1949,20 +2004,20 @@ void SureServo::processHoming(uint32_t now) {
                 // message "Position aberrante" au lieu de la branche ci-dessous, bien que
                 // le résultat final (forcé à 0) soit resté correct pour ces résidus.
                 if (currentPosition_signed < -1000000 || currentPosition_signed > 1000000) {
-                    Serial.printf("🚨 HOMING: Position aberrante: %ld PUU (int32)\n",
+                    logPrintf("🚨 HOMING: Position aberrante: %ld PUU (int32)\n",
                                  (long)currentPosition_signed);
-                    Serial.println("🔧 CORRECTION: Position forcée à 0 pour sécurité");
+                    logPrintln("🔧 CORRECTION: Position forcée à 0 pour sécurité");
                     finalHomingPosition = 0;
                     // Grace period : laisse une chance à la prochaine lecture (potentiellement
                     // non polluée) avant que le contrôle de cohérence (process()) ne réinvalide
                     // hasReliablePosition sur la base de cette même lecture aberrante.
                     homingCorrectionTime = now;
 
-                    BorneUniverselle::prepareMessage(WARNING,
+                    notifyUser(WARNING,
                         "Position homing corrigée - valeur aberrante détectée");
                 } else if (currentPosition_signed < 0 && currentPosition_signed > -TOLERANCE_PUU) {
                     // Valeur légèrement négative (-50 à -1) → acceptable, corriger à 0
-                    Serial.printf("ℹ️ Position légèrement négative: %ld PUU → 0 PUU\n", 
+                    logPrintf("ℹ️ Position légèrement négative: %ld PUU → 0 PUU\n", 
                                  (long)currentPosition_signed);
                     finalHomingPosition = 0;
                 }
@@ -1972,35 +2027,34 @@ void SureServo::processHoming(uint32_t now) {
                 hasReliablePosition = true;
                 homeDoneInvalidated = false; // home re-validé après homing réussi
 
-                Serial.printf("✅ HOMING TERMINÉ - Position finale stabilisée: %lu PUU\n", reliablePosition);
-                Serial.printf("📊 Temps total homing: %lu ms\n", totalElapsed);
-                Serial.println("🎯 Position fiable établie après index");
-                Serial.println("🏠 Homing avec détection d'index terminé avec succès");
+                logPrintf("✅ HOMING TERMINÉ - Position finale stabilisée: %lu PUU\n", reliablePosition);
+                logPrintf("📊 Temps total homing: %lu ms\n", totalElapsed);
+                logPrintln("🎯 Position fiable établie après index");
+                logPrintln("🏠 Homing avec détection d'index terminé avec succès");
                 
                 homingState = OperationState::DRIVE_IDLE;
                 homingPhase = 0;
                 
                 setError(""); // Effacer toute erreur précédente
 #ifdef DEBUG_SURESERVO                        
-                BorneUniverselle::prepareMessage(SUCCESS, "Homing terminé avec succès !!!");
+                notifyUser(SUCCESS, "Homing terminé avec succès !!!");
 #endif
-                Serial.printf("[32m%lu:: SUCCESS: Homing terminé avec succès !!! Position: %lu PUU[0m\n", 
+                logPrintf("[32m%lu:: SUCCESS: Homing terminé avec succès !!! Position: %lu PUU[0m\n", 
                             now, reliablePosition);
                 return;
             }
             
             // Continuer à attendre la stabilisation...
-            static uint32_t lastStabilizationLog = 0;
-            if (now - lastStabilizationLog > 1000) {
-                Serial.printf("🔄 Attente stabilisation... Position: %ld PUU (int32)\n", 
+            if (now - logThrottle.homingStabilization > 1000) {
+                logPrintf("🔄 Attente stabilisation... Position: %ld PUU (int32)\n", 
                              (long)currentPosition_signed);
-                lastStabilizationLog = now;
+                logThrottle.homingStabilization = now;
             }
             break;
         }
         
         default: {
-            Serial.printf("❌ Phase homing invalide: %d\n", homingPhase);
+            logPrintf("❌ Phase homing invalide: %d\n", homingPhase);
             setError("Phase homing invalide");
             homingState = OperationState::DRIVE_FAILED;
             hasReliablePosition = false;
@@ -2029,28 +2083,28 @@ bool SureServo::isHomingFailed() const {
 }
 
 void SureServo::printHomingStatus() const {
-    Serial.println("=== SURESERVO HOMING STATUS ===");
-    Serial.printf("Homing State: %d (%s)\n", 
+    logPrintln("=== SURESERVO HOMING STATUS ===");
+    logPrintf("Homing State: %d (%s)\n", 
                  static_cast<int>(homingState),
                  homingState == OperationState::DRIVE_IDLE ? "IDLE" :
                  homingState == OperationState::DRIVE_IN_PROGRESS ? "IN_PROGRESS" :
                  homingState == OperationState::DRIVE_FAILED ? "FAILED" :
                  homingState == OperationState::DRIVE_TIMEOUT ? "TIMEOUT" : "UNKNOWN");
-    Serial.printf("Homing Phase: %d\n", homingPhase);
-    Serial.printf("Home Done: %s\n", getHomeDone() ? "true" : "false");
-    Serial.printf("Is Ready: %s\n", getIsReady() ? "true" : "false");
-    Serial.printf("Has Alarms: %s\n", getHasAlarms() ? "true" : "false");
+    logPrintf("Homing Phase: %d\n", homingPhase);
+    logPrintf("Home Done: %s\n", getHomeDone() ? "true" : "false");
+    logPrintf("Is Ready: %s\n", getIsReady() ? "true" : "false");
+    logPrintf("Has Alarms: %s\n", getHasAlarms() ? "true" : "false");
     if (getHasAlarms()) {
-        Serial.printf("Alarm Code: 0x%04X (%s)\n", getAlarmCode(), getAlarmDescription());
+        logPrintf("Alarm Code: 0x%04X (%s)\n", getAlarmCode(), getAlarmDescription());
     }
-    Serial.printf("Position: %lu PUU (%.2f\")\n", 
+    logPrintf("Position: %lu PUU (%.2f\")\n", 
                  getPosition(), (float)getPosition() / pulsesPerUnit);
     
     if (!lastError.isEmpty()) {
-        Serial.printf("Last Error: %s\n", lastError.c_str());
+        logPrintf("Last Error: %s\n", lastError.c_str());
     }
     
-    Serial.println("==============================");
+    logPrintln("==============================");
 }
 
 bool SureServo::isAtPosition(int32_t targetPuu) const {
@@ -2062,7 +2116,7 @@ bool SureServo::isAtPosition(int32_t targetPuu) const {
     bool atPosition = difference <= TOLERANCE_PUU;
     
     if (atPosition) {
-        Serial.printf("✅ SureServo: Position atteinte - Écart: %lu PUU (tolérance: %lu)\n",
+        logPrintf("✅ SureServo: Position atteinte - Écart: %lu PUU (tolérance: %lu)\n",
                      (unsigned long)difference, (unsigned long)TOLERANCE_PUU);
     }
     
@@ -2070,34 +2124,34 @@ bool SureServo::isAtPosition(int32_t targetPuu) const {
 }
 
 void SureServo::sendTargetToPR(int32_t targetPuu) {
-    Serial.printf("📤 SureServo: Envoi target %ld PUU au PR%d\n",
+    logPrintf("📤 SureServo: Envoi target %ld PUU au PR%d\n",
                  (long)targetPuu, currentPr);
 
     switch (currentPr) {
         case 1:
             // ✅ targetA est un node OBLIGATOIRE - pas de validation nécessaire
             nodes.targetA->setValueFromInt32(targetPuu);
-            Serial.printf("✅ Target A défini: %ld PUU\n", (long)targetPuu);
+            logPrintf("✅ Target A défini: %ld PUU\n", (long)targetPuu);
             break;
 
         case 2:
             // ✅ targetB est un node OBLIGATOIRE - pas de validation nécessaire
             nodes.targetB->setValueFromInt32(targetPuu);
-            Serial.printf("✅ Target B défini: %ld PUU\n", (long)targetPuu);
+            logPrintf("✅ Target B défini: %ld PUU\n", (long)targetPuu);
             break;
 
         case 3:
             // ✅ targetC est un node OBLIGATOIRE - pas de validation nécessaire
             nodes.targetC->setValueFromInt32(targetPuu);
-            Serial.printf("✅ Target C défini: %ld PUU\n", (long)targetPuu);
+            logPrintf("✅ Target C défini: %ld PUU\n", (long)targetPuu);
             break;
             
         default:
-            Serial.printf("❌ PR invalide: %d\n", currentPr);
+            logPrintf("❌ PR invalide: %d\n", currentPr);
             setError("PR invalide: " + String(currentPr));
             break;
     }
-#ifdef PERF_MONITOR
+#ifdef SURESERVO_PERF_MONITOR
     if (pm_active) {
         pm_writeTargetCount++;
         if (pm_interMoveStart > 0) {
@@ -2144,7 +2198,7 @@ void SureServo::setError(const String& error) {
     }
     
     lastError = enhancedError;
-    Serial.printf("❌ SureServo Error: %s\n", enhancedError.c_str());
+    logPrintf("❌ SureServo Error: %s\n", enhancedError.c_str());
 }
 
 void SureServo::updateOptionalOutputNodes() {
@@ -2212,10 +2266,10 @@ void SureServo::updateOptionalOutputNodes() {
     }
 } // updateOptionalOutputNodes()
 
-const SureServoAlarm* SureServo::findAlarmInfo(uint16_t alarmCode) const {
-    for (size_t i = 0; i < SURESERVO_ALARMS_COUNT; i++) {
-        if (SURESERVO_ALARMS[i].code == alarmCode) {
-            return &SURESERVO_ALARMS[i];
+const AlarmInfo* SureServo::findAlarmInfo(uint16_t alarmCode) const {
+    for (size_t i = 0; i < ALARMS_COUNT; i++) {
+        if (ALARMS[i].code == alarmCode) {
+            return &ALARMS[i];
         }
     }
     return nullptr;
@@ -2223,7 +2277,7 @@ const SureServoAlarm* SureServo::findAlarmInfo(uint16_t alarmCode) const {
 
 void SureServo::logStatusChange(const char* context) const {
     if (context) {
-        Serial.printf("SureServo Status Change [%s]: Ready=%s, Alarm=%s\n", 
+        logPrintf("SureServo Status Change [%s]: Ready=%s, Alarm=%s\n", 
                      context,
                      getIsReady() ? "true" : "false",
                      getHasAlarms() ? "true" : "false");
@@ -2233,28 +2287,28 @@ void SureServo::logStatusChange(const char* context) const {
 void SureServo::logAlarmChange(const char* context) const {
     if (getHasAlarms()) {
         Serial.printf("\n");
-        Serial.printf("========================================\n");
-        Serial.printf("🚨 ALARME SERVO DÉTECTÉE [%s]\n", context ? context : "Unknown");
-        Serial.printf("========================================\n");
-        Serial.printf("Code:        0x%04X (%u)\n", getAlarmCode(), getAlarmCode());
-        Serial.printf("Description: %s\n", getAlarmDescription());
-        Serial.printf("Action:      %s\n", getAlarmAction());
-        Serial.printf("========================================\n");
+        logPrintf("========================================\n");
+        logPrintf("🚨 ALARME SERVO DÉTECTÉE [%s]\n", context ? context : "Unknown");
+        logPrintf("========================================\n");
+        logPrintf("Code:        0x%04X (%u)\n", getAlarmCode(), getAlarmCode());
+        logPrintf("Description: %s\n", getAlarmDescription());
+        logPrintf("Action:      %s\n", getAlarmAction());
+        logPrintf("========================================\n");
         
         // Message utilisateur aussi
         char txt[512];
-        snprintf(txt, sizeof(txt), "DRIVE: %s - %s", getAlarmDescription(),  getAlarmAction()),
-        Serial.println(txt);      
+        snprintf(txt, sizeof(txt), "DRIVE: %s - %s", getAlarmDescription(),  getAlarmAction());
+        logPrintln(txt);      
     } else {
         // Alarme effacée
-        Serial.printf("✅ Alarme servo effacée [%s]\n", context ? context : "Unknown");
+        logPrintf("✅ Alarme servo effacée [%s]\n", context ? context : "Unknown");
     }
 }
 
 void SureServo::logOperationStateChange(const char* operation, 
                                        ServoDrive::OperationState oldState, 
                                        ServoDrive::OperationState newState) const {
-    Serial.printf("SureServo %s: %s -> %s\n", operation, ServoDrive::getOperationStateText(oldState), ServoDrive::getOperationStateText(newState));
+    logPrintf("SureServo %s: %s -> %s\n", operation, ServoDrive::getOperationStateText(oldState), ServoDrive::getOperationStateText(newState));
 }
 
 // ========================================
@@ -2330,7 +2384,7 @@ void SureServo::DecodedStatus::decodeAlarmsRegister() {
     //
     // UTILISATION:
     //   getAlarmCode() retourne directement alarmsRegister
-    //   getAlarmDescription() cherche alarmsRegister dans SURESERVO_ALARMS[]
+    //   getAlarmDescription() cherche alarmsRegister dans sureservo::ALARMS[]
     //
     // CONCLUSION: Cette fonction reste vide par design - c'est CORRECT.
     //
@@ -2371,9 +2425,9 @@ void SureServo::initializeEEPROMConfiguration() {
     
     if (nodes.auxFunctions) {
         nodes.auxFunctions->setValue(EEPROM_AUTO_SAVE_DISABLED);
-        Serial.printf("EEPROM: Auto-save désactivé (valeur: %u)\n", EEPROM_AUTO_SAVE_DISABLED);
+        logPrintf("EEPROM: Auto-save désactivé (valeur: %u)\n", EEPROM_AUTO_SAVE_DISABLED);
     } else {
-        Serial.println("ERREUR: Node auxFunctions non disponible pour config EEPROM");
+        logPrintln("ERREUR: Node auxFunctions non disponible pour config EEPROM");
     }
 }
 
@@ -2406,7 +2460,7 @@ bool SureServo::setEEPROMMode(EEPROMMode mode) {
     nodes.auxFunctions->setValue(registerValue);
     currentEEPROMMode = mode;
     
-    Serial.printf("EEPROM mode configuré: %d (registre: %u)\n", 
+    logPrintf("EEPROM mode configuré: %d (registre: %u)\n", 
                  static_cast<int>(mode), registerValue);
     
     return true;
@@ -2417,7 +2471,7 @@ bool SureServo::triggerManualEEPROMSave() {
     
     // Éviter les sauvegardes trop fréquentes
     if (eepromSaveInProgress || (now - lastEEPROMSaveTime) < EEPROM_SAVE_DELAY_MS) {
-        Serial.println("EEPROM: Sauvegarde déjà en cours ou trop récente");
+        logPrintln("EEPROM: Sauvegarde déjà en cours ou trop récente");
         return false;
     }
     
@@ -2427,7 +2481,7 @@ bool SureServo::triggerManualEEPROMSave() {
     eepromSaveInProgress = true;
     lastEEPROMSaveTime = now;
     
-    Serial.println("EEPROM: Sauvegarde manuelle déclenchée");
+    logPrintln("EEPROM: Sauvegarde manuelle déclenchée");
     
     // Programmer la restauration du mode après délai
     // (sera gérée dans process())
@@ -2445,7 +2499,7 @@ bool SureServo::setAuxiliaryFunctions(uint16_t value) {
 }
 
 bool SureServo::clearError() {
-    Serial.printf("🔄 SureServo::clearError() - États avant: move=%d, init=%d, reset=%d\n",
+    logPrintf("🔄 SureServo::clearError() - États avant: move=%d, init=%d, reset=%d\n",
                  (int)moveState, (int)initState, (int)resetState);
     
     // Reset tous les états d'erreur
@@ -2467,7 +2521,7 @@ bool SureServo::clearError() {
     // Clear le message d'erreur
     lastError = "";
     
-    Serial.println("✅ SureServo: Erreurs effacées");
+    logPrintln("✅ SureServo: Erreurs effacées");
     return true;
 }
 
@@ -2487,26 +2541,26 @@ void SureServo::detectDriveRestart(uint32_t now) {
 
     // ✅ DÉTECTER PERTE INATTENDUE DE L'ÉTAT
     if (restartDetect_wasInitialized && initialized && restartDetect_hadHomeDone && !getHomeDone()) {
-        Serial.println("🚨 SureServo: REDÉMARRAGE DRIVE DÉTECTÉ !");
-        Serial.printf("   Position actuelle: %lu PUU\n", getPosition());
-        Serial.println("   - Perte de l'état HomeDone");
-        Serial.println("   - Drive probablement redémarré");
+        logPrintln("🚨 SureServo: REDÉMARRAGE DRIVE DÉTECTÉ !");
+        logPrintf("   Position actuelle: %lu PUU\n", getPosition());
+        logPrintln("   - Perte de l'état HomeDone");
+        logPrintln("   - Drive probablement redémarré");
 
         // ✅ MESSAGE UTILISATEUR
-        BorneUniverselle::prepareMessage(ERROR,
+        notifyUser(ERROR,
             "Drive servo redémarré - Position home perdue - Refaire le homing");
 
         notifyBusinessLogicFault("Drive redémarré - État home perdu");
 
         // Si homing en cours, le marquer comme échoué
         if (homingState == OperationState::DRIVE_IN_PROGRESS) {
-            Serial.println("   - Interruption du homing en cours");
+            logPrintln("   - Interruption du homing en cours");
             homingState = OperationState::DRIVE_FAILED;
         }
 
         // Si mouvement en cours, le marquer comme échoué aussi
         if (moveState == OperationState::DRIVE_IN_PROGRESS) {
-            Serial.println("   - Interruption du mouvement en cours");
+            logPrintln("   - Interruption du mouvement en cours");
             moveState = OperationState::DRIVE_FAILED;
             releaseFastStatusPolling();
         }
@@ -2550,7 +2604,7 @@ void SureServo::setReliablePosition(int32_t newPosition) {
     reliablePosition = newPosition;
     hasReliablePosition = true;
 
-    Serial.printf("✅ Position interne fiable: %ld PUU\n", (long)reliablePosition);
+    logPrintf("✅ Position interne fiable: %ld PUU\n", (long)reliablePosition);
 }
 
 uint32_t SureServo::getHomingPositionReadInterval() const {
@@ -2593,18 +2647,18 @@ bool SureServo::isHomingPositionStabilized(uint32_t currentPosition, uint32_t no
     uint32_t positionDifference = (diff >= 0) ? diff : -diff;  // Valeur absolue
     
     // Log pour debug avec valeurs signées pour clarté
-    Serial.printf("🏠 Homing - Current: %ld PUU, Previous: %ld PUU, Écart: %lu PUU, Lectures stables: %d/%d\n",
+    logPrintf("🏠 Homing - Current: %ld PUU, Previous: %ld PUU, Écart: %lu PUU, Lectures stables: %d/%d\n",
                  (long)current_signed, (long)previous_signed, 
                  (unsigned long)positionDifference, homingStableReadingsCount, 3);
     
     if (positionDifference <= TOLERANCE_PUU) {
         // Position stable - incrémenter le compteur
         homingStableReadingsCount++;
-        Serial.printf("✅ Position homing stable (%d/%d lectures)\n", homingStableReadingsCount, 3);
+        logPrintf("✅ Position homing stable (%d/%d lectures)\n", homingStableReadingsCount, 3);
     } else {
         // Position bouge encore (déplacement vers index) - remettre le compteur à zéro
         homingStableReadingsCount = 0;
-        Serial.printf("🔄 Déplacement vers index en cours (écart: %lu PUU > tolérance: %lu PUU)\n", 
+        logPrintf("🔄 Déplacement vers index en cours (écart: %lu PUU > tolérance: %lu PUU)\n", 
                      (unsigned long)positionDifference, (unsigned long)TOLERANCE_PUU);
     }
     
@@ -2619,7 +2673,7 @@ bool SureServo::isHomingPositionStabilized(uint32_t currentPosition, uint32_t no
 void SureServo::invalidateReliablePosition() {
     if (hasReliablePosition) {
         hasReliablePosition = false;
-        Serial.println("Position interne invalidée (JOG détecté)");
+        logPrintln("Position interne invalidée (JOG détecté)");
         
         // Arrêter toute re-synchronisation en cours
         resyncInProgress = false;
@@ -2629,7 +2683,7 @@ void SureServo::invalidateReliablePosition() {
     // NOUVEAU: Marquer qu'une re-sync sera nécessaire après JOG
     // mais seulement si le servo est en bon état
     if (getIsReady() && !getHasAlarms()) {
-        //Serial.println("Re-sync post-JOG programmée");
+        //logPrintln("Re-sync post-JOG programmée");
         // On utilisera cette info dans attemptPositionResync
     }
 }
@@ -2651,11 +2705,10 @@ bool SureServo::isIdlePositionStable(uint32_t currentPosition, uint32_t now) {
     uint32_t positionDifference = (diff >= 0) ? diff : -diff;  // Valeur absolue
 
     // Log discret pour debug (pas trop verbeux)
-    static uint32_t lastDebugLog = 0;
-    if (now - lastDebugLog > 5000) { // Log seulement toutes les 5 secondes
-        Serial.printf("🔄 Re-sync: Position: %ld PUU, Écart: %lu, Stables: %d/5\n",
+    if (now - logThrottle.idleResync > 5000) { // Log seulement toutes les 5 secondes
+        logPrintf("🔄 Re-sync: Position: %ld PUU, Écart: %lu, Stables: %d/5\n",
                      (long)current_signed, positionDifference, idleStableReadingsCount);
-        lastDebugLog = now;
+        logThrottle.idleResync = now;
     }
     
     if (positionDifference <= TOLERANCE_PUU) {
@@ -2664,7 +2717,7 @@ bool SureServo::isIdlePositionStable(uint32_t currentPosition, uint32_t now) {
     } else {
         // Position bouge - moteur en mouvement, arrêter la re-sync
         endPositionResync(false);
-        Serial.println("🔄 Re-sync interrompue (mouvement détecté)");
+        logPrintln("🔄 Re-sync interrompue (mouvement détecté)");
     }
     
     // Mettre à jour pour la prochaine lecture
@@ -2687,7 +2740,7 @@ void SureServo::beginPositionResync(uint32_t now) {
     lastIdlePositionReadTime = now;
     idleStableReadingsCount = 0;
 
-    Serial.printf("Début re-sync position: %lu PUU (refresh rapide activé)\n",
+    logPrintf("Début re-sync position: %lu PUU (refresh rapide activé)\n",
                  previousIdlePosition);
 }
 
@@ -2705,29 +2758,26 @@ void SureServo::attemptPositionResync(uint32_t now) {
         return;  // Pas de home = pas de référence = pas de resync possible
     }
 
-    static uint32_t lastDebugLog = 0;
-    static bool lastHadReliablePosition = true;
-    
-    bool statusChanged = (hasReliablePosition != lastHadReliablePosition);
+    bool statusChanged = (hasReliablePosition != resyncLastHadReliablePosition);
     bool hasProblem = !hasReliablePosition;
     
-    if (statusChanged || (hasProblem && now - lastDebugLog > 10000)) {
+    if (statusChanged || (hasProblem && now - logThrottle.resyncConditions > 10000)) {
         if (statusChanged) {
-            Serial.printf("🔄 Re-sync status change: %s → %s\n",
-                         lastHadReliablePosition ? "FIABLE" : "NON-FIABLE",
+            logPrintf("🔄 Re-sync status change: %s → %s\n",
+                         resyncLastHadReliablePosition ? "FIABLE" : "NON-FIABLE",
                          hasReliablePosition ? "FIABLE" : "NON-FIABLE");
         }
         
         if (hasProblem) {
-            Serial.printf("🔍 Re-sync conditions - zeroSpeed:%s, homeDone:%s, ready:%s, resyncInProgress:%s\n", 
+            logPrintf("🔍 Re-sync conditions - zeroSpeed:%s, homeDone:%s, ready:%s, resyncInProgress:%s\n", 
                         status.zeroSpeed ? "OUI" : "NON", 
                         getHomeDone() ? "OUI" : "NON", 
                         getIsReady() ? "OUI" : "NON",
                         resyncInProgress ? "OUI" : "NON");
         }
         
-        lastDebugLog = now;
-        lastHadReliablePosition = hasReliablePosition;
+        logThrottle.resyncConditions = now;
+        resyncLastHadReliablePosition = hasReliablePosition;
     }
     
     // CONDITIONS POUR DÉMARRER (existant - CONDITIONS STRICTES)
@@ -2746,7 +2796,7 @@ void SureServo::attemptPositionResync(uint32_t now) {
         
         if (resyncInProgress) {
             endPositionResync(false);
-            Serial.println("🔄 Re-sync interrompue (opération en cours)");
+            logPrintln("🔄 Re-sync interrompue (opération en cours)");
         }
         return;
     }
@@ -2755,7 +2805,7 @@ void SureServo::attemptPositionResync(uint32_t now) {
     if (!getIsReady() || getHasAlarms()) {
         if (resyncInProgress) {
             endPositionResync(false);
-            Serial.println("🔄 Re-sync interrompue (servo pas prêt ou alarme)");
+            logPrintln("🔄 Re-sync interrompue (servo pas prêt ou alarme)");
         }
         return;
     }
@@ -2775,16 +2825,16 @@ void SureServo::attemptPositionResync(uint32_t now) {
             // 🔒 Corriger immédiatement si position négative dans la tolérance
             int32_t currentPositionSigned = (int32_t)currentPosition;
             if (currentPositionSigned < 0 && currentPositionSigned > -(int32_t)TOLERANCE_PUU) {
-                Serial.printf("🚨 Position négative détectée au début re-sync: %ld PUU\n", (long)currentPositionSigned);
+                logPrintf("🚨 Position négative détectée au début re-sync: %ld PUU\n", (long)currentPositionSigned);
                 currentPosition = 0;
-                Serial.println("🔧 CORRECTION: Utilisation de 0 pour la re-sync");
+                logPrintln("🔧 CORRECTION: Utilisation de 0 pour la re-sync");
                 
                 // Valider immédiatement avec 0
                 reliablePosition = 0;
                 hasReliablePosition = true;
                 
-                Serial.println("✅ Position corrigée et validée immédiatement à 0");
-                BorneUniverselle::prepareMessage(WARNING, "Position négative corrigée à 0");
+                logPrintln("✅ Position corrigée et validée immédiatement à 0");
+                notifyUser(WARNING, "Position négative corrigée à 0");
                 return;  // Pas besoin de re-sync, on a déjà corrigé
             }
             
@@ -2800,11 +2850,11 @@ void SureServo::attemptPositionResync(uint32_t now) {
         int32_t finalPosition = (int32_t)currentPosition;
 
         if (finalPosition < 0 && finalPosition > -(int32_t)TOLERANCE_PUU) {
-            Serial.printf("🚨 RE-SYNC: Position légèrement négative détectée: %ld PUU\n", (long)finalPosition);
-            Serial.println("🔧 CORRECTION: Position forcée à 0 pour sécurité");
+            logPrintf("🚨 RE-SYNC: Position légèrement négative détectée: %ld PUU\n", (long)finalPosition);
+            logPrintln("🔧 CORRECTION: Position forcée à 0 pour sécurité");
             finalPosition = 0;
 
-            BorneUniverselle::prepareMessage(WARNING,
+            notifyUser(WARNING,
                 "Re-sync: position corrigée - valeur négative détectée");
         }
 
@@ -2813,7 +2863,7 @@ void SureServo::attemptPositionResync(uint32_t now) {
         hasReliablePosition = true;
         endPositionResync(true);
 
-        Serial.printf("✅ Re-sync réussie ! Position interne: %ld PUU\n", (long)reliablePosition);
+        logPrintf("✅ Re-sync réussie ! Position interne: %ld PUU\n", (long)reliablePosition);
     }
 }
 
@@ -2838,15 +2888,15 @@ bool SureServo::isMovePositionStabilized(uint32_t currentPosition, uint32_t now)
     uint32_t positionDifference = (diff >= 0) ? diff : -diff;  // Valeur absolue
 
     // Log pour debug
-    Serial.printf("🎯 Move - Position: %ld PUU, Écart: %lu PUU, Lectures stables: %d/3\n",
+    logPrintf("🎯 Move - Position: %ld PUU, Écart: %lu PUU, Lectures stables: %d/3\n",
                  (long)current_signed, positionDifference, moveStableReadingsCount);
     
     if (positionDifference <= TOLERANCE_PUU) {
         moveStableReadingsCount++;
-        Serial.printf("✅ Position stable (%d/3 lectures)\n", moveStableReadingsCount);
+        logPrintf("✅ Position stable (%d/3 lectures)\n", moveStableReadingsCount);
     } else {
         moveStableReadingsCount = 0;
-        Serial.printf("🔄 Mouvement en cours (écart: %lu PUU)\n", positionDifference);
+        logPrintf("🔄 Mouvement en cours (écart: %lu PUU)\n", positionDifference);
     }
     
     // Mettre à jour pour la prochaine lecture
@@ -2878,7 +2928,7 @@ bool SureServo::handleInitializing(ServoDrive::OperationStatus& status) {
     
     switch (initState) {
         case OperationState::DRIVE_IDLE:
-            Serial.printf("[%s] ✅ Initialisation terminée avec succès\n", servoId.c_str());
+            logPrintf("✅ Initialisation terminée avec succès\n");
             driveInitStarted = false;
             initFailureReported = false;
             status = ServoDrive::OperationStatus::COMPLETED;
@@ -2911,7 +2961,7 @@ bool SureServo::handleInitializing(ServoDrive::OperationStatus& status) {
             // Signaler l'erreur une seule fois - évite le spam à chaque cycle
             if (!initFailureReported) {
                 BorneUniverselle::prepareMessage(ERROR, userMessage);
-                Serial.printf("[%s] ❌ %s\n", servoId.c_str(), errorMsg);
+                logPrintf("❌ %s\n", errorMsg);
                 initFailureReported = true;
             }
             
@@ -2953,7 +3003,7 @@ bool SureServo::handleHoming(ServoDrive::OperationStatus& status, uint32_t speed
 #ifdef DEBUG_SURESERVO
             BorneUniverselle::prepareMessage(SUCCESS, successMsg);
 #endif
-            Serial.printf("[%s] ✅ Homing terminé\n", servoId.c_str());
+            logPrintf("✅ Homing terminé\n");
             driveHomingStarted = false;
             status = ServoDrive::OperationStatus::COMPLETED;
             return true;
@@ -2967,15 +3017,14 @@ bool SureServo::handleHoming(ServoDrive::OperationStatus& status, uint32_t speed
             snprintf(userMessage, sizeof(userMessage), 
                 "[%s] Échec homing: %s", servoId.c_str(), errorMsg);
             BorneUniverselle::prepareMessage(ERROR, userMessage);
-            Serial.printf("[%s] ❌ %s\n", servoId.c_str(), errorMsg);
+            logPrintf("❌ %s\n", errorMsg);
             status = ServoDrive::OperationStatus::SERVO_DRIVE_ERROR;
             return true;
         }
             
         case OperationState::DRIVE_IN_PROGRESS: {
-            static uint32_t lastProgressLog = 0;
             uint32_t now = millis();
-            if (now - lastProgressLog > 5000) {
+            if (now - logThrottle.handleHomingProgress > 5000) {
                 uint32_t elapsed = (now - operationStartTime) / 1000;
                 char progressMsg[200];
                 snprintf(progressMsg, sizeof(progressMsg), 
@@ -2984,7 +3033,7 @@ bool SureServo::handleHoming(ServoDrive::OperationStatus& status, uint32_t speed
 #ifdef DEBUG_SURESERVO
                 BorneUniverselle::prepareMessage(INFO, progressMsg);
 #endif
-                lastProgressLog = now;
+                logThrottle.handleHomingProgress = now;
             }
             status = ServoDrive::OperationStatus::IN_PROGRESS;
             return true;
@@ -3003,7 +3052,7 @@ bool SureServo::handleJogging(ServoDrive::OperationStatus& status) {
         char msg[128];
         snprintf(msg, sizeof(msg), "[%s] Alarme détectée en JOG (0x%04X)", servoId.c_str(), alarmCode);
         BorneUniverselle::prepareMessage(ERROR, msg);
-        Serial.printf("[%s] 🚨 %s\n", servoId.c_str(), msg);
+        logPrintf("🚨 %s\n", msg);
         
         status = ServoDrive::OperationStatus::SERVO_DRIVE_ERROR;
         return true;
@@ -3018,13 +3067,12 @@ bool SureServo::handleMovingToPosition(int32_t pos, ServoDrive::OperationStatus&
     // CAS 1 : Mouvement en cours - continuer la surveillance
     if (moveState == OperationState::DRIVE_IN_PROGRESS) {
         // Messages de progression...
-        static uint32_t lastProgressLog = 0;
         uint32_t now = millis();
         
-        if (now - lastProgressLog > 1000) {
-            Serial.printf("[%s] 🔄 Mouvement en cours vers %ld PUU...\n",
-                         servoId.c_str(), (long)targetPosition);
-            lastProgressLog = now;
+        if (now - logThrottle.handleMoveProgress > 1000) {
+            logPrintf("🔄 Mouvement en cours vers %ld PUU...\n",
+                         (long)targetPosition);
+            logThrottle.handleMoveProgress = now;
         }
         
         status = ServoDrive::OperationStatus::IN_PROGRESS;
@@ -3037,7 +3085,7 @@ bool SureServo::handleMovingToPosition(int32_t pos, ServoDrive::OperationStatus&
         
         // Si waitForSync demandé ET pas encore synchronisé
         if (waitForSyncRequested && !getHasReliablePosition()) {  // ✅ CORRIGÉ: waitForSyncRequested au lieu de waitForSync
-            Serial.printf("[%s] ⏳ Attente re-synchronisation position...\n", servoId.c_str());
+            logPrintf("⏳ Attente re-synchronisation position...\n");
             status = ServoDrive::OperationStatus::IN_PROGRESS;
             return true;
         }
@@ -3115,12 +3163,12 @@ uint8_t SureServo::getSlaveAddress() const {
         return modbusNode->getModbusAddress();
     }
     // Pas un node Modbus (ex: mode debug avec VirtualNode) - pas de filtrage
-    Serial.printf("[%s] getSlaveAddress: nodes.status n'est pas un ModbusNode\n", servoId.c_str());
+    logPrintf("getSlaveAddress: nodes.status n'est pas un ModbusNode\n");
     return 0;
 }
 
 bool SureServo::stopMovement() {
-    Serial.println("🛑 SureServo::stopMovement() - Arrêt propre demandé");
+    logPrintln("🛑 SureServo::stopMovement() - Arrêt propre demandé");
     
     // ========================================
     // 1. ARRÊT PHYSIQUE DU MOTEUR
@@ -3135,7 +3183,7 @@ bool SureServo::stopMovement() {
     
     // Annuler le mouvement en cours
     if (moveState == OperationState::DRIVE_IN_PROGRESS) {
-        Serial.printf("   → Mouvement annulé (phase %d)\n", movePhase);
+        logPrintf("   → Mouvement annulé (phase %d)\n", movePhase);
         moveState = OperationState::DRIVE_IDLE;  // ✅ Retour à IDLE (pas FAILED)
         movePhase = 0;
         targetPosition = 0;
@@ -3144,7 +3192,7 @@ bool SureServo::stopMovement() {
     
     // Annuler le homing en cours
     if (homingState == OperationState::DRIVE_IN_PROGRESS) {
-        Serial.println("   → Homing annulé");
+        logPrintln("   → Homing annulé");
         homingState = OperationState::DRIVE_IDLE;  // ✅ Retour à IDLE (pas FAILED)
     }
     
@@ -3164,7 +3212,7 @@ bool SureServo::stopMovement() {
     // Ce flag sera réinitialisé lors du prochain startGoToPosition()
     movementCancelled = true;
     
-    Serial.println("   → Flag movementCancelled activé (blocage redémarrage)");
+    logPrintln("   → Flag movementCancelled activé (blocage redémarrage)");
     
     // ========================================
     // 5. PROGRAMMATION DU RELÂCHEMENT DIFFÉRÉ
@@ -3173,7 +3221,7 @@ bool SureServo::stopMovement() {
     // Le relais a besoin de 500ms pour coller/décoller de façon fiable
     pendingReleaseImmediateStop = true;
     
-    Serial.printf("✅ SureServo: Arrêt propre demandé - immediateStop actif pendant %lu ms\n", 
+    logPrintf("✅ SureServo: Arrêt propre demandé - immediateStop actif pendant %lu ms\n", 
                   IMMEDIATE_STOP_DURATION_MS);
     
     return true;
@@ -3193,7 +3241,7 @@ void SureServo::clearMovementLock() {
 
      // ✅ AJOUT : Remettre moveState à IDLE si bloqué en FAILED/TIMEOUT
     if (moveState == OperationState::DRIVE_FAILED || moveState == OperationState::DRIVE_TIMEOUT) {
-        Serial.println("   → moveState réinitialisé (clearMovementLock)");
+        logPrintln("   → moveState réinitialisé (clearMovementLock)");
         moveState = OperationState::DRIVE_IDLE;
         movePhase = 0;
     }
@@ -3207,19 +3255,19 @@ void SureServo::clearMovementLock() {
     // mais initialized reste false pour toujours (jog refusé en permanence,
     // même si home est fait), car rien ne revalide plus jamais la position.
     if (initState == OperationState::DRIVE_FAILED || initState == OperationState::DRIVE_TIMEOUT) {
-        Serial.println("   → Init réinitialisée (clearMovementLock) - relance de l'initialisation");
+        logPrintln("   → Init réinitialisée (clearMovementLock) - relance de l'initialisation");
         initState = OperationState::DRIVE_IDLE;
         initPhase = 0;
         driveInitStarted = false;
         initFailureReported = false;
         if (!startInitialize()) {
-            Serial.printf("   ⚠️ Échec relance initialisation: %s\n", lastError.c_str());
+            logPrintf("   ⚠️ Échec relance initialisation: %s\n", lastError.c_str());
         }
     }
 
     // Remettre homingState à IDLE si bloqué en FAILED/TIMEOUT
     if (homingState != OperationState::DRIVE_IDLE) {
-        Serial.println("   → Homing réinitialisé (clearMovementLock)");
+        logPrintln("   → Homing réinitialisé (clearMovementLock)");
         homingState = OperationState::DRIVE_IDLE;
         driveHomingStarted = false;
     }
@@ -3230,8 +3278,8 @@ void SureServo::clearMovementLock() {
 // ========================================
 // PERF MONITOR
 // ========================================
-
-#ifdef PERF_MONITOR
+// Méthodes toujours compilées (API stable pour RessortRoyal2 / main.cpp / code généré) ;
+// la collecte dans process()/processMove()/sendTargetToPR() dépend de SURESERVO_PERF_MONITOR.
 
 void SureServo::pmNotifyCompleted() {
     if (pm_active) pm_interMoveStart = millis();
@@ -3274,48 +3322,47 @@ void SureServo::pmPrintReport(uint32_t cycleTotalMs) const {
     uint32_t pctInterMvt = (cycleTotalMs > 0) ? (pm_interMoveCumul    * 100 / cycleTotalMs) : 0;
     uint32_t pctTTrig    = (cycleTotalMs > 0) ? (pm_targetToTrigCumul * 100 / cycleTotalMs) : 0;
 
-    Serial.println(F("\r\n╔══════════════════════════════════════════════════╗"));
-    Serial.println(F(    "║   PERF MONITOR — Cycle complet                   ║"));
-#ifdef TRIGGER_SMART_DELAY
-    Serial.println(F(    "║   Mode: SMART DELAY                              ║"));
+    Serial.print("\r\n");
+    logPrintln("╔══════════════════════════════════════════════════╗");
+    logPrintln("║   PERF MONITOR — Cycle complet                   ║");
+#ifdef SURESERVO_TRIGGER_SMART_DELAY
+    logPrintln("║   Mode: SMART DELAY                              ║");
 #else
-    Serial.printf(       "║   Mode: FIXED DELAY (%3lums)                      ║\r\n", (uint32_t)TRIGGER_DELAY_MS);
+    logPrintf("║   Mode: FIXED DELAY (%3lums)                      ║\r\n", (uint32_t)TRIGGER_DELAY_MS);
 #endif
-    Serial.println(F(    "╠══════════════════════════════════════════════════╣"));
-    Serial.printf(       "║ Durée totale cycle   : %5lu ms  (100%%)          ║\r\n", cycleTotalMs);
-    Serial.printf(       "║ refresh() cumulé     : %5lu ms  (%3lu%%)          ║\r\n", pm_refreshCumul, pctRef);
-    Serial.printf(       "║ process() cumulé     : %5lu ms  (%3lu%%)          ║\r\n", procMs, pctProc);
-    Serial.printf(       "║ process() pic        : %5lu µs                   ║\r\n", pm_processTimeMax);
-    Serial.printf(       "║ process() appels     : %5lu                      ║\r\n", pm_processCallCount);
-    Serial.println(F(    "╠══════════════════════════════════════════════════╣"));
-    Serial.printf(       "║ Mouvements complétés : %5lu                      ║\r\n", pm_moveCount);
-    Serial.printf(       "║ Inter-mvt cumulé     : %5lu ms  (%3lu%%)          ║\r\n", pm_interMoveCumul, pctInterMvt);
-    Serial.printf(       "║ Inter-mvt pic        : %5lu ms                   ║\r\n", pm_interMoveMax);
-    Serial.println(F(    "╠══════════════════════════════════════════════════╣"));
-    Serial.printf(       "║ Targets envoyés      : %5lu                      ║\r\n", pm_writeTargetCount);
-    Serial.printf(       "║ Target→Trigger cumulé: %5lu ms  (%3lu%%)          ║\r\n", pm_targetToTrigCumul, pctTTrig);
-    Serial.printf(       "║ Target→Trigger pic   : %5lu ms                   ║\r\n", pm_targetToTrigMax);
-    Serial.printf(       "║ Triggers envoyés     : %5lu                      ║\r\n", pm_writeTriggerCount);
-    Serial.println(F(    "╠══════════════════════════════════════════════════╣"));
-    Serial.printf(       "║ T1 (latence) cumulé  : %5lu ms  (%3lu%%)          ║\r\n", pm_driveLatencyCumul, pctT1);
-    Serial.printf(       "║ T1 (latence) pic     : %5lu ms                   ║\r\n", pm_driveLatencyMax);
-    Serial.printf(       "║ T2 (mvt) cumulé      : %5lu ms  (%3lu%%)          ║\r\n", pm_moveTimeCumul, pctT2);
-    Serial.printf(       "║ T2 (mvt) pic         : %5lu ms                   ║\r\n", pm_moveTimeMax);
-#ifdef TRIGGER_SMART_DELAY
-    Serial.println(F(    "╠══════════════════════════════════════════════════╣"));
-    Serial.printf(       "║ Smart delay confirmé : %5lu fois               ║\r\n", pm_smartDelayCount);
-    Serial.printf(       "║ Safety timeout       : %5lu fois               ║\r\n", pm_safetyTimeoutCount);
+    logPrintln("╠══════════════════════════════════════════════════╣");
+    logPrintf("║ Durée totale cycle   : %5lu ms  (100%%)          ║\r\n", cycleTotalMs);
+    logPrintf("║ refresh() cumulé     : %5lu ms  (%3lu%%)          ║\r\n", pm_refreshCumul, pctRef);
+    logPrintf("║ process() cumulé     : %5lu ms  (%3lu%%)          ║\r\n", procMs, pctProc);
+    logPrintf("║ process() pic        : %5lu µs                   ║\r\n", pm_processTimeMax);
+    logPrintf("║ process() appels     : %5lu                      ║\r\n", pm_processCallCount);
+    logPrintln("╠══════════════════════════════════════════════════╣");
+    logPrintf("║ Mouvements complétés : %5lu                      ║\r\n", pm_moveCount);
+    logPrintf("║ Inter-mvt cumulé     : %5lu ms  (%3lu%%)          ║\r\n", pm_interMoveCumul, pctInterMvt);
+    logPrintf("║ Inter-mvt pic        : %5lu ms                   ║\r\n", pm_interMoveMax);
+    logPrintln("╠══════════════════════════════════════════════════╣");
+    logPrintf("║ Targets envoyés      : %5lu                      ║\r\n", pm_writeTargetCount);
+    logPrintf("║ Target→Trigger cumulé: %5lu ms  (%3lu%%)          ║\r\n", pm_targetToTrigCumul, pctTTrig);
+    logPrintf("║ Target→Trigger pic   : %5lu ms                   ║\r\n", pm_targetToTrigMax);
+    logPrintf("║ Triggers envoyés     : %5lu                      ║\r\n", pm_writeTriggerCount);
+    logPrintln("╠══════════════════════════════════════════════════╣");
+    logPrintf("║ T1 (latence) cumulé  : %5lu ms  (%3lu%%)          ║\r\n", pm_driveLatencyCumul, pctT1);
+    logPrintf("║ T1 (latence) pic     : %5lu ms                   ║\r\n", pm_driveLatencyMax);
+    logPrintf("║ T2 (mvt) cumulé      : %5lu ms  (%3lu%%)          ║\r\n", pm_moveTimeCumul, pctT2);
+    logPrintf("║ T2 (mvt) pic         : %5lu ms                   ║\r\n", pm_moveTimeMax);
+#ifdef SURESERVO_TRIGGER_SMART_DELAY
+    logPrintln("╠══════════════════════════════════════════════════╣");
+    logPrintf("║ Smart delay confirmé : %5lu fois               ║\r\n", pm_smartDelayCount);
+    logPrintf("║ Safety timeout       : %5lu fois               ║\r\n", pm_safetyTimeoutCount);
 #endif
-    Serial.println(F(    "╚══════════════════════════════════════════════════╝"));
-    Serial.println(F(    "T1=trigger→signalValidated  T2=signalValidated→reached&&zeroSpeed"));
+    logPrintln("╚══════════════════════════════════════════════════╝");
+    logPrintln("T1=trigger→signalValidated  T2=signalValidated→reached&&zeroSpeed");
     pm_active = false;
 }
 
 void SureServo::pmAccumulateRefresh(uint32_t ms) {
     pm_refreshCumul += ms;
 }
-
-#endif // PERF_MONITOR
 
 bool SureServo::configurePR(uint8_t prNumber, int32_t targetPuu, uint8_t speedIndex, bool chainToNext) {
     if (isPlcSuspended()) {
@@ -3361,7 +3408,7 @@ bool SureServo::configurePR(uint8_t prNumber, int32_t targetPuu, uint8_t speedIn
         chainedPRMode = true;
     }
 
-    Serial.printf("✅ configurePR: PR%d target=%ld SPD_IDX=%u chain=%s config=0x%08lX\n",
+    logPrintf("✅ configurePR: PR%d target=%ld SPD_IDX=%u chain=%s config=0x%08lX\n",
                   prNumber, (long)targetPuu, speedIndex,
                   chainToNext ? "AUTO" : "SINGLE", config);
 
@@ -3376,7 +3423,7 @@ bool SureServo::clearPRConfig() {
 
     chainedPRMode = false;
 
-    Serial.println("✅ clearPRConfig: tous les PR restaurés");
+    logPrintln("✅ clearPRConfig: tous les PR restaurés");
     return ok;
 }
 
@@ -3398,7 +3445,7 @@ bool SureServo::clearPRConfig(uint8_t prNumber) {
         case 3: nodes.pr3Speed->setValue(config); break;
     }
 
-    Serial.printf("✅ clearPRConfig: PR%d restauré config=0x%08lX (SPD_IDX=%u)\n", prNumber, config, currentPrSpeed);
+    logPrintf("✅ clearPRConfig: PR%d restauré config=0x%08lX (SPD_IDX=%u)\n", prNumber, config, currentPrSpeed);
     return true;
 }
 
@@ -3412,8 +3459,8 @@ bool SureServo::setHomeAtCurrentPosition() {
 
     // Guard 1 : moteur en mouvement
     if (!status.zeroSpeed) {
-        Serial.println("❌ setHomeAtCurrentPosition: refusé - moteur en mouvement");
-        BorneUniverselle::prepareMessage(WARNING, "setHomeAtCurrentPosition: moteur en mouvement");
+        logPrintln("❌ setHomeAtCurrentPosition: refusé - moteur en mouvement");
+        notifyUser(WARNING, "setHomeAtCurrentPosition: moteur en mouvement");
         homeAtCurrentPositionInProgress = false;   // refus avant écriture → reset immédiat
         return false;
     }
@@ -3423,16 +3470,16 @@ bool SureServo::setHomeAtCurrentPosition() {
         resetState  != OperationState::DRIVE_IDLE ||
         moveState   != OperationState::DRIVE_IDLE ||
         homingState != OperationState::DRIVE_IDLE) {
-        Serial.println("❌ setHomeAtCurrentPosition: refusé - drive occupé");
-        BorneUniverselle::prepareMessage(WARNING, "setHomeAtCurrentPosition: drive occupé");
+        logPrintln("❌ setHomeAtCurrentPosition: refusé - drive occupé");
+        notifyUser(WARNING, "setHomeAtCurrentPosition: drive occupé");
         homeAtCurrentPositionInProgress = false;   // refus avant écriture → reset immédiat
         return false;
     }
 
     // Guard 3 : nodes disponibles
     if (!nodes.homingModeRead || !nodes.homingModeWrite || !nodes.trigger) {
-        Serial.println("❌ setHomeAtCurrentPosition: refusé - nodes manquants");
-        BorneUniverselle::prepareMessage(ERROR, "setHomeAtCurrentPosition: nodes manquants");
+        logPrintln("❌ setHomeAtCurrentPosition: refusé - nodes manquants");
+        notifyUser(ERROR, "setHomeAtCurrentPosition: nodes manquants");
         homeAtCurrentPositionInProgress = false;   // refus avant écriture → reset immédiat
         return false;
     }
@@ -3453,21 +3500,21 @@ void SureServo::processHomeAtCurrentPosition() {
         case 1:
             // Écrire mode 0x08 — sera physiquement envoyé au drive dans ce cycle
             nodes.homingModeWrite->setValue(0x08);
-            Serial.println("✍️  homeAtCurrentPosition phase 1: mode 0x08 écrit");
+            logPrintln("✍️  homeAtCurrentPosition phase 1: mode 0x08 écrit");
             homeAtCurrentPositionPhase = 2;
             break;
 
         case 2:
             // Mode 0x08 est maintenant sur le drive — envoyer trigger PR0
             nodes.trigger->setValue(0, true);   // force write
-            Serial.println("🏠 homeAtCurrentPosition phase 2: trigger PR0 envoyé");
+            logPrintln("🏠 homeAtCurrentPosition phase 2: trigger PR0 envoyé");
             homeAtCurrentPositionPhase = 3;
             break;
 
         case 3:
             // Trigger exécuté — restaurer le mode homing original
             nodes.homingModeWrite->setValue(homeAtCurrentPositionSavedMode);
-            Serial.printf("↩️  homeAtCurrentPosition phase 3: mode restauré = 0x%04X\n",
+            logPrintf("↩️  homeAtCurrentPosition phase 3: mode restauré = 0x%04X\n",
                          homeAtCurrentPositionSavedMode);
             homeAtCurrentPositionPhase = 4;
             break;
@@ -3481,7 +3528,7 @@ void SureServo::processHomeAtCurrentPosition() {
             homeAtCurrentPositionDone = true;
             homeAtCurrentPositionPhase = 0;
             homeAtCurrentPositionEndTime = millis();
-            Serial.println("✅ homeAtCurrentPosition: position remise à 0, home virtuel confirmé");
+            logPrintln("✅ homeAtCurrentPosition: position remise à 0, home virtuel confirmé");
             break;
     }
 }

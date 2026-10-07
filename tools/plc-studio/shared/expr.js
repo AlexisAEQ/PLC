@@ -4,13 +4,15 @@
 //   FM(Capteur) OU ↑Bouton            front montant (FD / ↓ : front descendant)
 //   X3.t >= 5s     ou   t/X3/5s       temps d'activité d'une étape
 //   Compteur >= Nb_pieces             comparaisons : = <> < <= > >=
-//   Servo.enPosition                  états du servo
+//   Servo.enPosition   AxeX.position  états d'un axe (nom de l'équipement : SureServo, Lichuan, pas-à-pas)
 //
 // Opérateurs logiques : ET/AND/&&, OU/OR/||, NON/NOT/!. Arithmétique : + - * / %.
 // Fonctions : FM(x), FD(x), MIN(a,b), MAX(a,b), ABS(a). Durées : 200ms, 5s, 2min, 1h.
 //
 // Le même arbre syntaxique est évalué par le simulateur (evaluate) et traduit en C++ (toCpp),
 // ce qui garantit le même comportement.
+
+import { axisList } from './axes.js';
 
 export class ExprError extends Error {
   constructor(message, pos = 0) {
@@ -34,14 +36,16 @@ const KEYWORDS = {
 const FUNCS = ['FM', 'FD', 'MIN', 'MAX', 'ABS'];
 const UNITS = { ms: 1, s: 1000, min: 60000, h: 3600000 };
 
-export const SERVO_PROPS = {
-  pret: { type: 'bool', label: 'servo prêt (alimenté, sans alarme)', cpp: 'servoIsReady()' },
-  enPosition: { type: 'bool', label: 'dernier déplacement terminé', cpp: 'servoInPosition()' },
-  enMouvement: { type: 'bool', label: 'déplacement en cours', cpp: 'servoIsMoving()' },
-  origineFaite: { type: 'bool', label: 'prise d’origine faite', cpp: 'servoHomeDone()' },
-  alarme: { type: 'bool', label: 'alarme active', cpp: 'servoHasAlarm()' },
-  position: { type: 'int', label: 'position actuelle (impulsions)', cpp: 'servoPosition()' },
+// Propriétés d'un axe (méthodes d'AxisController côté C++).
+export const AXIS_PROPS = {
+  pret: { type: 'bool', label: 'axe prêt (alimenté, sans alarme)', cpp: 'isReady()' },
+  enPosition: { type: 'bool', label: 'dernier déplacement terminé', cpp: 'inPosition()' },
+  enMouvement: { type: 'bool', label: 'déplacement en cours', cpp: 'isMoving()' },
+  origineFaite: { type: 'bool', label: 'prise d’origine faite', cpp: 'homeDone()' },
+  alarme: { type: 'bool', label: 'alarme active', cpp: 'hasAlarm()' },
+  position: { type: 'int', label: 'position actuelle (impulsions ou pas)', cpp: 'position()' },
 };
+export const SERVO_PROPS = AXIS_PROPS; // ancien nom
 
 // ---------------------------------------------------------------------------
 // Analyse lexicale
@@ -126,7 +130,8 @@ export function tokenize(src) {
 //
 // ctx.resolve(name) -> { type: 'bool'|'int'|'float'|'text', symbol } ou null
 // ctx.steps        -> Set des numéros d'étape existants (optionnel)
-// ctx.servo        -> true si un servo est présent
+// ctx.axes         -> Map symbole -> { uid, symbol, label } des axes (Axe.propriété)
+// ctx.defaultAxis  -> uid de l'axe désigné par « Servo » quand le projet n'a qu'un axe
 export function parse(src, ctx = {}) {
   const tokens = tokenize(src);
   let k = 0;
@@ -277,20 +282,32 @@ export function parse(src, ctx = {}) {
       }
       return { k: 'step', step, type: 'bool' };
     }
-    if (name === 'Servo' || upper === 'SERVO') {
-      if (!ctx.servo) throw new ExprError('Aucun servo dans le projet', tok.pos);
-      expect('.', 'Propriété attendue après « Servo » (ex. Servo.enPosition)');
-      const prop = expect('id', 'Propriété du servo attendue');
-      const def = SERVO_PROPS[prop.v];
-      if (!def) throw new ExprError(`Propriété du servo inconnue « ${prop.v} ». Disponibles : ${Object.keys(SERVO_PROPS).join(', ')}`, prop.pos);
-      return { k: 'servo', prop: prop.v, type: def.type };
+    // Axe : <nom>.<propriété> ; « Servo » désigne l'axe unique d'un projet (compatibilité).
+    const axis = findAxis(name);
+    if (axis || ((name === 'Servo' || upper === 'SERVO') && !(ctx.resolve && ctx.resolve(name)))) {
+      if (!axis) throw new ExprError(ctx.axes?.size ? `Plusieurs axes : précisez lequel (${[...ctx.axes.values()].map((a) => a.symbol).join(', ')})` : 'Aucun axe dans le projet', tok.pos);
+      expect('.', `Propriété attendue après « ${name} » (ex. ${axis.symbol}.enPosition)`);
+      const prop = expect('id', 'Propriété de l’axe attendue');
+      const def = AXIS_PROPS[prop.v];
+      if (!def) throw new ExprError(`Propriété d’axe inconnue « ${prop.v} ». Disponibles : ${Object.keys(AXIS_PROPS).join(', ')}`, prop.pos);
+      return { k: 'axis', axis: axis.uid, prop: prop.v, type: def.type };
+    }
+    if (peek().t === '.' && !(ctx.resolve && ctx.resolve(name))) {
+      throw new ExprError(`Axe inconnu « ${name} »${ctx.axes?.size ? ` (axes : ${[...ctx.axes.values()].map((a) => a.symbol).join(', ')})` : ''}`, tok.pos);
     }
     const v = ctx.resolve ? ctx.resolve(name) : null;
     if (!v) throw new ExprError(`Variable inconnue « ${name} »`, tok.pos);
     return { k: 'var', sym: v.symbol, type: v.type === 'float' ? 'float' : v.type === 'int' ? 'int' : v.type };
   }
+  function findAxis(name) {
+    if (!ctx.axes || peek().t !== '.') return null;
+    const direct = ctx.axes.get(name) || [...ctx.axes.values()].find((a) => a.symbol.toLowerCase() === name.toLowerCase());
+    if (direct) return direct;
+    if ((name === 'Servo' || name.toUpperCase() === 'SERVO') && ctx.defaultAxis) return [...ctx.axes.values()].find((a) => a.uid === ctx.defaultAxis) || null;
+    return null;
+  }
   function edge(rising, a, tok) {
-    if (a.type !== 'bool' || !['var', 'step', 'servo'].includes(a.k)) {
+    if (a.type !== 'bool' || !['var', 'step', 'axis'].includes(a.k)) {
       throw new ExprError(`${rising ? 'FM' : 'FD'} s’applique à une variable ou une étape booléenne`, tok.pos);
     }
     return { k: 'edge', rising, a, type: 'bool' };
@@ -341,12 +358,12 @@ export function usedSymbols(ast) {
 export function edgeKey(a) {
   if (a.k === 'var') return `var:${a.sym}`;
   if (a.k === 'step') return `step:${a.step}`;
-  if (a.k === 'servo') return `servo:${a.prop}`;
+  if (a.k === 'axis') return `axis:${a.axis}:${a.prop}`;
   return null;
 }
 
 // ---------------------------------------------------------------------------
-// Évaluation (simulateur). env : { get(sym), step(n), stepTime(n), servo(prop), prev(key) }
+// Évaluation (simulateur). env : { get(sym), step(n), stepTime(n), axis(uid, prop), prev(key) }
 export function evaluate(ast, env) {
   switch (ast.k) {
     case 'num':
@@ -359,8 +376,8 @@ export function evaluate(ast, env) {
       return env.step(ast.step);
     case 'steptime':
       return env.stepTime(ast.step);
-    case 'servo':
-      return env.servo(ast.prop);
+    case 'axis':
+      return env.axis(ast.axis, ast.prop);
     case 'not':
       return !evaluate(ast.a, env);
     case 'and':
@@ -433,7 +450,7 @@ export function evaluate(ast, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Traduction en C++. names : { var(sym), step(n), stepTime(n), servo(prop), prev(key) }
+// Traduction en C++. names : { var(sym), step(n), stepTime(n), axis(uid, prop), prev(key) }
 export function toCpp(ast, names) {
   const c = (x) => toCpp(x, names);
   switch (ast.k) {
@@ -449,8 +466,8 @@ export function toCpp(ast, names) {
       return names.step(ast.step);
     case 'steptime':
       return names.stepTime(ast.step);
-    case 'servo':
-      return names.servo(ast.prop);
+    case 'axis':
+      return names.axis(ast.axis, ast.prop);
     case 'not':
       return `!${c(ast.a)}`;
     case 'and':
@@ -483,10 +500,12 @@ export function toCpp(ast, names) {
 }
 
 // Contexte de résolution standard à partir du projet.
-export function projectContext(project, { steps, servo } = {}) {
+export function projectContext(project, { steps } = {}) {
   const bySymbol = new Map(project.variables.map((v) => [v.symbol, v]));
+  const axes = new Map(axisList(project).map((a) => [a.symbol, a]));
   return {
-    servo: servo ?? project.equipment.some((e) => e.type === 'SureServo'),
+    axes,
+    defaultAxis: axes.size === 1 ? [...axes.values()][0].uid : null,
     steps,
     resolve(name) {
       const v = bySymbol.get(name);

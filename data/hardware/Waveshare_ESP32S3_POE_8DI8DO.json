@@ -1,0 +1,41 @@
+{
+    "hardware": "Waveshare_ESP32S3_POE_8DI8DO",
+
+    "board": {"mcu": "ESP32-S3", "buzzer": {"pin": 46}},
+
+    "I2C": {"SDA": 42, "SCL": 41, "RTC": "PCF85063"},
+
+    "RS485": {"rx": 18, "tx": 17, "de": 21, "speed": 115200, "config": "SERIAL_8E1"},
+
+    "Modbus": {"modbusRTU": true, "timeout": 101},
+
+    "rx-bool": [
+        {"id": 1, "pin": 4, "activeLow": true, "pull": "up"},
+        {"id": 2, "pin": 5, "activeLow": true, "pull": "up"},
+        {"id": 3, "pin": 6, "activeLow": true, "pull": "up"},
+        {"id": 4, "pin": 7, "activeLow": true, "pull": "up"},
+        {"id": 5, "pin": 8, "activeLow": true, "pull": "up"},
+        {"id": 6, "pin": 9, "activeLow": true, "pull": "up"},
+        {"id": 7, "pin": 10, "activeLow": true, "pull": "up"},
+        {"id": 8, "pin": 11, "activeLow": true, "pull": "up"}
+    ],
+
+    "EXP_tx-bool": [
+        {"id": 1, "chip": "TCA9554", "addr": 32, "pin": 0, "activeLow": true},
+        {"id": 2, "chip": "TCA9554", "addr": 32, "pin": 1, "activeLow": true},
+        {"id": 3, "chip": "TCA9554", "addr": 32, "pin": 2, "activeLow": true},
+        {"id": 4, "chip": "TCA9554", "addr": 32, "pin": 3, "activeLow": true},
+        {"id": 5, "chip": "TCA9554", "addr": 32, "pin": 4, "activeLow": true},
+        {"id": 6, "chip": "TCA9554", "addr": 32, "pin": 5, "activeLow": true},
+        {"id": 7, "chip": "TCA9554", "addr": 32, "pin": 6, "activeLow": true},
+        {"id": 8, "chip": "TCA9554", "addr": 32, "pin": 7, "activeLow": true}
+    ],
+
+    "tx-bool": [
+        {"id": 1, "pin": 40},
+        {"id": 2, "pin": 1},
+        {"id": 3, "pin": 47},
+        {"id": 4, "pin": 48},
+        {"id": 9, "pin": 46}
+    ]
+}

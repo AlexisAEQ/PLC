@@ -9,15 +9,17 @@
 // Format détaillé : .claude/skills/plc-projet/references/spec.md
 
 import { CATALOG } from './catalog.js';
-import { newProject, normalizeProject, normalizeEquipment, normalizeVariable, systemVariablesFor, listChannels, toHostname, toSymbol } from './model.js';
+import { newProject, normalizeProject, normalizeEquipment, normalizeVariable, systemVariablesFor, listChannels, toHostname, toSymbol, DEFAULT_AXIS_BLOCK } from './model.js';
 import { ACTION_TYPES, DEFAULT_BLOCKS, actionText } from './grafcet.js';
+import { axisList } from './axes.js';
 import { buildLayout } from './layout.js';
 import { effectivePages } from './generate.js';
 import { validateProject } from './validate.js';
 
 export const SPEC_FORMAT = 'plc-studio-spec';
 
-// Alias lisibles des nœuds du servo pour les écrans (Servo.<alias> ou servo:<champ>).
+// Alias lisibles des nœuds d'un axe pour les écrans (<Axe>.<alias> ou <axe>:<champ> ;
+// « Servo. » / « servo: » désignent l'axe unique). Un type d'axe peut les redéfinir (axis.refAliases).
 const SERVO_REF_ALIASES = {
   pret: 'servoReady',
   active: 'servoActivated',
@@ -35,16 +37,20 @@ const SERVO_REF_ALIASES = {
 // Actions : forme objet (format du projet) ou texte court.
 //   "N Verin"  "N Verin si Piece"  "S Mem"  "R Mem"  "INC Pieces"  "DEC Stock"
 //   "SET Compteur := 0"  "NSET Consigne := Cible * 2"
-//   "SERVO_MOVE Cible @ Vitesse"  "SERVO_HOME"  "SERVO_STOP"
+//   "SERVO_MOVE Cible @ Vitesse"  "SERVO_HOME"  "SERVO_STOP"            (projet à un seul axe)
+//   "SERVO_MOVE[axe_x] Cible @ Vitesse"  "SERVO_HOME[axe_x]"  "SERVO_STOP[axe_x]"
+//                                        (axe : id de l'équipement dans la spec, ou son nom)
 //   "MSG success: Pièce terminée"  "MSG Attention bourrage"
 export function parseAction(a) {
   if (a && typeof a === 'object') return { ...a, type: String(a.type || '').toUpperCase() };
   const src = String(a || '').trim();
-  const m = /^([A-Za-z_]+)\s*(.*)$/s.exec(src);
+  const m = /^([A-Za-z_]+)(?:\[\s*([^\]]*?)\s*\])?\s*(.*)$/s.exec(src);
   if (!m) throw new Error(`action vide`);
   const type = m[1].toUpperCase();
-  const rest = m[2].trim();
+  const rest = m[3].trim();
   if (!ACTION_TYPES[type]) throw new Error(`type d'action inconnu « ${m[1]} » (${Object.keys(ACTION_TYPES).join(', ')})`);
+  if (m[2] !== undefined && !ACTION_TYPES[type].servo) throw new Error(`action ${type} : « [axe] » réservé aux actions SERVO_*`);
+  const withAxis = (o) => (m[2] ? { ...o, axis: m[2] } : o);
   switch (type) {
     case 'N': {
       const c = /^(\S+)(?:\s+(?:si|if)\s+(.+))?$/is.exec(rest);
@@ -65,12 +71,12 @@ export function parseAction(a) {
     }
     case 'SERVO_MOVE': {
       const c = /^(.+?)\s*@\s*(.+)$/s.exec(rest);
-      if (!c) throw new Error('action SERVO_MOVE : « SERVO_MOVE <position> @ <vitesse 0-15> » attendu');
-      return { type, position: c[1].trim(), speed: c[2].trim() };
+      if (!c) throw new Error('action SERVO_MOVE : « SERVO_MOVE[axe] <position> @ <vitesse> » attendu');
+      return withAxis({ type, position: c[1].trim(), speed: c[2].trim() });
     }
     case 'SERVO_HOME':
     case 'SERVO_STOP':
-      return { type };
+      return withAxis({ type });
     case 'MSG': {
       const c = /^(info|warning|error|success)\s*:\s*(.+)$/is.exec(rest);
       return c ? { type, level: c[1].toLowerCase(), text: c[2].trim() } : { type, level: 'info', text: rest };
@@ -80,7 +86,10 @@ export function parseAction(a) {
   }
 }
 
-export function formatAction(a) {
+// axisRef(uid) : nom de l'axe à écrire entre crochets (null : projet à un seul axe).
+export function formatAction(a, axisRef) {
+  const ax = a.axis && axisRef ? axisRef(a.axis) : a.axis && !axisRef ? a.axis : null;
+  const t = ax ? `${a.type}[${ax}]` : a.type;
   switch (a.type) {
     case 'N':
       return a.condition ? `N ${a.target} si ${a.condition}` : `N ${a.target}`;
@@ -93,7 +102,10 @@ export function formatAction(a) {
     case 'NSET':
       return `${a.type} ${a.target} := ${a.value}`;
     case 'SERVO_MOVE':
-      return `SERVO_MOVE ${a.position} @ ${a.speed}`;
+      return `${t} ${a.position} @ ${a.speed}`;
+    case 'SERVO_HOME':
+    case 'SERVO_STOP':
+      return t;
     case 'MSG':
       return `MSG ${a.level || 'info'}: ${a.text || ''}`;
     default:
@@ -337,7 +349,7 @@ export function buildFromSpec(spec, { previous = null } = {}) {
       fail(`${what} : équipement « ${m[1]} » inconnu.`);
       return null;
     }
-    const want = m[2].toUpperCase().replace(/^GPIO2$/, 'GPIO2_1');
+    const want = m[2].toUpperCase().replace(/^GPIO2_1$/, 'GPIO2');  // ancien nom de la sortie GPIO2 de la KC868-A8S
     const ch = channels.find((c) => c.eq === eq && c.name.toUpperCase() === want);
     if (!ch) {
       const names = channels.filter((c) => c.eq === eq).map((c) => c.name);
@@ -347,16 +359,42 @@ export function buildFromSpec(spec, { previous = null } = {}) {
     return ch;
   };
 
-  // Signaux du servo (servo ON, arrêt immédiat, reset alarmes) sur des sorties.
-  for (const [sig, at] of Object.entries(spec.servoSignals || {})) {
-    const v = project.variables.find((x) => x.system?.signal === sig);
+  // Axes : désignés par l'id de leur équipement dans la spec, leur symbole ou leur nom.
+  const axes = axisList(project);
+  const specIdOf = new Map([...eqById.entries()].map(([id, eq]) => [eq.uid, id]));
+  const resolveAxis = (ref, what) => {
+    if (ref === undefined || ref === null || ref === '') {
+      if (axes.length === 1) return axes[0].uid;
+      fail(axes.length ? `${what} : précisez l'axe (${axes.map((a) => specIdOf.get(a.uid)).join(', ')}).` : `${what} : aucun axe dans le projet.`);
+      return null;
+    }
+    const r = String(ref).trim();
+    const lower = r.toLowerCase();
+    const hit =
+      axes.find((a) => specIdOf.get(a.uid) === r) ||
+      axes.find((a) => a.symbol.toLowerCase() === lower || a.label.toLowerCase() === lower) ||
+      (/^servo$/i.test(r) && axes.length === 1 ? axes[0] : null);
+    if (!hit) fail(`${what} : axe « ${r} » inconnu (${axes.map((a) => specIdOf.get(a.uid)).join(', ') || 'aucun axe'}).`);
+    return hit?.uid || null;
+  };
+
+  // Signaux TOR des axes (servo ON, step, dir…) sur des sorties : « signals » de l'équipement,
+  // ou « servoSignals » (ancien format, axe unique).
+  const bindSignal = (eqUid, sig, at, what) => {
+    const v = project.variables.find((x) => x.system?.signal === sig && (!eqUid || x.system.eq === eqUid));
     if (!v) {
-      fail(`servoSignals : signal « ${sig} » inconnu ou pas de servo (servoOn, immediateStop, alarmsReset).`);
-      continue;
+      const known = [...new Set(project.variables.filter((x) => x.system && (!eqUid || x.system.eq === eqUid)).map((x) => x.system.signal))];
+      fail(`${what} : signal « ${sig} » inconnu (${known.join(', ') || 'aucun signal'}).`);
+      return;
     }
     const ch = resolveChannel(at, `signal ${sig}`);
     if (ch) v.binding = { eq: ch.eq.uid, group: ch.group.key, channel: ch.channel };
+  };
+  for (const e of eqSpecs) {
+    const eq = eqById.get(e.id);
+    if (eq) for (const [sig, at] of Object.entries(e.signals || {})) bindSignal(eq.uid, sig, at, `équipement « ${e.id} »`);
   }
+  for (const [sig, at] of Object.entries(spec.servoSignals || {})) bindSignal(axes.length === 1 ? axes[0].uid : null, sig, at, 'servoSignals');
 
   const symbols = new Set(project.variables.map((v) => v.symbol));
   const addVar = (raw, extra, what) => {
@@ -423,7 +461,12 @@ export function buildFromSpec(spec, { previous = null } = {}) {
     const actions = [];
     for (const a of asList(s.actions)) {
       try {
-        actions.push(parseAction(a));
+        const act = parseAction(a);
+        if (ACTION_TYPES[act.type]?.servo) {
+          const { axis: ref, ...rest } = act;
+          const uid = resolveAxis(ref, `étape ${num}, action ${act.type}`);
+          actions.push(uid ? { ...rest, axis: uid } : rest);
+        } else actions.push(act);
       } catch (e) {
         fail(`étape ${num} : ${e.message}.`);
       }
@@ -461,16 +504,26 @@ export function buildFromSpec(spec, { previous = null } = {}) {
     logicTrans.push(tr);
   }
   const m = spec.modes || {};
+  // Modes par axe : « axes » { <axe>: bloc } ; « servo » (ancien format) = l'axe unique.
+  const axisBlocks = {};
+  const addAxisBlock = (ref, b, what) => {
+    const uid = resolveAxis(ref, what);
+    if (!uid) return;
+    const block = { ...DEFAULT_AXIS_BLOCK, ...(b || {}) };
+    for (const k of ['jogSpeed', 'torque', 'homingCondition', 'jogMode', 'jogPlus', 'jogMinus']) if (typeof block[k] === 'number') block[k] = String(block[k]);
+    axisBlocks[uid] = block;
+  };
+  if (m.servo && axes.length) addAxisBlock(null, m.servo, 'modes.servo');
+  for (const [ref, b] of Object.entries(m.axes || {})) addAxisBlock(ref, b, `modes.axes « ${ref} »`);
   project.logic = {
     steps: logicSteps,
     transitions: logicTrans,
     blocks: {
       emergency: { ...DEFAULT_BLOCKS.emergency, ...(m.emergency || {}) },
       run: { ...DEFAULT_BLOCKS.run, ...(m.run || {}) },
-      servo: { ...DEFAULT_BLOCKS.servo, ...(m.servo || {}) },
+      axes: Object.fromEntries(axes.filter((a) => axisBlocks[a.uid]).map((a) => [a.uid, axisBlocks[a.uid]])),
     },
   };
-  for (const k of ['jogSpeed', 'torque']) if (typeof project.logic.blocks.servo[k] === 'number') project.logic.blocks.servo[k] = String(project.logic.blocks.servo[k]);
   const positioned = [...logicSteps, ...logicTrans].every((x) => Number.isFinite(x.x) && Number.isFinite(x.y));
   if (!positioned) layoutGrafcet(project.logic);
 
@@ -482,11 +535,14 @@ export function buildFromSpec(spec, { previous = null } = {}) {
       const s = String(r || '').trim();
       if (s === '@etat') return 'sys:state';
       if (s === '@horloge') return 'sys:clock';
-      const sv = /^(?:Servo\.|servo:)(\w+)$/.exec(s);
-      if (sv) {
-        const field = SERVO_REF_ALIASES[sv[1]] || sv[1];
-        if (layout0.nodes.has(`servo:${field}`)) return `servo:${field}`;
-        fail(`${where} : nœud servo « ${s} » inconnu (${Object.keys(SERVO_REF_ALIASES).map((k) => 'Servo.' + k).join(', ')}).`);
+      const sv = /^([A-Za-z_][\w-]*)(\.|:)(\w+)$/.exec(s);
+      if (sv && !bySymbol.has(s)) {
+        const uid = resolveAxis(/^servo$/i.test(sv[1]) && axes.length === 1 ? null : sv[1], where);
+        if (!uid) return null;
+        const aliases = { ...SERVO_REF_ALIASES, ...(axes.find((a) => a.uid === uid).entry.axis?.refAliases || {}) };
+        const field = sv[2] === '.' ? aliases[sv[3]] || sv[3] : sv[3];
+        if (layout0.nodes.has(`axis:${uid}:${field}`)) return `axis:${uid}:${field}`;
+        fail(`${where} : nœud d'axe « ${s} » inconnu (${Object.keys(aliases).map((k) => `${sv[1]}.${k}`).join(', ')}).`);
         return null;
       }
       const v = bySymbol.get(s);
@@ -585,7 +641,7 @@ function orderLike(obj, ref) {
 function defaultWidget(project, layout, ref) {
   if (ref === 'sys:state' || ref === 'sys:clock') return 'rx-label';
   const node = layout.nodes.get(ref);
-  if (ref.startsWith('servo:')) return node?.cppClass === 'BooleanOutputNode' ? 'rx-indicator' : 'rx-numeric';
+  if (ref.startsWith('axis:')) return node?.cppClass === 'BooleanOutputNode' ? 'rx-indicator' : 'rx-numeric';
   const v = ref.startsWith('var:') ? project.variables.find((x) => `var:${x.uid}` === ref) : null;
   if (v?.dataType === 'bool') return v.kind === 'command' ? 'tx-button-hold' : v.kind === 'parameter' ? 'tx-bool' : 'rx-indicator';
   if (v?.dataType === 'text') return v.kind === 'parameter' ? 'tx-string' : 'rx-label';
@@ -600,7 +656,8 @@ export function specFromProject(input) {
   const used = new Set();
   for (const eq of project.equipment) {
     const role = CATALOG[eq.type]?.role;
-    let base = role === 'controller' ? 'plc' : role === 'servo' ? 'servo' : toSymbol(eq.label).toLowerCase();
+    const singleAxis = role === 'axis' && project.equipment.filter((e) => CATALOG[e.type]?.role === 'axis').length === 1;
+    let base = role === 'controller' ? 'plc' : singleAxis ? 'servo' : toSymbol(eq.label).toLowerCase();
     let id = base;
     for (let i = 2; used.has(id); i++) id = `${base}${i}`;
     used.add(id);
@@ -609,7 +666,7 @@ export function specFromProject(input) {
   const channels = listChannels(project);
   const chName = (b) => {
     const ch = channels.find((c) => c.eq.uid === b.eq && c.group.key === b.group && c.channel === b.channel);
-    return ch ? `${idOf.get(b.eq)}.${ch.name === 'GPIO2_1' ? 'GPIO2' : ch.name}` : null;
+    return ch ? `${idOf.get(b.eq)}.${ch.name}` : null;
   };
   const keep = (v, keys) => Object.fromEntries(keys.filter((k) => v[k] !== undefined && v[k] !== '').map((k) => [k, v[k]]));
 
@@ -625,14 +682,16 @@ export function specFromProject(input) {
       const e = { id: idOf.get(eq.uid), type: eq.type, label: eq.label };
       if (CATALOG[eq.type]?.modbus) e.address = eq.address;
       if (eq.options && Object.keys(eq.options).length) e.options = eq.options;
+      const signals = {};
+      for (const v of project.variables.filter((x) => x.system?.eq === eq.uid)) if (v.binding) signals[v.system.signal] = chName(v.binding);
+      if (Object.keys(signals).length) e.signals = signals;
       return e;
     }),
   };
   if (project.otaUrl) spec.otaUrl = project.otaUrl;
   if (project.editorPassword) spec.editorPassword = project.editorPassword;
-  const signals = {};
-  for (const v of project.variables.filter((x) => x.system)) if (v.binding) signals[v.system.signal] = chName(v.binding);
-  if (Object.keys(signals).length) spec.servoSignals = signals;
+  const axes = axisList(project);
+  const axisRef = axes.length > 1 ? (uid) => idOf.get(uid) || uid : () => null;
 
   const extra = (v) => {
     const o = keep(v, ['comment', 'inverse', 'fallback', 'initial', 'min', 'max', 'step', 'unit', 'choices']);
@@ -657,24 +716,29 @@ export function specFromProject(input) {
   spec.grafcet = {
     steps: [...logic.steps]
       .sort((a, b) => a.num - b.num)
-      .map((s) => ({ num: s.num, label: s.label || undefined, initial: s.initial || undefined, actions: (s.actions || []).map(formatAction), x: s.x, y: s.y })),
+      .map((s) => ({ num: s.num, label: s.label || undefined, initial: s.initial || undefined, actions: (s.actions || []).map((a) => formatAction(a, axisRef)), x: s.x, y: s.y })),
     transitions: [...logic.transitions]
       .sort((a, b) => a.num - b.num)
       .map((t) => ({ num: t.num, from: one(t.from.map((id) => numOf.get(id))), to: one(t.to.map((id) => numOf.get(id))), condition: t.condition, x: t.x, y: t.y })),
   };
   const blocks = logic.blocks || {};
   spec.modes = { emergency: { ...DEFAULT_BLOCKS.emergency, ...blocks.emergency }, run: { ...DEFAULT_BLOCKS.run, ...blocks.run } };
-  if (project.equipment.some((e) => CATALOG[e.type]?.role === 'servo')) spec.modes.servo = { ...DEFAULT_BLOCKS.servo, ...blocks.servo };
+  const axisModes = {};
+  for (const a of axes) if (blocks.axes?.[a.uid]) axisModes[idOf.get(a.uid)] = { ...DEFAULT_AXIS_BLOCK, ...blocks.axes[a.uid] };
+  if (Object.keys(axisModes).length) spec.modes.axes = axisModes;
 
   if (project.hmi?.auto === false && project.hmi.pages?.length) {
     const symOf = new Map(project.variables.map((v) => [`var:${v.uid}`, v.symbol]));
-    const aliasOf = Object.fromEntries(Object.entries(SERVO_REF_ALIASES).map(([a, f]) => [f, a]));
     const refName = (ref) => {
       if (ref === 'sys:state') return '@etat';
       if (ref === 'sys:clock') return '@horloge';
-      if (ref.startsWith('servo:')) {
-        const f = ref.slice(6);
-        return aliasOf[f] ? `Servo.${aliasOf[f]}` : `servo:${f}`;
+      const am = /^axis:([^:]+):(\w+)$/.exec(ref);
+      if (am) {
+        const a = axes.find((x) => x.uid === am[1]);
+        const aliases = { ...SERVO_REF_ALIASES, ...(a?.entry.axis?.refAliases || {}) };
+        const aliasOf = Object.fromEntries(Object.entries(aliases).map(([k, f]) => [f, k]));
+        const name = axes.length === 1 ? 'Servo' : idOf.get(am[1]) || am[1];
+        return aliasOf[am[2]] ? `${name}.${aliasOf[am[2]]}` : `${name}:${am[2]}`;
       }
       return symOf.get(ref) || ref;
     };

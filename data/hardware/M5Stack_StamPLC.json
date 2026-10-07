@@ -1,0 +1,37 @@
+{
+    "hardware": "M5Stack_StamPLC",
+
+    "board": {"mcu": "ESP32-S3", "buzzer": {"pin": 44}},
+
+    "I2C": {"SDA": 13, "SCL": 15, "RTC": "RX8130"},
+
+    "RS485": {"rx": 39, "tx": 0, "de": 46, "speed": 115200, "config": "SERIAL_8E1"},
+
+    "Modbus": {"modbusRTU": true, "timeout": 101},
+
+    "EXP_rx-bool": [
+        {"id": 1, "chip": "AW9523", "addr": 89, "pin": 4, "activeLow": false},
+        {"id": 2, "chip": "AW9523", "addr": 89, "pin": 5, "activeLow": false},
+        {"id": 3, "chip": "AW9523", "addr": 89, "pin": 6, "activeLow": false},
+        {"id": 4, "chip": "AW9523", "addr": 89, "pin": 7, "activeLow": false},
+        {"id": 5, "chip": "AW9523", "addr": 89, "pin": 12, "activeLow": false},
+        {"id": 6, "chip": "AW9523", "addr": 89, "pin": 13, "activeLow": false},
+        {"id": 7, "chip": "AW9523", "addr": 89, "pin": 14, "activeLow": false},
+        {"id": 8, "chip": "AW9523", "addr": 89, "pin": 15, "activeLow": false}
+    ],
+
+    "EXP_tx-bool": [
+        {"id": 1, "chip": "AW9523", "addr": 89, "pin": 0, "activeLow": false},
+        {"id": 2, "chip": "AW9523", "addr": 89, "pin": 1, "activeLow": false},
+        {"id": 3, "chip": "AW9523", "addr": 89, "pin": 2, "activeLow": false},
+        {"id": 4, "chip": "AW9523", "addr": 89, "pin": 3, "activeLow": false}
+    ],
+
+    "tx-bool": [
+        {"id": 1, "pin": 4},
+        {"id": 2, "pin": 5},
+        {"id": 3, "pin": 1},
+        {"id": 4, "pin": 2},
+        {"id": 9, "pin": 44}
+    ]
+}

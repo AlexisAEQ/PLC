@@ -1,0 +1,55 @@
+{
+    "hardware": "Kincony_KC868_A16",
+
+    "board": {"mcu": "ESP32", "buzzer": null},
+
+    "I2C": {"SDA": 4, "SCL": 5, "RTC": "none"},
+
+    "RS485": {"rx": 16, "tx": 13, "speed": 115200, "config": "SERIAL_8E1"},
+
+    "Modbus": {"modbusRTU": true, "timeout": 101},
+
+    "EXP_rx-bool": [
+        {"id": 1, "chip": "PCF8574", "addr": 34, "pin": 0, "activeLow": true},
+        {"id": 2, "chip": "PCF8574", "addr": 34, "pin": 1, "activeLow": true},
+        {"id": 3, "chip": "PCF8574", "addr": 34, "pin": 2, "activeLow": true},
+        {"id": 4, "chip": "PCF8574", "addr": 34, "pin": 3, "activeLow": true},
+        {"id": 5, "chip": "PCF8574", "addr": 34, "pin": 4, "activeLow": true},
+        {"id": 6, "chip": "PCF8574", "addr": 34, "pin": 5, "activeLow": true},
+        {"id": 7, "chip": "PCF8574", "addr": 34, "pin": 6, "activeLow": true},
+        {"id": 8, "chip": "PCF8574", "addr": 34, "pin": 7, "activeLow": true},
+        {"id": 9, "chip": "PCF8574", "addr": 33, "pin": 0, "activeLow": true},
+        {"id": 10, "chip": "PCF8574", "addr": 33, "pin": 1, "activeLow": true},
+        {"id": 11, "chip": "PCF8574", "addr": 33, "pin": 2, "activeLow": true},
+        {"id": 12, "chip": "PCF8574", "addr": 33, "pin": 3, "activeLow": true},
+        {"id": 13, "chip": "PCF8574", "addr": 33, "pin": 4, "activeLow": true},
+        {"id": 14, "chip": "PCF8574", "addr": 33, "pin": 5, "activeLow": true},
+        {"id": 15, "chip": "PCF8574", "addr": 33, "pin": 6, "activeLow": true},
+        {"id": 16, "chip": "PCF8574", "addr": 33, "pin": 7, "activeLow": true}
+    ],
+
+    "EXP_tx-bool": [
+        {"id": 1, "chip": "PCF8574", "addr": 36, "pin": 0, "activeLow": true},
+        {"id": 2, "chip": "PCF8574", "addr": 36, "pin": 1, "activeLow": true},
+        {"id": 3, "chip": "PCF8574", "addr": 36, "pin": 2, "activeLow": true},
+        {"id": 4, "chip": "PCF8574", "addr": 36, "pin": 3, "activeLow": true},
+        {"id": 5, "chip": "PCF8574", "addr": 36, "pin": 4, "activeLow": true},
+        {"id": 6, "chip": "PCF8574", "addr": 36, "pin": 5, "activeLow": true},
+        {"id": 7, "chip": "PCF8574", "addr": 36, "pin": 6, "activeLow": true},
+        {"id": 8, "chip": "PCF8574", "addr": 36, "pin": 7, "activeLow": true},
+        {"id": 9, "chip": "PCF8574", "addr": 37, "pin": 0, "activeLow": true},
+        {"id": 10, "chip": "PCF8574", "addr": 37, "pin": 1, "activeLow": true},
+        {"id": 11, "chip": "PCF8574", "addr": 37, "pin": 2, "activeLow": true},
+        {"id": 12, "chip": "PCF8574", "addr": 37, "pin": 3, "activeLow": true},
+        {"id": 13, "chip": "PCF8574", "addr": 37, "pin": 4, "activeLow": true},
+        {"id": 14, "chip": "PCF8574", "addr": 37, "pin": 5, "activeLow": true},
+        {"id": 15, "chip": "PCF8574", "addr": 37, "pin": 6, "activeLow": true},
+        {"id": 16, "chip": "PCF8574", "addr": 37, "pin": 7, "activeLow": true}
+    ],
+
+    "tx-bool": [
+        {"id": 1, "pin": 32},
+        {"id": 2, "pin": 33},
+        {"id": 3, "pin": 14}
+    ]
+}

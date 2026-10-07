@@ -1,13 +1,14 @@
 // Simulateur : exécute le projet comme la classe C++ générée (shared/cpp.js).
 //
 // Même représentation intermédiaire (compileLogic), même ordre de cycle, mêmes modes de
-// marche. Chaque méthode de Simulator correspond à la méthode C++ de même nom. Le servo
-// est remplacé par ServoModel, qui reproduit les états internes de SureServo utiles à la
-// logique (initialisation, déplacement, prise d'origine, jog, arrêt, urgence, réarmement).
+// marche. Chaque méthode de Simulator correspond à la méthode C++ de même nom. Chaque axe
+// est piloté par AxisSim (calqué sur src/AxisController) et son variateur est remplacé par
+// ServoModel, qui reproduit les états internes utiles à la logique (initialisation,
+// déplacement, prise d'origine, jog, arrêt, urgence, réarmement).
 
 import { compileLogic } from './grafcet.js';
 import { evaluate, edgeKey } from './expr.js';
-import { CATALOG } from './catalog.js';
+import { axisList } from './axes.js';
 
 export const MODES = {
   UNDEFINED: 'INDÉFINI',
@@ -25,12 +26,16 @@ const DEFAULTS = { bool: false, int: 0, float: 0, text: '' };
 const MAX_EVOLUTIONS = 16;
 
 // ---------------------------------------------------------------------------
-// Modèle simplifié du SureServo (états calqués sur src/SureServo/SureServo.cpp)
+// Modèle simplifié d'un variateur (états calqués sur src/SureServo/SureServo.cpp, que
+// LichuanServo et StepperMotor reproduisent). speedRate(v) : unités/s pour la vitesse v
+// passée à setMoveSpeed (SureServo : index 0-15, Lichuan : tr/min, pas-à-pas : pas/s).
 export class ServoModel {
-  constructor({ maxRange = 0, initDelay = 800, puuPerSecondPerSpeed = 8000 } = {}) {
+  constructor({ maxRange = 0, initDelay = 800, puuPerSecondPerSpeed = 8000, speedRate = null, jogRate = 20 } = {}) {
     this.maxRange = maxRange;
     this.initDelay = initDelay;
     this.rate = puuPerSecondPerSpeed;
+    this.speedRate = speedRate || ((v) => this.rate * (v + 1));
+    this.jogRate = jogRate;
     this.now = 0;
     this.position = 0;
     this.target = 0;
@@ -107,6 +112,14 @@ export class ServoModel {
   }
   setSpeedAndRamp(speed) {
     this.speedIdx = Math.max(0, Math.min(15, speed));
+  }
+  // Comme ServoDrive::setMoveSpeed (unités natives, bornées par AxisController).
+  setMoveSpeed(speed) {
+    this.speedIdx = speed;
+  }
+  // Comme handleJogging(status) : erreur si le variateur est en alarme.
+  handleJogging() {
+    return this.alarm ? 'SERVO_DRIVE_ERROR' : 'IN_PROGRESS';
   }
   startGoToPosition(pos) {
     if (this.isImmediateStopActive()) return this.fail('Mouvement bloqué - annulation récente');
@@ -204,7 +217,7 @@ export class ServoModel {
     };
     if (this.moveState === 'IN_PROGRESS') {
       if (this.alarm) this.moveState = 'FAILED';
-      else if (stepTowards(this.target, this.rate * (this.speedIdx + 1))) this.moveState = 'IDLE';
+      else if (stepTowards(this.target, this.speedRate(this.speedIdx))) this.moveState = 'IDLE';
     }
     if (this.homingState === 'IN_PROGRESS') {
       if (this.alarm) this.homingState = 'FAILED';
@@ -214,11 +227,276 @@ export class ServoModel {
       }
     }
     if (this.jogDir) {
-      this.position += (this.jogDir * this.jogSpeed * 20 * dt) / 1000;
+      this.position += (this.jogDir * this.jogSpeed * this.jogRate * dt) / 1000;
       if (this.homeDone && this.maxRange > 0 && this.position > this.maxRange) this.position = this.maxRange;
       if (this.homeDone && this.position < 0) this.position = 0;
     }
     this.position = Math.round(this.position);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pilotage d'un axe : copie de src/AxisController/AxisController.cpp (mêmes états, mêmes
+// messages). Les méthodes qui renvoient false / 'FAILED' ont déjà affiché le message.
+const SPEED_MODELS = {
+  sureservo: { speedRate: (v) => 8000 * (v + 1), jogRate: 20 },
+  lichuan: { speedRate: (rpm) => Math.max(1, rpm) * 200, jogRate: 200 / 60 },
+  stepper: { speedRate: (sps) => Math.max(1, sps), jogRate: 1 },
+};
+
+export class AxisSim {
+  constructor(axis, block, sim) {
+    const d = axis.entry.axis || {};
+    const factor = Number(axis.eq.options?.pulsesPerUnit) || Number(axis.eq.options?.stepsPerUnit) || 1;
+    this.uid = axis.uid;
+    this.symbol = axis.symbol;
+    this.label = axis.label;
+    this.block = block || { homing: 'auto', homingOrder: 1 };
+    this.sim = sim;
+    this.cfg = {
+      minPosition: 0,
+      maxPosition: Math.max(0, Math.round((Number(axis.eq.options?.maxRange) || 0) * factor)),
+      minSpeed: d.speedMin ?? 0,
+      maxSpeed: d.speedMax ?? 15,
+      jogMinSpeed: d.jogSpeedMin ?? 1,
+      jogMaxSpeed: d.jogSpeedMax ?? 3000,
+    };
+    this.drive = new ServoModel({ maxRange: this.cfg.maxPosition, ...(SPEED_MODELS[d.kind] || SPEED_MODELS.sureservo) });
+    this.initRequested = false;
+    this.moveActive = false;
+    this.moveDone = false;
+    this.movePending = false;
+    this.pendingTarget = 0;
+    this.pendingSpeed = 0;
+    this.appliedSpeed = -1;
+    this.homingActive = false;
+    this.homingArmed = false;
+    this.homingRunning = false;
+    this.resetRequested = false;
+    this.jogForwardHeld = false;
+    this.jogReverseHeld = false;
+    this.jogBlocked = false;
+    this.lastJogSpeed = -1;
+    this.lastTorque = -1;
+  }
+  report(what, detail) {
+    this.sim.message('error', detail ? `${this.label} : ${what} : ${detail}` : `${this.label} : ${what}`);
+  }
+  // ---- état
+  isReady() {
+    return this.drive.ready;
+  }
+  inPosition() {
+    return this.moveDone;
+  }
+  isMoving() {
+    return this.moveActive || this.movePending || this.homingActive;
+  }
+  homeDone() {
+    return this.drive.homeDone;
+  }
+  hasAlarm() {
+    return this.drive.alarm;
+  }
+  position() {
+    return this.drive.position | 0;
+  }
+  prop(name) {
+    switch (name) {
+      case 'pret':
+        return this.isReady();
+      case 'enPosition':
+        return this.inPosition();
+      case 'enMouvement':
+        return this.isMoving();
+      case 'origineFaite':
+        return this.homeDone();
+      case 'alarme':
+        return this.hasAlarm();
+      case 'position':
+        return this.position();
+    }
+    return false;
+  }
+  // ---- cycle
+  service() {
+    const s = this.drive;
+    if (this.movePending) {
+      if (this.pendingSpeed !== this.appliedSpeed) {
+        s.setMoveSpeed(this.pendingSpeed);
+        this.appliedSpeed = this.pendingSpeed;
+        return true;
+      }
+      if (s.isImmediateStopActive()) return true;
+      this.movePending = false;
+      if (s.startGoToPosition(this.pendingTarget)) this.moveActive = true;
+      else {
+        this.report('déplacement refusé', s.lastError);
+        return false;
+      }
+    }
+    if (this.moveActive) {
+      if (s.moveState === 'IDLE') {
+        this.moveActive = false;
+        this.moveDone = true;
+      } else if (s.moveState !== 'IN_PROGRESS') {
+        this.moveActive = false;
+        this.report('déplacement en échec', s.lastError);
+        return false;
+      }
+    }
+    if (this.homingActive) {
+      const r = s.handleHoming();
+      this.homingRunning = r.ok && r.status === 'IN_PROGRESS';
+      if (!r.ok || (r.status !== 'IN_PROGRESS' && r.status !== 'COMPLETED')) {
+        this.homingActive = false;
+        this.report("prise d'origine en échec", s.lastError);
+        return false;
+      }
+      if (r.status === 'COMPLETED') this.homingActive = false;
+    }
+    return true;
+  }
+  moveTo(target, speed) {
+    target = Math.trunc(target);
+    if (target < this.cfg.minPosition || (this.cfg.maxPosition !== 0 && target > this.cfg.maxPosition)) {
+      this.report('cible hors course', String(target));
+      return false;
+    }
+    speed = Math.max(this.cfg.minSpeed, Math.min(this.cfg.maxSpeed, Math.trunc(speed)));
+    this.moveDone = false;
+    this.movePending = true;
+    this.pendingTarget = target;
+    this.pendingSpeed = speed;
+    return true;
+  }
+  startHoming() {
+    this.moveDone = false;
+    this.homingActive = true;
+  }
+  halt(homingMode = false) {
+    const s = this.drive;
+    if (this.jogForwardHeld || this.jogReverseHeld) s.jogStop();
+    this.jogForwardHeld = this.jogReverseHeld = this.jogBlocked = false;
+    const homing = this.homingRunning && (this.homingActive || this.homingArmed || homingMode);
+    if (this.moveActive || homing) s.stopMovement();
+    if (homing) s.handleHoming(); // consomme l'état interne (voir le C++)
+    this.homingRunning = false;
+    this.movePending = this.moveActive = this.homingActive = this.homingArmed = false;
+    this.moveDone = false;
+  }
+  setTorque(percent) {
+    const t = Math.max(0, Math.min(100, Math.trunc(percent)));
+    if (t !== this.lastTorque) {
+      this.drive.torque = t;
+      this.lastTorque = t;
+    }
+  }
+  // ---- modes
+  initStep() {
+    const s = this.drive;
+    if (!this.initRequested) {
+      if (s.initState === 'IN_PROGRESS') return 'RUNNING'; // relancée par le réarmement
+      if (s.initState === 'IDLE' && s.initialized) return 'DONE';
+    }
+    const r = s.handleInitializing();
+    if (!r.ok) {
+      this.initRequested = false;
+      this.report('initialisation impossible', s.lastError);
+      return 'FAILED';
+    }
+    this.initRequested = true;
+    if (r.status === 'COMPLETED') {
+      this.initRequested = false;
+      this.appliedSpeed = -1;
+      this.lastTorque = -1;
+      return 'DONE';
+    }
+    if (r.status === 'IN_PROGRESS') return 'RUNNING';
+    this.initRequested = false;
+    this.report('initialisation en échec', s.lastError);
+    return 'FAILED';
+  }
+  armHoming() {
+    if (!this.drive.homeDone) this.homingArmed = true;
+  }
+  homingStep() {
+    if (!this.homingArmed) return 'DONE';
+    const r = this.drive.handleHoming();
+    if (!r.ok) {
+      this.homingRunning = this.homingArmed = false;
+      this.report("prise d'origine impossible", this.drive.lastError);
+      return 'FAILED';
+    }
+    this.homingRunning = r.status === 'IN_PROGRESS';
+    if (r.status === 'IN_PROGRESS') return 'RUNNING';
+    this.homingArmed = false;
+    if (r.status === 'COMPLETED') return 'DONE';
+    this.report("prise d'origine en échec", this.drive.lastError);
+    return 'FAILED';
+  }
+  startReset() {
+    if (this.resetRequested) return true;
+    this.resetRequested = this.drive.startReset();
+    return this.resetRequested;
+  }
+  resetStep() {
+    if (!this.resetRequested) return 'DONE';
+    const st = this.drive.resetState;
+    if (st === 'IN_PROGRESS') return 'RUNNING';
+    this.resetRequested = false;
+    if (st === 'IDLE') return 'DONE';
+    this.report('échec du réarmement', this.drive.lastError);
+    return 'FAILED';
+  }
+  needsInitialization() {
+    return !this.drive.initialized || this.drive.initState !== 'IDLE';
+  }
+  jogStep(plus, minus, speed) {
+    const s = this.drive;
+    if (s.handleJogging() === 'SERVO_DRIVE_ERROR') {
+      this.report('défaut pendant le jog', s.lastError);
+      return false;
+    }
+    speed = Math.max(this.cfg.jogMinSpeed, Math.min(this.cfg.jogMaxSpeed, Math.trunc(speed)));
+    if (speed !== this.lastJogSpeed && !this.jogForwardHeld && !this.jogReverseHeld) {
+      s.jogSpeed = speed;
+      this.lastJogSpeed = speed;
+    }
+    if (plus && !minus) {
+      if (this.jogReverseHeld) {
+        s.jogStop();
+        this.jogReverseHeld = false;
+        return true;
+      }
+      if (!this.jogBlocked) {
+        this.jogForwardHeld = s.jog(1);
+        this.jogBlocked = !this.jogForwardHeld;
+      }
+    } else if (minus && !plus) {
+      if (this.jogForwardHeld) {
+        s.jogStop();
+        this.jogForwardHeld = false;
+        return true;
+      }
+      if (!this.jogBlocked) {
+        this.jogReverseHeld = s.jog(-1);
+        this.jogBlocked = !this.jogReverseHeld;
+      }
+    } else {
+      if (this.jogForwardHeld || this.jogReverseHeld) s.jogStop();
+      this.jogForwardHeld = this.jogReverseHeld = false;
+      this.jogBlocked = false;
+    }
+    return true;
+  }
+  onEmergency() {
+    if (this.jogForwardHeld || this.jogReverseHeld) this.drive.jogStop();
+    this.drive.emergencyStop();
+    this.movePending = this.moveActive = this.homingActive = this.homingArmed = this.homingRunning = false;
+    this.jogForwardHeld = this.jogReverseHeld = this.jogBlocked = false;
+    this.initRequested = false;
+    this.resetRequested = false;
   }
 }
 
@@ -231,8 +509,8 @@ export class Simulator {
     this.ir = ir;
     this.issues = issues;
     this.vars = new Map(project.variables.map((v) => [v.symbol, v]));
-    this.servoEq = project.equipment.find((e) => CATALOG[e.type]?.role === 'servo') || null;
-    this.hasServo = !!this.servoEq && ir.servo;
+    this.axisDefs = axisList(project);
+    this.hasServo = this.axisDefs.length > 0; // ancien nom : au moins un axe
     this.drivenSet = new Map(ir.driven.map((d) => [d.sym, d]));
     this.reset();
   }
@@ -262,22 +540,8 @@ export class Simulator {
     this.messages = [];
     this.journal = [];
     this.fired = [];
-    this.maxRangePuu = this.hasServo ? Math.max(0, Math.round((Number(this.servoEq.options?.maxRange) || 0) * (Number(this.servoEq.options?.pulsesPerUnit) || 1))) : 0;
-    this.servo = this.hasServo ? new ServoModel({ maxRange: this.maxRangePuu }) : null;
-    this.servoInitRequested = false;
-    this.servoMoveActive = false;
-    this.servoMoveDone = false;
-    this.servoMovePending = false;
-    this.servoPendingTarget = 0;
-    this.servoPendingSpeed = 0;
-    this.servoAppliedSpeed = -1;
-    this.servoHomingActive = false;
-    this.servoHomingRunning = false;
-    this.jogForwardHeld = false;
-    this.jogReverseHeld = false;
-    this.jogBlocked = false;
-    this.lastJogSpeed = -1;
-    this.lastTorque = -1;
+    this.axes = this.axisDefs.map((a) => new AxisSim(a, (this.ir.axes || []).find((b) => b.uid === a.uid), this));
+    this.axisByUid = new Map(this.axes.map((a) => [a.uid, a]));
     this.go('INITIALIZING');
   }
 
@@ -305,7 +569,7 @@ export class Simulator {
         const i = this.stepIndex(num);
         return this.X[i] ? (this.now - this.Xstart[i]) | 0 : 0;
       },
-      servo: (prop) => this.servoProp(prop),
+      axis: (uid, prop) => this.axisByUid.get(uid)?.prop(prop) ?? (prop === 'position' ? 0 : false),
       cur: (key) => this.S.get(key) || false,
       prev: (key) => this.E.get(key) || false,
     };
@@ -319,27 +583,32 @@ export class Simulator {
     delete env.cur;
     return evaluate(ast, env);
   }
-  servoProp(prop) {
-    const s = this.servo;
-    if (!s) return prop === 'position' ? 0 : false;
-    switch (prop) {
-      case 'pret':
-        return s.ready;
-      case 'enPosition':
-        return this.servoMoveDone;
-      case 'enMouvement':
-        return this.servoIsMoving();
-      case 'origineFaite':
-        return s.homeDone;
-      case 'alarme':
-        return s.alarm;
-      case 'position':
-        return s.position | 0;
+  // Axe par nom (symbole ou libellé, sans casse) ; sans nom : l'axe unique / le premier.
+  axis(name) {
+    if (name === undefined || name === null || name === '' || /^servo$/i.test(String(name))) {
+      const byName = this.axes.find((a) => /^servo$/i.test(a.symbol));
+      return byName || this.axes[0] || null;
     }
-    return false;
+    const n = String(name).toLowerCase();
+    return this.axes.find((a) => a.symbol.toLowerCase() === n || a.label.toLowerCase() === n) || null;
+  }
+  // Premier axe (ancien nom : le servo unique du projet).
+  get servo() {
+    return this.axes[0]?.drive || null;
+  }
+  // Propriété d'un axe ; « Servo » ou rien : l'axe unique (anciens projets).
+  axisProp(name, prop) {
+    const a = this.axis(name);
+    return a ? a.prop(prop) : prop === 'position' ? 0 : false;
+  }
+  servoProp(prop) {
+    return this.axisProp(null, prop);
+  }
+  axesMoving() {
+    return this.axes.some((a) => a.isMoving());
   }
   servoIsMoving() {
-    return this.servoMoveActive || this.servoMovePending || this.servoHomingActive;
+    return this.axesMoving();
   }
 
   log(kind, text) {
@@ -363,17 +632,11 @@ export class Simulator {
 
   onStateEnter(mode, old) {
     if (mode === 'EMERGENCY') {
-      if (this.servo) {
-        if (this.jogForwardHeld || this.jogReverseHeld) this.servo.jogStop();
-        this.servo.emergencyStop();
-      }
-      this.servoMovePending = this.servoMoveActive = this.servoHomingActive = this.servoHomingRunning = false;
-      this.jogForwardHeld = this.jogReverseHeld = this.jogBlocked = false;
-      this.servoInitRequested = false;
+      for (const a of this.axes) a.onEmergency();
       this.emergencyClearSince = 0;
       this.grafcetClear();
     } else if (mode === 'STOP') {
-      if (this.hasServo) this.servoHalt(old === 'HOMING');
+      for (const a of this.axes) a.halt(old === 'HOMING');
       this.grafcetClear();
     }
   }
@@ -382,7 +645,7 @@ export class Simulator {
   scan(dt = this.scanMs) {
     this.now += dt;
     this.fired = [];
-    if (this.servo) this.servo.process(dt);
+    for (const a of this.axes) a.drive.process(dt);
     this.captureEdges();
     const b = this.ir.blocks;
 
@@ -391,9 +654,12 @@ export class Simulator {
       if (this.emergencyCondition()) {
         this.message('error', `Arrêt d'urgence : ${this.project.logic?.blocks?.emergency?.condition || ''}`);
         this.go('EMERGENCY');
-      } else if (this.hasServo && m !== 'RESETTING' && this.servo.alarm) {
-        this.message('error', `Alarme servo 0x${this.servo.alarmCode.toString(16).padStart(4, '0').toUpperCase()}`);
-        this.go('EMERGENCY');
+      } else if (m !== 'RESETTING') {
+        const a = this.axes.find((x) => x.hasAlarm());
+        if (a) {
+          this.message('error', `Alarme ${a.label} 0x${a.drive.alarmCode.toString(16).padStart(4, '0').toUpperCase()}`);
+          this.go('EMERGENCY');
+        }
       }
     }
     if (b.stop && ['IDLE', 'RUNNING', 'HOMING', 'JOGGING'].includes(this.mode) && this.ev(b.stop)) {
@@ -441,39 +707,47 @@ export class Simulator {
   }
 
   handleInitializing() {
-    if (!this.hasServo) return this.go('STOP');
-    const s = this.servo;
-    if (!this.servoInitRequested) {
-      if (s.initState === 'IN_PROGRESS') return; // relancée par le réarmement
-      if (s.initState === 'IDLE' && s.initialized) return this.go('STOP');
+    if (!this.axes.length) return this.go('STOP');
+    // Tous les variateurs s'initialisent en parallèle ; ARRÊT quand ils ont tous fini.
+    let done = true;
+    let failed = false;
+    for (const a of this.axes) {
+      const p = a.initStep();
+      if (p === 'RUNNING') done = false;
+      else if (p === 'FAILED') failed = true;
     }
-    const r = s.handleInitializing();
-    if (!r.ok) {
-      this.servoInitRequested = false;
-      return this.go('EMERGENCY');
-    }
-    this.servoInitRequested = true;
-    if (r.status === 'COMPLETED') {
-      this.servoInitRequested = false;
-      this.servoAppliedSpeed = -1;
-      this.lastTorque = -1;
-      this.go('STOP');
-    } else if (r.status !== 'IN_PROGRESS') {
-      this.servoInitRequested = false;
-      this.message('error', 'Initialisation du servo en échec');
-      this.go('EMERGENCY');
-    }
+    if (failed) return this.go('EMERGENCY');
+    if (done) this.go('STOP');
+  }
+
+  homingAxes() {
+    return this.axes.filter((a) => a.block.homing !== 'none');
+  }
+  jogAxes() {
+    return this.axes.filter((a) => a.block.jog);
+  }
+  jogModeActive() {
+    return this.jogAxes().some((a) => this.ev(a.block.jog.mode));
+  }
+  homingNeeded() {
+    return this.homingAxes().some((a) => !a.homeDone());
   }
 
   handleStop() {
     const b = this.ir.blocks;
     if (b.stop && this.ev(b.stop)) return;
-    const jog = this.hasServo && b.servo?.jog;
-    if (jog && this.ev(jog.mode)) return this.go('JOGGING');
+    if (this.jogAxes().length && this.jogModeActive()) return this.go('JOGGING');
     if (!(b.start ? this.ev(b.start) : true)) return;
-    if (this.hasServo && b.servo.homing !== 'none' && !this.servo.homeDone) {
-      const trigger = b.servo.homing === 'condition' ? this.ev(b.servo.homingCondition) : true;
-      if (trigger) this.go('HOMING');
+    if (this.homingNeeded()) {
+      let armed = false;
+      for (const a of this.homingAxes()) {
+        const trigger = a.block.homing === 'condition' ? this.ev(a.block.homingCondition) : true;
+        if (!a.homeDone() && trigger) {
+          a.armHoming();
+          armed = true;
+        }
+      }
+      if (armed) this.go('HOMING');
       return;
     }
     this.grafcetReset();
@@ -481,29 +755,24 @@ export class Simulator {
   }
 
   handleHoming() {
-    if (!this.hasServo) return this.go('STOP');
-    const r = this.servo.handleHoming();
-    if (!r.ok) {
-      this.servoHomingRunning = false;
-      return this.go('EMERGENCY');
+    const axes = this.homingAxes();
+    if (!axes.length) return this.go('STOP');
+    // Prises d'origine par ordre croissant ; les axes d'un même ordre en parallèle.
+    const orders = [...new Set(axes.map((a) => a.block.homingOrder || 1))].sort((x, y) => x - y);
+    for (const order of orders) {
+      const results = axes.filter((a) => (a.block.homingOrder || 1) === order).map((a) => a.homingStep());
+      if (results.includes('FAILED')) return this.go('EMERGENCY');
+      if (results.some((r) => r !== 'DONE')) return;
     }
-    this.servoHomingRunning = r.status === 'IN_PROGRESS';
-    if (r.status === 'COMPLETED') {
-      this.message('success', "Prise d'origine terminée");
-      this.grafcetReset();
-      this.go('IDLE');
-    } else if (r.status !== 'IN_PROGRESS') {
-      this.go('EMERGENCY');
-    }
+    this.message('success', "Prise d'origine terminée");
+    if (this.homingNeeded()) return this.go('STOP'); // axe à condition non déclenchée
+    this.grafcetReset();
+    this.go('IDLE');
   }
 
   handleRun() {
-    const jog = this.hasServo && this.ir.blocks.servo?.jog;
-    if (jog && this.ev(jog.mode) && this.grafcetInInitialSituation() && !this.servoIsMoving()) return this.go('JOGGING');
-    if (this.hasServo) {
-      this.servoService();
-      if (this.mode === 'EMERGENCY') return;
-    }
+    if (this.jogAxes().length && this.jogModeActive() && this.grafcetInInitialSituation() && !this.axesMoving()) return this.go('JOGGING');
+    if (this.axes.length && !this.axesService()) return this.go('EMERGENCY');
     this.grafcetActivationActions();
     if (this.mode === 'EMERGENCY') return;
     for (let iter = 0; iter < MAX_EVOLUTIONS; iter++) {
@@ -517,51 +786,20 @@ export class Simulator {
       }
     }
     this.Xnew.fill(false);
-    this.go(this.grafcetInInitialSituation() && !this.servoIsMoving() ? 'IDLE' : 'RUNNING');
+    this.go(this.grafcetInInitialSituation() && !this.axesMoving() ? 'IDLE' : 'RUNNING');
   }
 
   handleJogging() {
-    const jog = this.hasServo && this.ir.blocks.servo?.jog;
-    if (!jog) return this.go('STOP');
-    const s = this.servo;
-    if (s.alarm) {
-      this.message('error', 'Alarme détectée en JOG');
-      return this.go('EMERGENCY');
+    const axes = this.jogAxes();
+    if (!axes.length) return this.go('STOP');
+    let anyMode = false;
+    for (const a of axes) {
+      const j = a.block.jog;
+      const mode = !!this.ev(j.mode);
+      anyMode = anyMode || mode;
+      if (!a.jogStep(mode && !!this.ev(j.plus), mode && !!this.ev(j.minus), this.ev(j.speed))) return this.go('EMERGENCY');
     }
-    if (!this.ev(jog.mode)) return this.go('STOP');
-    let speed = Math.trunc(this.ev(jog.speed));
-    speed = Math.max(1, Math.min(3000, speed));
-    if (speed !== this.lastJogSpeed && !this.jogForwardHeld && !this.jogReverseHeld) {
-      s.jogSpeed = speed;
-      this.lastJogSpeed = speed;
-    }
-    const plus = this.ev(jog.plus);
-    const minus = this.ev(jog.minus);
-    if (plus && !minus) {
-      if (this.jogReverseHeld) {
-        s.jogStop();
-        this.jogReverseHeld = false;
-        return;
-      }
-      if (!this.jogBlocked) {
-        this.jogForwardHeld = s.jog(1);
-        this.jogBlocked = !this.jogForwardHeld;
-      }
-    } else if (minus && !plus) {
-      if (this.jogForwardHeld) {
-        s.jogStop();
-        this.jogForwardHeld = false;
-        return;
-      }
-      if (!this.jogBlocked) {
-        this.jogReverseHeld = s.jog(-1);
-        this.jogBlocked = !this.jogReverseHeld;
-      }
-    } else {
-      if (this.jogForwardHeld || this.jogReverseHeld) s.jogStop();
-      this.jogForwardHeld = this.jogReverseHeld = false;
-      this.jogBlocked = false;
-    }
+    if (!anyMode) this.go('STOP'); // le jog est arrêté en entrant dans ARRÊT
   }
 
   handleEmergency() {
@@ -574,9 +812,11 @@ export class Simulator {
     if (reset) {
       if (!this.ev(reset)) return;
     } else if (this.now - this.emergencyClearSince < 1000) return;
-    if (this.hasServo) {
-      if (this.servo.startReset()) {
-        this.message('info', 'Réarmement du servo…');
+    if (this.axes.length) {
+      let started = true;
+      for (const a of this.axes) started = a.startReset() && started;
+      if (started) {
+        this.message('info', this.axes.length === 1 ? `Réarmement de ${this.axes[0].label}…` : 'Réarmement des axes…');
         this.go('RESETTING');
       }
     } else {
@@ -586,93 +826,25 @@ export class Simulator {
   }
 
   handleResetting() {
-    if (!this.hasServo) return this.go('STOP');
-    const s = this.servo;
-    if (s.resetState === 'IN_PROGRESS') return;
-    if (s.resetState === 'IDLE') {
-      this.message('success', "Arrêt d'urgence acquitté");
-      this.go(s.initialized && s.initState === 'IDLE' ? 'STOP' : 'INITIALIZING');
-      return;
+    if (!this.axes.length) return this.go('STOP');
+    let done = true;
+    for (const a of this.axes) {
+      const p = a.resetStep();
+      if (p === 'RUNNING') done = false;
+      else if (p === 'FAILED') return this.go('EMERGENCY');
     }
-    this.message('error', 'Échec du réarmement du servo');
-    this.go('EMERGENCY');
+    if (!done) return;
+    this.message('success', "Arrêt d'urgence acquitté");
+    this.go(this.axes.some((a) => a.needsInitialization()) ? 'INITIALIZING' : 'STOP');
   }
 
-  // ---- servo
-  servoService() {
-    const s = this.servo;
-    const sv = this.ir.blocks.servo;
-    if (sv?.torque) {
-      const t = Math.max(0, Math.min(100, Math.trunc(this.ev(sv.torque))));
-      if (t !== this.lastTorque) {
-        s.torque = t;
-        this.lastTorque = t;
-      }
+  // ---- axes : déplacements et prises d'origine du grafcet, couple maximal
+  axesService() {
+    for (const a of this.axes) {
+      if (a.block.torque) a.setTorque(this.ev(a.block.torque));
+      if (!a.service()) return false;
     }
-    if (this.servoMovePending) {
-      if (this.servoPendingSpeed !== this.servoAppliedSpeed) {
-        s.setSpeedAndRamp(this.servoPendingSpeed);
-        this.servoAppliedSpeed = this.servoPendingSpeed;
-        return;
-      }
-      if (s.isImmediateStopActive()) return;
-      this.servoMovePending = false;
-      if (s.startGoToPosition(this.servoPendingTarget)) this.servoMoveActive = true;
-      else {
-        this.message('error', `Déplacement servo refusé : ${s.lastError}`);
-        this.go('EMERGENCY');
-        return;
-      }
-    }
-    if (this.servoMoveActive) {
-      if (s.moveState === 'IDLE') {
-        this.servoMoveActive = false;
-        this.servoMoveDone = true;
-      } else if (s.moveState !== 'IN_PROGRESS') {
-        this.message('error', `Déplacement servo en échec : ${s.lastError}`);
-        this.servoMoveActive = false;
-        this.go('EMERGENCY');
-        return;
-      }
-    }
-    if (this.servoHomingActive) {
-      const r = s.handleHoming();
-      this.servoHomingRunning = r.ok && r.status === 'IN_PROGRESS';
-      if (!r.ok || (r.status !== 'IN_PROGRESS' && r.status !== 'COMPLETED')) {
-        this.servoHomingActive = false;
-        this.go('EMERGENCY');
-        return;
-      }
-      if (r.status === 'COMPLETED') this.servoHomingActive = false;
-    }
-  }
-  servoMoveTo(target, speed) {
-    target = Math.trunc(target);
-    if (target < 0 || (this.maxRangePuu && target > this.maxRangePuu)) {
-      this.message('error', `Cible servo hors course : ${target}`);
-      this.go('EMERGENCY');
-      return;
-    }
-    this.servoMoveDone = false;
-    this.servoMovePending = true;
-    this.servoPendingTarget = target;
-    this.servoPendingSpeed = Math.max(0, Math.min(15, Math.trunc(speed)));
-  }
-  servoStartHoming() {
-    this.servoMoveDone = false;
-    this.servoHomingActive = true;
-  }
-  servoHalt(homingMode = false) {
-    const s = this.servo;
-    if (!s) return;
-    if (this.jogForwardHeld || this.jogReverseHeld) s.jogStop();
-    this.jogForwardHeld = this.jogReverseHeld = this.jogBlocked = false;
-    const homing = this.servoHomingRunning && (this.servoHomingActive || homingMode);
-    if (this.servoMoveActive || homing) s.stopMovement();
-    if (homing) s.handleHoming(); // consomme l'état interne (voir le C++)
-    this.servoHomingRunning = false;
-    this.servoMovePending = this.servoMoveActive = this.servoHomingActive = false;
-    this.servoMoveDone = false;
+    return true;
   }
 
   // ---- grafcet
@@ -716,13 +888,14 @@ export class Simulator {
             if (!this.drivenSet.has(a.target)) this.set(a.target, this.get(a.target) - 1);
             break;
           case 'SERVO_MOVE':
-            this.servoMoveTo(this.ev(a.position), this.ev(a.speed));
+            // Cible hors course : message affiché par l'axe, passage en URGENCE.
+            if (!this.axisByUid.get(a.axis).moveTo(this.ev(a.position), this.ev(a.speed))) this.go('EMERGENCY');
             break;
           case 'SERVO_HOME':
-            this.servoStartHoming();
+            this.axisByUid.get(a.axis).startHoming();
             break;
           case 'SERVO_STOP':
-            this.servoHalt();
+            this.axisByUid.get(a.axis).halt();
             break;
           case 'MSG':
             this.message(a.level, a.text);

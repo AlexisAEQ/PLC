@@ -1,8 +1,8 @@
 // Génération de la classe C++ d'application (dérivée de BusinessLogic).
 
-import { toCpp, SERVO_PROPS } from './expr.js';
-import { CATALOG } from './catalog.js';
+import { toCpp, AXIS_PROPS } from './expr.js';
 import { paramsFileName } from './model.js';
+import { axisList } from './axes.js';
 
 const CPP_TYPE = { bool: 'bool', int: 'int32_t', float: 'float', text: 'const char*' };
 const DEFAULT_VALUE = { bool: 'false', int: '0', float: '0.0f', text: '""' };
@@ -104,6 +104,69 @@ function variableAccess(project, layout) {
 }
 
 // ---------------------------------------------------------------------------
+// Axes : réglages, câblage des signaux et création du drive (un cas par type d'axe).
+
+// Unités par unité de course (impulsions ou pas) : option pulsesPerUnit ou stepsPerUnit.
+function unitsFactor(eq) {
+  return Number(eq.options?.pulsesPerUnit) || Number(eq.options?.stepsPerUnit) || 1;
+}
+
+// Butées et bornes de vitesse de l'AxisController.
+function axisConfig(a) {
+  const d = a.def;
+  // Course maximale en unités natives = course (unités) x impulsions par unité ; 0 = pas de butée haute.
+  const maxPosition = Math.max(0, Math.round((Number(a.eq.options?.maxRange) || 0) * unitsFactor(a.eq)));
+  return {
+    minPosition: 0,
+    maxPosition,
+    minSpeed: d.speedMin ?? 0,
+    maxSpeed: d.speedMax ?? 15,
+    jogMinSpeed: d.jogSpeedMin ?? 1,
+    jogMaxSpeed: d.jogSpeedMax ?? 3000,
+    jogReverseStopsAtZero: 'true',
+  };
+}
+
+// Signal TOR de l'axe (servo ON, step, dir...) : nœud de la sortie câblée.
+function axisSignalAssign(a, v) {
+  const sig = (a.entry.signals || []).find((x) => x.key === v.system.signal) || {};
+  const target = `axNodes_${a.symbol}.${v.system.field}`;
+  if (sig.cppType && sig.cppType !== 'BooleanOutputNode') {
+    // Sortie directe de l'ESP32 exigée (impulsions d'un pas-à-pas) : contrôle du type réel du nœud.
+    return [`    ${target} = (n_${v.symbol} && n_${v.symbol}->classType() == ${sig.classId}) ? static_cast<${sig.cppType}*>(n_${v.symbol}) : nullptr;`];
+  }
+  return [`    ${target} = n_${v.symbol};`];
+}
+
+function axisCreate(a, N) {
+  const o = a.eq.options || {};
+  const s = a.symbol;
+  const lines = [`    if (BorneUniverselle::getInstance()->isPlcBroken()) return false;`];
+  const broken = (what) => `BorneUniverselle::setPlcBroken(${cstr(`${N}: ${what}`)});`;
+  switch (a.def.kind) {
+    case 'sureservo':
+      lines.push(
+        `    if (!axNodes_${s}.validateRequired()) { ${broken(`nœuds obligatoires de l'axe « ${a.label} » manquants`)} return false; }`,
+        `    axDrive_${s}.reset(new SureServo(${Number(o.pulsesPerUnit) || 1}, axNodes_${s}, HomePositionPolicy::${o.homePolicy === 'NEGATIVE_TOLERATED' ? 'NEGATIVE_TOLERATED' : 'NEGATIVE_INVALIDATES_HOME'}, ${cppLiteral(Math.max(0, Number(o.maxRange) || 0), 'float')}, ${cstr(a.label)}${o.invertJog === false ? ', false' : ''}));`,
+        `    {`,
+        `        const char* err = axDrive_${s}->getLastError();`,
+        `        if (err && strlen(err) > 0 && strcmp(err, "Pas d'erreur") != 0) {`,
+        `            char msg[160];`,
+        `            snprintf(msg, sizeof(msg), ${cstr(`${N}: création de l'axe « ${a.label} » impossible : %s`)}, err);`,
+        `            BorneUniverselle::setPlcBroken(msg);`,
+        `            return false;`,
+        `        }`,
+        `    }`
+      );
+      break;
+    default:
+      throw new Error(`Type d'axe non géré par le générateur : ${a.eq.type}`);
+  }
+  lines.push(`    ${`ax_${s}`}.attach(axDrive_${s}.get());`);
+  return lines;
+}
+
+// ---------------------------------------------------------------------------
 // Texte sûr dans un commentaire C++ d'une ligne (pas de saut de ligne ni de « \ » final).
 const comment = (s) => String(s ?? '').replace(/[\\\r\n]+/g, ' ').replace(/\*\//g, '* /').slice(0, 120);
 
@@ -111,10 +174,14 @@ const MAX_EVOLUTIONS = 16;
 
 export function generateCpp(project, layout, ir) {
   const N = project.name;
-  const servoEq = project.equipment.find((e) => CATALOG[e.type]?.role === 'servo');
-  const hasServo = !!servoEq && ir.servo;
-  // Course maximale en impulsions (PUU) = course (unités) x impulsions par unité.
-  const maxRangePuu = hasServo ? Math.max(0, Math.round((Number(servoEq.options?.maxRange) || 0) * (Number(servoEq.options?.pulsesPerUnit) || 1))) : 0;
+  // Axes (SureServo, Lichuan, pas-à-pas) : un AxisController par équipement.
+  const axes = axisList(project).map((a) => ({ ...a, block: (ir.axes || []).find((b) => b.uid === a.uid) || { homing: 'auto', homingOrder: 1 }, def: a.entry.axis || {} }));
+  const hasAxes = axes.length > 0;
+  const axisOf = new Map(axes.map((a) => [a.uid, a]));
+  const ax = (a) => `ax_${a.symbol}`;
+  const homingAxes = axes.filter((a) => a.block.homing !== 'none');
+  const jogAxes = axes.filter((a) => a.block.jog);
+  const sureServos = axes.filter((a) => a.def.kind === 'sureservo');
   const { access, banks } = variableAccess(project, layout);
   const stepIndex = new Map(ir.steps.map((s, i) => [s.num, i]));
   const edgeIndex = new Map(ir.edges.map((e, i) => [e.key, i]));
@@ -132,7 +199,7 @@ export function generateCpp(project, layout, ir) {
     var: (sym) => `v_${sym}()`,
     step: (num) => `X[${stepIndex.get(num)}]`,
     stepTime: (num) => `stepTime(${stepIndex.get(num)})`,
-    servo: (prop) => SERVO_PROPS[prop].cpp,
+    axis: (uid, prop) => `${ax(axisOf.get(uid))}.${AXIS_PROPS[prop].cpp}`,
   };
   // Les fronts comparent la valeur capturée en début de cycle (S) à celle du cycle précédent (E).
   const names = { ...baseNames, cur: (key) => `S[${edgeIndex.get(key)}]`, prev: (key) => `E[${edgeIndex.get(key)}]` };
@@ -160,7 +227,8 @@ export function generateCpp(project, layout, ir) {
     `#include "PLC_Tools/PLC_Tools.h"`,
     `#include "BusinessLogic/BusinessLogic.inl"`
   );
-  if (hasServo) H.push(`#include "SureServo/SureServo.h"`);
+  if (hasAxes) H.push(`#include "AxisController/AxisController.h"`);
+  for (const inc of new Set(axes.map((a) => a.def.include))) H.push(`#include "${inc}"`);
   H.push(``, `// Identifiants des nœuds (CRC-32 de "<id><section>", voir data/config.json).`, `namespace ${N}Nodes {`);
   for (const [sym, acc] of access) {
     if (!acc.hashName) continue;
@@ -170,9 +238,9 @@ export function generateCpp(project, layout, ir) {
   for (const m of mirrors) H.push(`    constexpr uint32_t H_MIRROR_${m.variable.symbol} = ${m.node.hash}u;  // ${comment(m.node.section)} / id ${m.node.id}`);
   if (stateNode) H.push(`    constexpr uint32_t H_SYS_STATE = ${stateNode.hash}u;`);
   if (clockNode) H.push(`    constexpr uint32_t H_SYS_CLOCK = ${clockNode.hash}u;`);
-  if (hasServo) {
+  for (const a of axes) {
     for (const [ref, node] of layout.nodes) {
-      if (ref.startsWith('servo:')) H.push(`    constexpr uint32_t H_SERVO_${ident(node.field)} = ${node.hash}u;  // ${comment(node.section)} / id ${node.id}`);
+      if (ref.startsWith(`axis:${a.uid}:`)) H.push(`    constexpr uint32_t H_AX_${a.symbol}_${ident(node.field)} = ${node.hash}u;  // ${comment(node.section)} / id ${node.id}`);
     }
   }
   H.push(`}`, ``);
@@ -206,8 +274,8 @@ export function generateCpp(project, layout, ir) {
     `    bool startStateMachine();`,
     `    void printPersistance();`,
     `#ifdef PERF_MONITOR`,
-    hasServo ? `    bool isPmActive() const { return sureServo && sureServo->isPmActive(); }` : `    bool isPmActive() const { return false; }`,
-    hasServo ? `    void pmAccumulateRefresh(uint32_t ms) { if (sureServo) sureServo->pmAccumulateRefresh(ms); }` : `    void pmAccumulateRefresh(uint32_t) {}`,
+    sureServos.length ? `    bool isPmActive() const { return ${sureServos.map((a) => `(axDrive_${a.symbol} && axDrive_${a.symbol}->isPmActive())`).join(' || ')}; }` : `    bool isPmActive() const { return false; }`,
+    sureServos.length ? `    void pmAccumulateRefresh(uint32_t ms) { ${sureServos.map((a) => `if (axDrive_${a.symbol}) axDrive_${a.symbol}->pmAccumulateRefresh(ms);`).join(' ')} }` : `    void pmAccumulateRefresh(uint32_t) {}`,
     `#endif`,
     ``,
     `    // BusinessLogic`,
@@ -252,26 +320,19 @@ export function generateCpp(project, layout, ir) {
     `    bool initialised = false;`
   );
   for (const d of ir.driven) if (d.latch) H.push(`    bool latch_${d.sym} = false;`);
-  if (hasServo) {
+  for (const a of axes) {
+    const c = axisConfig(a);
     H.push(
       ``,
-      `    // ---- Servo`,
-      `    std::unique_ptr<SureServo> sureServo;`,
-      `    ServoNodes servoNodes;`,
-      `    bool servoInitRequested = false; // initialisation lancée par cette classe`,
-      `    bool servoMoveActive = false;    // déplacement lancé, en attente de fin`,
-      `    bool servoMoveDone = false;      // dernier déplacement terminé (Servo.enPosition)`,
-      `    bool servoMovePending = false;   // déplacement demandé, pas encore lancé`,
-      `    int32_t servoPendingTarget = 0;`,
-      `    int servoPendingSpeed = 0;`,
-      `    int servoAppliedSpeed = -1;`,
-      `    bool servoHomingActive = false;  // prise d'origine demandée par le grafcet`,
-      `    bool servoHomingRunning = false; // handleHoming() a démarré une prise d'origine`,
-      `    bool jogForwardHeld = false;`,
-      `    bool jogReverseHeld = false;`,
-      `    bool jogBlocked = false;         // butée atteinte : attendre le relâchement`,
-      `    int lastJogSpeed = -1;`,
-      `    int lastTorque = -1;`
+      `    // ---- Axe « ${comment(a.label)} » (${comment(a.entry.label)}${a.entry.modbus ? `, adresse Modbus ${Number(a.eq.address)}` : ''})`,
+      `    ${a.def.nodesStruct} axNodes_${a.symbol};`,
+      `    std::unique_ptr<${a.def.cppClass}> axDrive_${a.symbol};`,
+      `    static AxisController::Config axConfig_${a.symbol}() {`,
+      `        AxisController::Config c;`,
+      ...Object.entries(c).map(([k, v]) => `        c.${k} = ${v};`),
+      `        return c;`,
+      `    }`,
+      `    AxisController ${ax(a)}{${cstr(a.label)}, axConfig_${a.symbol}()};`
     );
   }
   H.push(``, `    // ---- Paramètres sauvegardés dans ${'/' + paramsFileName(project)}`);
@@ -329,24 +390,13 @@ export function generateCpp(project, layout, ir) {
     `    void checkParams();`,
     `    void applyParamsToNodes();`
   );
-  if (hasServo) {
+  if (hasAxes) {
     H.push(
-      `    bool createServo(const char* context);`,
-      `    void servoService();`,
-      `    void servoMoveTo(int32_t target, int32_t speed);`,
-      `    void servoStartHoming();`,
-      `    void servoHalt(bool homingMode = false);`,
-      `    bool servoIsReady() const { return sureServo && sureServo->getIsReady(); }`,
-      `    bool servoInPosition() const { return servoMoveDone; }`,
-      `    bool servoIsMoving() const { return servoMoveActive || servoMovePending || servoHomingActive; }`,
-      `    bool servoHomeDone() const { return sureServo && sureServo->getHomeDone(); }`,
-      `    bool servoHasAlarm() const { return sureServo && sureServo->getHasAlarms(); }`,
-      `    // Position lue sur le variateur (getPosition() renvoie la cible pendant un mouvement et écrit sur Serial).`,
-      `    int32_t servoPosition() const { return servoNodes.position ? servoNodes.position->getValueAsInt32() : 0; }`
+      `    bool createAxes(const char* context);`,
+      `    bool axesService();                 // déplacements et prises d'origine du grafcet ; false : défaut`
     );
-  } else {
-    H.push(`    bool servoIsMoving() const { return false; }`);
   }
+  H.push(`    bool axesMoving() const { return ${hasAxes ? axes.map((a) => `${ax(a)}.isMoving()`).join(' || ') : 'false'}; }`);
   H.push(`};`, ``);
 
   // ---------------- Implémentation ----------------
@@ -383,37 +433,23 @@ export function generateCpp(project, layout, ir) {
   if (stateNode) L(`    initNodePtr(sysStateNode, ${N}Nodes::H_SYS_STATE, context);`);
   if (clockNode) L(`    initNodePtr(sysClockNode, ${N}Nodes::H_SYS_CLOCK, context);`, `    ClockDisplay::attach(sysClockNode);`);
   L(`    if (BorneUniverselle::getInstance()->isPlcBroken()) {`, `        Serial.println("${N}: erreur pendant l'initialisation des pointeurs");`, `        return false;`, `    }`);
-  if (hasServo) L(`    if (!createServo(context)) return false;`);
+  if (hasAxes) L(`    if (!createAxes(context)) return false;`);
   L(`    applyParamsToNodes();`, `    return true;`, `}`, ``);
 
-  if (hasServo) {
-    const opts = servoEq.options || {};
-    L(`bool ${N}::createServo(const char* context) {`);
-    for (const [ref, node] of layout.nodes) {
-      if (!ref.startsWith('servo:')) continue;
-      L(`    initNodePtr(servoNodes.${node.field}, ${N}Nodes::H_SERVO_${ident(node.field)}, context);`);
+  if (hasAxes) {
+    L(`bool ${N}::createAxes(const char* context) {`);
+    for (const a of axes) {
+      L(`    // Axe « ${comment(a.label)} »`);
+      for (const [ref, node] of layout.nodes) {
+        if (!ref.startsWith(`axis:${a.uid}:`)) continue;
+        L(`    initNodePtr(axNodes_${a.symbol}.${node.field}, ${N}Nodes::H_AX_${a.symbol}_${ident(node.field)}, context);`);
+      }
+      for (const v of project.variables.filter((x) => x.system?.eq === a.uid)) {
+        L(...axisSignalAssign(a, v));
+      }
+      L(...axisCreate(a, N));
     }
-    for (const v of project.variables.filter((x) => x.system?.eq === servoEq.uid)) {
-      L(`    servoNodes.${v.system.field} = n_${v.symbol};`);
-    }
-    L(
-      `    if (BorneUniverselle::getInstance()->isPlcBroken()) return false;`,
-      `    if (!servoNodes.validateRequired()) {`,
-      `        BorneUniverselle::setPlcBroken("${N}: nœuds obligatoires du servo manquants");`,
-      `        return false;`,
-      `    }`,
-      `    sureServo = std::unique_ptr<SureServo>(new SureServo(${Number(opts.pulsesPerUnit) || 1}, servoNodes, HomePositionPolicy::${opts.homePolicy === 'NEGATIVE_TOLERATED' ? 'NEGATIVE_TOLERATED' : 'NEGATIVE_INVALIDATES_HOME'}, ${cppLiteral(Math.max(0, Number(opts.maxRange) || 0), 'float')}));`,
-      `    const char* err = sureServo->getLastError();`,
-      `    if (err && strlen(err) > 0 && strcmp(err, "Pas d'erreur") != 0) {`,
-      `        char msg[160];`,
-      `        snprintf(msg, sizeof(msg), "${N}: création du servo impossible : %s", err);`,
-      `        BorneUniverselle::setPlcBroken(msg);`,
-      `        return false;`,
-      `    }`,
-      `    return true;`,
-      `}`,
-      ``
-    );
+    L(`    return true;`, `}`, ``);
   }
 
   L(
@@ -436,7 +472,7 @@ export function generateCpp(project, layout, ir) {
   L(
     `bool ${N}::doBusinessLogic() {`,
     `    now = millis();`,
-    hasServo ? `    if (sureServo) sureServo->process();` : null,
+    ...axes.map((a) => `    ${ax(a)}.process();`),
     `    if (BorneUniverselle::getInstance()->isPlcBroken()) return false;`,
     `    captureEdges();`,
     ``,
@@ -450,13 +486,15 @@ export function generateCpp(project, layout, ir) {
     `            PLC_Tools::logDiagnostic(reason);`,
     `            go(State::EMERGENCY);`,
     `        }`,
-    hasServo ? `        else if (s != State::RESETTING && servoHasAlarm()) {` : null,
-    hasServo ? `            char reason[160];` : null,
-    hasServo ? `            snprintf(reason, sizeof(reason), "Alarme servo 0x%04X : %s", sureServo->getAlarmCode(), sureServo->getAlarmDescription());` : null,
-    hasServo ? `            BorneUniverselle::prepareMessage(ERROR, reason);` : null,
-    hasServo ? `            PLC_Tools::logDiagnostic(reason);` : null,
-    hasServo ? `            go(State::EMERGENCY);` : null,
-    hasServo ? `        }` : null,
+    ...axes.flatMap((a) => [
+      `        else if (s != State::RESETTING && ${ax(a)}.hasAlarm()) {`,
+      `            char reason[160];`,
+      `            snprintf(reason, sizeof(reason), "Alarme ${cstr(a.label).slice(1, -1)} 0x%04X : %s", ${ax(a)}.alarmCode(), ${ax(a)}.alarmText());`,
+      `            BorneUniverselle::prepareMessage(ERROR, reason);`,
+      `            PLC_Tools::logDiagnostic(reason);`,
+      `            go(State::EMERGENCY);`,
+      `        }`,
+    ]),
     `    }`
   );
   if (ir.blocks.stop) {
@@ -497,33 +535,13 @@ export function generateCpp(project, layout, ir) {
 
   // Modes
   L(`void ${N}::handleInitializing() {`);
-  if (hasServo) {
-    L(
-      `    if (!servoInitRequested) {`,
-      `        ServoDrive::OperationState is = sureServo->getInitializeState();`,
-      `        // Après un réarmement, SureServo relance lui-même l'initialisation : on attend sa fin.`,
-      `        if (is == ServoDrive::OperationState::DRIVE_IN_PROGRESS) return;`,
-      `        if (is == ServoDrive::OperationState::DRIVE_IDLE && sureServo->getIsInitialized()) { go(State::STOP); return; }`,
-      `    }`,
-      `    ServoDrive::OperationStatus st;`,
-      `    if (!sureServo->handleInitializing(st)) { servoInitRequested = false; go(State::EMERGENCY); return; }`,
-      `    servoInitRequested = true;`,
-      `    switch (st) {`,
-      `        case ServoDrive::OperationStatus::COMPLETED:`,
-      `            servoInitRequested = false;`,
-      `            servoAppliedSpeed = -1;`,
-      `            lastTorque = -1;`,
-      `            go(State::STOP);`,
-      `            break;`,
-      `        case ServoDrive::OperationStatus::IN_PROGRESS:`,
-      `            break;`,
-      `        default:`,
-      `            servoInitRequested = false;`,
-      `            BorneUniverselle::prepareMessage(ERROR, "Initialisation du servo en échec");`,
-      `            go(State::EMERGENCY);`,
-      `            break;`,
-      `    }`
-    );
+  if (hasAxes) {
+    // Tous les variateurs s'initialisent en parallèle ; ARRÊT quand ils ont tous fini.
+    L(`    bool done = true;`, `    bool failed = false;`);
+    for (const a of axes) {
+      L(`    switch (${ax(a)}.initStep()) {`, `        case AxisController::Progress::DONE: break;`, `        case AxisController::Progress::RUNNING: done = false; break;`, `        default: failed = true; break;`, `    }`);
+    }
+    L(`    if (failed) { go(State::EMERGENCY); return; }`, `    if (done) go(State::STOP);`);
   } else {
     L(`    go(State::STOP);`);
   }
@@ -531,36 +549,47 @@ export function generateCpp(project, layout, ir) {
 
   const startExpr = ir.blocks.start ? cx(ir.blocks.start) : 'true';
   const stopExpr = ir.blocks.stop ? cx(ir.blocks.stop) : 'false';
-  const jog = hasServo && ir.blocks.servo?.jog;
+  const jogModeExpr = jogAxes.length ? jogAxes.map((a) => `(${cx(a.block.jog.mode)})`).join(' || ') : null;
+  const homingNeededExpr = homingAxes.map((a) => `!${ax(a)}.homeDone()`).join(' || ');
   L(`void ${N}::handleStop() {`, `    if (${stopExpr}) return;  // arrêt maintenu`);
-  if (jog) L(`    if (${cx(jog.mode)}) { go(State::JOGGING); return; }`);
+  if (jogModeExpr) L(`    if (${jogModeExpr}) { go(State::JOGGING); return; }`);
   L(`    if (!(${startExpr})) return;`);
-  if (hasServo && ir.blocks.servo.homing !== 'none') {
-    const homingTrigger = ir.blocks.servo.homing === 'condition' ? cx(ir.blocks.servo.homingCondition) : 'true';
-    L(`    if (!servoHomeDone()) {`, `        if (${homingTrigger}) go(State::HOMING);`, `        return;`, `    }`);
+  if (homingAxes.length) {
+    L(`    if (${homingNeededExpr}) {`, `        bool armed = false;`);
+    for (const a of homingAxes) {
+      const trigger = a.block.homing === 'condition' ? cx(a.block.homingCondition) : 'true';
+      L(`        if (!${ax(a)}.homeDone() && (${trigger})) { ${ax(a)}.armHoming(); armed = true; }`);
+    }
+    L(`        if (armed) go(State::HOMING);`, `        return;`, `    }`);
   }
   L(`    grafcetReset();`, `    go(State::IDLE);`, `}`, ``);
 
   L(`void ${N}::handleHoming() {`);
-  if (hasServo) {
+  if (homingAxes.length) {
+    // Prises d'origine par ordre croissant (homingOrder) ; les axes d'un même ordre en parallèle.
+    const orders = [...new Set(homingAxes.map((a) => a.block.homingOrder || 1))].sort((x, y) => x - y);
+    for (const order of orders) {
+      const group = homingAxes.filter((a) => (a.block.homingOrder || 1) === order);
+      L(`    {  // ordre ${order} : ${group.map((a) => comment(a.label)).join(', ')}`);
+      for (const a of group) L(`        const AxisController::Progress p_${a.symbol} = ${ax(a)}.homingStep();`);
+      L(
+        `        if (${group.map((a) => `p_${a.symbol} == AxisController::Progress::FAILED`).join(' || ')}) { go(State::EMERGENCY); return; }`,
+        `        if (${group.map((a) => `p_${a.symbol} != AxisController::Progress::DONE`).join(' || ')}) return;`,
+        `    }`
+      );
+    }
     L(
-      `    ServoDrive::OperationStatus st;`,
-      `    if (!sureServo->handleHoming(st)) { servoHomingRunning = false; go(State::EMERGENCY); return; }`,
-      `    servoHomingRunning = (st == ServoDrive::OperationStatus::IN_PROGRESS);`,
-      `    if (st == ServoDrive::OperationStatus::COMPLETED) {`,
-      `        BorneUniverselle::prepareMessage(SUCCESS, "Prise d'origine terminée");`,
-      `        grafcetReset();`,
-      `        go(State::IDLE);`,
-      `    } else if (st != ServoDrive::OperationStatus::IN_PROGRESS) {`,
-      `        go(State::EMERGENCY);`,
-      `    }`
+      `    BorneUniverselle::prepareMessage(SUCCESS, "Prise d'origine terminée");`,
+      `    if (${homingNeededExpr}) { go(State::STOP); return; }  // axe à condition non déclenchée`,
+      `    grafcetReset();`,
+      `    go(State::IDLE);`
     );
   } else L(`    go(State::STOP);`);
   L(`}`, ``);
 
   L(`void ${N}::handleRun() {`);
-  if (jog) L(`    if (${cx(jog.mode)} && grafcetInInitialSituation() && !servoIsMoving()) { go(State::JOGGING); return; }`);
-  if (hasServo) L(`    servoService();`, `    if (cur() == State::EMERGENCY) return;`);
+  if (jogModeExpr) L(`    if ((${jogModeExpr}) && grafcetInInitialSituation() && !axesMoving()) { go(State::JOGGING); return; }`);
+  if (hasAxes) L(`    if (!axesService()) { go(State::EMERGENCY); return; }`);
   L(
     `    // Actions à l'activation en attente (étapes initiales après une remise à zéro).`,
     `    grafcetActivationActions();`,
@@ -578,179 +607,69 @@ export function generateCpp(project, layout, ir) {
     `        }`,
     `    }`,
     `    for (int i = 0; i < STEP_COUNT; i++) Xnew[i] = false;`,
-    `    go(grafcetInInitialSituation() && !servoIsMoving() ? State::IDLE : State::RUNNING);`,
+    `    go(grafcetInInitialSituation() && !axesMoving() ? State::IDLE : State::RUNNING);`,
     `    updateStateDisplay();`,
     `}`,
     ``
   );
 
   L(`void ${N}::handleJogging() {`);
-  if (jog) {
-    L(
-      `    ServoDrive::OperationStatus st;`,
-      `    sureServo->handleJogging(st);`,
-      `    if (st == ServoDrive::OperationStatus::SERVO_DRIVE_ERROR) { go(State::EMERGENCY); return; }`,
-      `    if (!(${cx(jog.mode)})) { go(State::STOP); return; }  // le jog est arrêté en entrant dans ARRÊT`,
-      `    int speed = (int)(${cx(jog.speed)});`,
-      `    if (speed < 1) speed = 1;`,
-      `    if (speed > 3000) speed = 3000;`,
-      `    if (speed != lastJogSpeed && !jogForwardHeld && !jogReverseHeld) { sureServo->setJogSpeed(speed); lastJogSpeed = speed; }`,
-      `    bool plus = ${cx(jog.plus)};`,
-      `    bool minus = ${cx(jog.minus)};`,
-      `    // SureServo attend un appel à chaque cycle tant que le bouton est maintenu (butée, zone lente).`,
-      `    if (plus && !minus) {`,
-      `        if (jogReverseHeld) { sureServo->jogStop(); jogReverseHeld = false; return; }  // arrêt envoyé avant d'inverser`,
-      `        if (!jogBlocked) { jogForwardHeld = sureServo->jogForward(${maxRangePuu || 'INT32_MAX'}, 0, 10); jogBlocked = !jogForwardHeld; }`,
-      `    } else if (minus && !plus) {`,
-      `        if (jogForwardHeld) { sureServo->jogStop(); jogForwardHeld = false; return; }`,
-      `        if (!jogBlocked) { jogReverseHeld = sureServo->jogReverse(servoHomeDone() ? 0 : INT32_MIN, 0, 10); jogBlocked = !jogReverseHeld; }`,
-      `    } else {`,
-      `        if (jogForwardHeld || jogReverseHeld) sureServo->jogStop();`,
-      `        jogForwardHeld = jogReverseHeld = false;`,
-      `        jogBlocked = false;`,
-      `    }`
-    );
+  if (jogAxes.length) {
+    L(`    bool anyMode = false;`);
+    for (const a of jogAxes) {
+      const j = a.block.jog;
+      L(
+        `    {  // ${comment(a.label)}`,
+        `        const bool mode = ${cx(j.mode)};`,
+        `        anyMode = anyMode || mode;`,
+        `        // Le drive attend un appel à chaque cycle tant que le bouton est maintenu (butée, zone lente).`,
+        `        if (!${ax(a)}.jogStep(mode && (${cx(j.plus)}), mode && (${cx(j.minus)}), (int32_t)(${cx(j.speed)}))) { go(State::EMERGENCY); return; }`,
+        `    }`
+      );
+    }
+    L(`    if (!anyMode) go(State::STOP);  // le jog est arrêté en entrant dans ARRÊT`);
   } else L(`    go(State::STOP);`);
   L(`}`, ``);
 
   L(
     `void ${N}::handleEmergency() {`,
-    `    // Seule la condition d'urgence bloque la sortie : une alarme servo est justement`,
+    `    // Seule la condition d'urgence bloque la sortie : une alarme d'axe est justement`,
     `    // effacée par le réarmement (startReset). Si elle persiste, l'urgence se redéclenche.`,
     `    if (emergencyCondition()) { emergencyClearSince = 0; return; }`,
     `    if (emergencyClearSince == 0) emergencyClearSince = now ? now : 1;`
   );
   if (ir.blocks.emergencyReset) L(`    if (!(${cx(ir.blocks.emergencyReset)})) return;   // acquittement`);
   else L(`    if (now - emergencyClearSince < 1000) return;   // sortie automatique après 1 s`);
-  if (hasServo) {
-    L(`    if (sureServo->startReset()) {`, `        BorneUniverselle::prepareMessage(INFO, "Réarmement du servo…");`, `        go(State::RESETTING);`, `    }`);
+  if (hasAxes) {
+    L(`    bool started = true;`);
+    for (const a of axes) L(`    started = ${ax(a)}.startReset() && started;`);
+    L(`    if (started) {`, `        BorneUniverselle::prepareMessage(INFO, ${cstr(axes.length === 1 ? `Réarmement de ${axes[0].label}…` : 'Réarmement des axes…')});`, `        go(State::RESETTING);`, `    }`);
   } else L(`    BorneUniverselle::prepareMessage(SUCCESS, "Arrêt d'urgence acquitté");`, `    go(State::STOP);`);
   L(`}`, ``);
 
   L(`void ${N}::handleResetting() {`);
-  if (hasServo) {
+  if (hasAxes) {
+    L(`    bool done = true;`);
+    for (const a of axes) {
+      L(`    switch (${ax(a)}.resetStep()) {`, `        case AxisController::Progress::RUNNING: done = false; break;`, `        case AxisController::Progress::FAILED: go(State::EMERGENCY); return;`, `        default: break;`, `    }`);
+    }
     L(
-      `    switch (sureServo->getResetState()) {`,
-      `        case ServoDrive::OperationState::DRIVE_IN_PROGRESS:`,
-      `            return;`,
-      `        case ServoDrive::OperationState::DRIVE_IDLE:`,
-      `            BorneUniverselle::prepareMessage(SUCCESS, "Arrêt d'urgence acquitté");`,
-      `            // Le réarmement relance l'initialisation du variateur si elle avait été interrompue.`,
-      `            go(sureServo->getIsInitialized() && sureServo->getInitializeState() == ServoDrive::OperationState::DRIVE_IDLE ? State::STOP : State::INITIALIZING);`,
-      `            return;`,
-      `        default:`,
-      `            BorneUniverselle::prepareMessage(ERROR, "Échec du réarmement du servo");`,
-      `            go(State::EMERGENCY);`,
-      `            return;`,
-      `    }`
+      `    if (!done) return;`,
+      `    BorneUniverselle::prepareMessage(SUCCESS, "Arrêt d'urgence acquitté");`,
+      `    // Le réarmement relance l'initialisation des variateurs si elle avait été interrompue.`,
+      `    go((${axes.map((a) => `${ax(a)}.needsInitialization()`).join(' || ')}) ? State::INITIALIZING : State::STOP);`
     );
   } else L(`    go(State::STOP);`);
   L(`}`, ``);
 
-  // Servo
-  if (hasServo) {
-    L(`void ${N}::servoService() {`, `    if (!sureServo) return;`);
-    if (ir.blocks.servo?.torque) {
-      L(
-        `    int torque = (int)(${cx(ir.blocks.servo.torque)});`,
-        `    if (torque < 0) torque = 0;`,
-        `    if (torque > 100) torque = 100;`,
-        `    if (torque != lastTorque) { sureServo->setMaxTorque((uint8_t)torque); lastTorque = torque; }`
-      );
+  // Axes : déplacements et prises d'origine demandés par le grafcet, couple maximal.
+  if (hasAxes) {
+    L(`bool ${N}::axesService() {`);
+    for (const a of axes) {
+      if (a.block.torque) L(`    ${ax(a)}.setTorque((int)(${cx(a.block.torque)}));`);
+      L(`    if (!${ax(a)}.service()) return false;`);
     }
-    L(
-      `    if (servoMovePending) {`,
-      `        if (servoPendingSpeed != servoAppliedSpeed) {`,
-      `            // La vitesse est écrite d'abord ; le déplacement part au cycle suivant.`,
-      `            sureServo->setSpeedAndRamp((uint8_t)servoPendingSpeed, 0);`,
-      `            servoAppliedSpeed = servoPendingSpeed;`,
-      `            return;`,
-      `        }`,
-      `        // Après un arrêt, SureServo bloque les déplacements pendant 500 ms : on patiente.`,
-      `        if (sureServo->isImmediateStopActive()) return;`,
-      `        servoMovePending = false;`,
-      `        if (sureServo->startGoToPosition(servoPendingTarget, false)) {`,
-      `            servoMoveActive = true;`,
-      `        } else {`,
-      `            char msg[160];`,
-      `            snprintf(msg, sizeof(msg), "Déplacement servo refusé : %s", sureServo->getLastError());`,
-      `            BorneUniverselle::prepareMessage(ERROR, msg);`,
-      `            go(State::EMERGENCY);`,
-      `            return;`,
-      `        }`,
-      `    }`,
-      `    if (servoMoveActive) {`,
-      `        switch (sureServo->getMoveState()) {`,
-      `            case ServoDrive::OperationState::DRIVE_IDLE:`,
-      `                servoMoveActive = false;`,
-      `                servoMoveDone = true;`,
-      `                break;`,
-      `            case ServoDrive::OperationState::DRIVE_IN_PROGRESS:`,
-      `                break;`,
-      `            default: {`,
-      `                char msg[160];`,
-      `                snprintf(msg, sizeof(msg), "Déplacement servo en échec : %s", sureServo->getLastError());`,
-      `                BorneUniverselle::prepareMessage(ERROR, msg);`,
-      `                servoMoveActive = false;`,
-      `                go(State::EMERGENCY);`,
-      `                return;`,
-      `            }`,
-      `        }`,
-      `    }`,
-      `    if (servoHomingActive) {`,
-      `        ServoDrive::OperationStatus st;`,
-      `        bool ok = sureServo->handleHoming(st);`,
-      `        servoHomingRunning = ok && st == ServoDrive::OperationStatus::IN_PROGRESS;`,
-      `        if (!ok || (st != ServoDrive::OperationStatus::IN_PROGRESS && st != ServoDrive::OperationStatus::COMPLETED)) {`,
-      `            servoHomingActive = false;`,
-      `            go(State::EMERGENCY);`,
-      `            return;`,
-      `        }`,
-      `        if (st == ServoDrive::OperationStatus::COMPLETED) servoHomingActive = false;`,
-      `    }`,
-      `}`,
-      ``,
-      `void ${N}::servoMoveTo(int32_t target, int32_t speed) {`,
-      `    // Butée logicielle appliquée à toutes les cibles (cf. audit CR-1).`,
-      `    if (target < 0${maxRangePuu ? ` || target > ${maxRangePuu}` : ''}) {`,
-      `        char msg[120];`,
-      `        snprintf(msg, sizeof(msg), "Cible servo hors course : %ld", (long)target);`,
-      `        BorneUniverselle::prepareMessage(ERROR, msg);`,
-      `        go(State::EMERGENCY);`,
-      `        return;`,
-      `    }`,
-      `    if (speed < 0) speed = 0;`,
-      `    if (speed > 15) speed = 15;`,
-      `    servoMoveDone = false;`,
-      `    servoMovePending = true;`,
-      `    servoPendingTarget = target;`,
-      `    servoPendingSpeed = (int)speed;`,
-      `}`,
-      ``,
-      `void ${N}::servoStartHoming() {`,
-      `    servoMoveDone = false;`,
-      `    servoHomingActive = true;`,
-      `}`,
-      ``,
-      `// Arrête tout mouvement en cours (déplacement, prise d'origine, jog).`,
-      `void ${N}::servoHalt(bool homingMode) {`,
-      `    if (!sureServo) return;`,
-      `    if (jogForwardHeld || jogReverseHeld) sureServo->jogStop();`,
-      `    jogForwardHeld = jogReverseHeld = jogBlocked = false;`,
-      `    bool homing = servoHomingRunning && (servoHomingActive || homingMode);`,
-      `    if (servoMoveActive || homing) sureServo->stopMovement();`,
-      `    if (homing) {`,
-      `        // stopMovement() ne réarme pas la prise d'origine interne de SureServo : un appel à`,
-      `        // handleHoming() consomme cet état, sinon la prochaine prise d'origine finirait aussitôt.`,
-      `        ServoDrive::OperationStatus st;`,
-      `        sureServo->handleHoming(st);`,
-      `    }`,
-      `    servoHomingRunning = false;`,
-      `    servoMovePending = servoMoveActive = servoHomingActive = false;`,
-      `    servoMoveDone = false;`,
-      `}`,
-      ``
-    );
+    L(`    return true;`, `}`, ``);
   }
 
   // Grafcet
@@ -786,13 +705,14 @@ export function generateCpp(project, layout, ir) {
           if (!drivenSet.has(a.target)) lines.push(setCall(a.target, `v_${a.target}() - 1`));
           break;
         case 'SERVO_MOVE':
-          lines.push(`servoMoveTo((int32_t)(${cx(a.position)}), (int32_t)(${cx(a.speed)}));`);
+          // Cible hors course : message affiché par l'axe, passage en URGENCE.
+          lines.push(`if (!${ax(axisOf.get(a.axis))}.moveTo((int32_t)(${cx(a.position)}), (int32_t)(${cx(a.speed)}))) go(State::EMERGENCY);`);
           break;
         case 'SERVO_HOME':
-          lines.push(`servoStartHoming();`);
+          lines.push(`${ax(axisOf.get(a.axis))}.startHoming();`);
           break;
         case 'SERVO_STOP':
-          lines.push(`servoHalt();`);
+          lines.push(`${ax(axisOf.get(a.axis))}.halt();`);
           break;
         case 'MSG':
           lines.push(`BorneUniverselle::prepareMessage(${{ info: 'INFO', warning: 'WARNING', error: 'ERROR', success: 'SUCCESS' }[a.level]}, ${cstr(a.text)});`);
@@ -965,24 +885,18 @@ export function generateCpp(project, layout, ir) {
     `    // Pas de changement d'état ici (règle BusinessLogic).`,
     `    switch (static_cast<State>(newState)) {`,
     `        case State::EMERGENCY:`,
-    hasServo ? `            if (sureServo) {` : null,
-    hasServo ? `                if (jogForwardHeld || jogReverseHeld) sureServo->jogStop();  // remet à zéro le jog interne` : null,
-    hasServo ? `                sureServo->emergencyStop();` : null,
-    hasServo ? `            }` : null,
-    hasServo ? `            servoMovePending = servoMoveActive = servoHomingActive = servoHomingRunning = false;` : null,
-    hasServo ? `            jogForwardHeld = jogReverseHeld = jogBlocked = false;` : null,
-    hasServo ? `            servoInitRequested = false;` : null,
+    ...axes.map((a) => `            ${ax(a)}.onEmergency();`),
     `            emergencyClearSince = 0;`,
     `            grafcetClear();`,
     `            break;`,
     `        case State::STOP:`,
-    hasServo ? `            servoHalt(oldState == static_cast<int>(State::HOMING));` : null,
+    ...axes.map((a) => `            ${ax(a)}.halt(oldState == static_cast<int>(State::HOMING));`),
     `            grafcetClear();`,
     `            break;`,
     `        default:`,
     `            break;`,
     `    }`,
-    hasServo ? null : `    (void)oldState;`,
+    hasAxes ? null : `    (void)oldState;`,
     `    updateStateDisplay();`,
     `}`,
     ``,

@@ -9,12 +9,15 @@
 //   { "expect": { "mode": "REPOS", "X0": true, "Verin": false, "steps": [0] } }
 //   { "expect": "Verin ET NON Soufflage" }          vérification (objet ou expression)
 //   { "message": "Pièce terminée" }                 un message contenant ce texte a été émis
-//   { "servo": "alarm" | "loseHome" }               défaut du servo simulé
+//                                                   (sans tenir compte des majuscules)
+//   { "servo": "alarm" | "loseHome", "axis": "Axe_X" }  défaut d'un axe simulé (axis : facultatif
+//                                                   avec un seul axe)
 //   { "comment": "..." }                            simple repère dans le rapport
 //
 // Dans « expect » / « until » (forme objet) : symboles de variables, "X<n>" (étape active),
 // "steps" (liste exacte des étapes actives), "mode" (REPOS, CYCLE, ARRÊT, URGENCE, MANUEL,
-// PRISE D'ORIGINE, INITIALISATION, RÉARMEMENT ou leur nom interne), "Servo.<prop>".
+// PRISE D'ORIGINE, INITIALISATION, RÉARMEMENT ou leur nom interne), "<Axe>.<prop>"
+// (ex. "Servo.enPosition", "Axe_X.position").
 
 import { Simulator, MODES } from './sim.js';
 import { tryParse, projectContext } from './expr.js';
@@ -94,8 +97,12 @@ export function runScenario(project, scenario, { scanMs = 10 } = {}) {
         const i = sim.stepIndex(Number(step[1]));
         if (i < 0) throw new Error(`étape ${step[1]} inexistante`);
         got = sim.X[i];
-      } else if (/^Servo\./.test(k)) got = sim.servoProp(k.slice(6));
-      else if (sim.vars.has(k)) got = sim.get(k);
+      } else if (/^[A-Za-z_]\w*\.\w+$/.test(k) && !sim.vars.has(k)) {
+        const [name, prop] = k.split('.');
+        const axis = sim.axis(name);
+        if (!axis) throw new Error(`« ${name} » : axe inconnu`);
+        got = axis.prop(prop);
+      } else if (sim.vars.has(k)) got = sim.get(k);
       else throw new Error(`« ${k} » : symbole inconnu`);
       if (!same(got, want)) out.push(`${k} = ${fmt(got)} au lieu de ${fmt(want)}`);
     }
@@ -131,11 +138,13 @@ export function runScenario(project, scenario, { scanMs = 10 } = {}) {
         sim.scan();
       }
       if (st.servo) {
-        if (!sim.servo) throw new Error('pas de servo dans le projet');
-        if (st.servo === 'alarm') sim.servo.raiseAlarm(0x0201);
-        else if (st.servo === 'loseHome') sim.servo.homeDone = false;
+        if (!sim.axes.length) throw new Error('pas d’axe dans le projet');
+        const axis = sim.axis(st.axis);
+        if (!axis) throw new Error(`axe « ${st.axis} » inconnu`);
+        if (st.servo === 'alarm') axis.drive.raiseAlarm(0x0201);
+        else if (st.servo === 'loseHome') axis.drive.homeDone = false;
         else throw new Error(`action servo inconnue « ${st.servo} » (alarm, loseHome)`);
-        log.push(`  → [${t()}] servo : ${st.servo}`);
+        log.push(`  → [${t()}] ${axis.label} : ${st.servo}`);
       }
       if (st.wait !== undefined) sim.run(parseDuration(st.wait));
       if (st.until !== undefined) {
@@ -152,7 +161,8 @@ export function runScenario(project, scenario, { scanMs = 10 } = {}) {
         else ok(describe(st.expect));
       }
       if (st.message !== undefined) {
-        const found = sim.messages.slice(messagesFrom).some((m) => m.text.includes(st.message));
+        const want = String(st.message).toLocaleLowerCase('fr');
+        const found = sim.messages.slice(messagesFrom).some((m) => m.text.toLocaleLowerCase('fr').includes(want));
         if (found) ok(`message « ${st.message} »`);
         else fail(i, `aucun message contenant « ${st.message} » (messages : ${sim.messages.slice(messagesFrom).map((m) => m.text).join(' | ') || 'aucun'})`);
       }

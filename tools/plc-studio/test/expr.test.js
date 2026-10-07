@@ -11,7 +11,10 @@ const vars = {
   Recette: 'text',
 };
 const ctx = {
-  servo: true,
+  axes: new Map([
+    ['Servo', { uid: 'eq_servo', symbol: 'Servo', label: 'Servo' }],
+    ['Axe_X', { uid: 'eq_x', symbol: 'Axe_X', label: 'Axe X' }],
+  ]),
   steps: new Set([0, 1, 3]),
   resolve: (n) => (vars[n] ? { symbol: n, type: vars[n] } : null),
 };
@@ -21,7 +24,7 @@ function env(values, extra = {}) {
     get: (s) => values[s],
     step: (n) => !!extra.steps?.[n],
     stepTime: (n) => extra.times?.[n] ?? 0,
-    servo: (p) => extra.servo?.[p],
+    axis: (uid, p) => extra.axes?.[uid]?.[p],
     prev: (k) => extra.prev?.[k],
   };
 }
@@ -61,9 +64,17 @@ test('fronts montants et descendants', () => {
   assert.equal(evaluate(fd, env({ Depart: false }, { prev: { 'var:Depart': true } })), true);
 });
 
-test('servo et textes', () => {
+test('axes et textes', () => {
   assert.equal(parse('Servo.enPosition', ctx).type, 'bool');
   assert.equal(parse('Servo.position > 1000', ctx).type, 'bool');
+  const x = parse('Axe_X.enPosition ET Servo.pret', ctx);
+  assert.deepEqual(x.a, { k: 'axis', axis: 'eq_x', prop: 'enPosition', type: 'bool' });
+  assert.equal(evaluate(x, env({}, { axes: { eq_x: { enPosition: true }, eq_servo: { pret: true } } })), true);
+  assert.equal(evaluate(x, env({}, { axes: { eq_x: { enPosition: true }, eq_servo: { pret: false } } })), false);
+  // « Servo » désigne l'axe unique d'un projet, quel que soit son nom (anciens projets).
+  const single = { ...ctx, axes: new Map([['Table', { uid: 'eq_t', symbol: 'Table', label: 'Table' }]]), defaultAxis: 'eq_t' };
+  assert.equal(parse('Servo.origineFaite', single).axis, 'eq_t');
+  assert.equal(parse('table.origineFaite', single).axis, 'eq_t');
   const t = parse('Recette = "A"', ctx);
   assert.equal(evaluate(t, env({ Recette: 'A' })), true);
   assert.equal(toCpp(t, { var: (s) => `v_${s}()` }), '(strcmp(v_Recette(), "A") == 0)');
@@ -83,7 +94,9 @@ test('messages d’erreur en français', () => {
   assert.match(tryParse('Depart + 1', ctx).error, /numérique attendue/);
   assert.match(tryParse('Compteur ET Depart', ctx).error, /booléen attendu/);
   assert.match(tryParse('X9', ctx).error, /L’étape 9 n’existe pas/);
-  assert.match(tryParse('Servo.vitesse', ctx).error, /Propriété du servo inconnue/);
+  assert.match(tryParse('Servo.vitesse', ctx).error, /Propriété d’axe inconnue/);
+  assert.match(tryParse('Axe_Y.pret', ctx).error, /Axe inconnu « Axe_Y »/);
+  assert.match(tryParse('Servo.pret', { ...ctx, axes: new Map() }).error, /Aucun axe/);
   assert.match(tryParse('(Depart', ctx).error, /Parenthèse/);
   assert.match(tryParse('FM(Compteur)', ctx).error, /FM s’applique/);
   assert.match(tryParse('Recette < "B"', ctx).error, /texte/);
@@ -94,7 +107,7 @@ test('traduction C++', () => {
     var: (s) => `v_${s}()`,
     step: (n) => `X[${n}]`,
     stepTime: (n) => `stepTime(${n})`,
-    servo: (p) => `servo_${p}()`,
+    axis: (uid, p) => `${uid}.${p}()`,
     prev: (k) => `E["${k}"]`,
   };
   assert.equal(toCpp(parse('Depart ET NON Porte', ctx), names), '(v_Depart() && !v_Porte())');

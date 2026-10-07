@@ -4,150 +4,155 @@
 // ========================================
 // OUTILS DE DIAGNOSTIC — commenter pour désactiver
 // ========================================
-#define PERF_MONITOR
-#define TRIGGER_SMART_DELAY
+// Macros préfixées SURESERVO_ pour ne pas entrer en collision avec les autres drives
+// (LichuanServo, StepperMotor) inclus dans la même unité de compilation.
+// ⚠️ Ces macros ne changent PAS la disposition mémoire de la classe SureServo (les membres
+// pm_* et les méthodes pm*() existent toujours) : aucune incohérence ODR possible entre
+// unités de compilation, quel que soit l'ordre des #include.
+#define SURESERVO_PERF_MONITOR          // instrumentation des cycles (pmStartCycle/pmPrintReport)
+#define SURESERVO_TRIGGER_SMART_DELAY   // trigger PR dès que l'écriture du target est confirmée
 
-#include "node/node.h"
+// Compatibilité : RessortRoyal2, main.cpp et le code généré par PLC Studio testent
+// PERF_MONITOR pour appeler isPmActive()/pmAccumulateRefresh(). Définie (sans redéfinition)
+// tant que l'instrumentation SureServo est active.
+#if defined(SURESERVO_PERF_MONITOR) && !defined(PERF_MONITOR)
+#define PERF_MONITOR
+#endif
+
+#include "Node/Node.h"
 #include "ServoDrive/ServoDrive.h"
 #include "BorneUniverselle/borneUniverselle.h"
-
-#define DRIVE_INIT_TIMEOUT 15000L // 15 secondes pour l'initialisation du servo drive
-#define DELAY_INIT          100           // 100ms
-#define HOMING_TIMEOUT_MS   100000   // 100 secondes
 
 // ========================================
 // CONSTANTES SPÉCIFIQUES SURESERVO
 // ========================================
+// Toutes les constantes du drive sont regroupées dans le namespace sureservo (anciennement
+// macros / constantes globales) pour éviter les collisions de symboles avec les en-têtes des
+// autres drives. Le code applicatif peut les utiliser qualifiées : sureservo::TOLERANCE_PUU.
+//
+// Note : les anciennes macros DRIVE_INIT_TIMEOUT et DELAY_INIT (inutilisées par SureServo)
+// ont été supprimées ; RessortRoyal2.h définit son propre DELAY_INIT.
+namespace sureservo {
 
-// Valeurs de commande JOG
-//static constexpr uint16_t FWD_VALUE = 4998;
-//static constexpr uint16_t RWD_VALUE = 4999;
+// Timeout homing par défaut (ex-macro HOMING_TIMEOUT_MS)
+constexpr uint32_t HOMING_TIMEOUT_MS = 100000;   // 100 secondes
 
-// Pour Formaca c'est inversé....
-static constexpr uint16_t FWD_VALUE = 4999;
-static constexpr uint16_t RWD_VALUE = 4998;
+// Valeurs de commande JOG (registre jogSpeed)
+// Câblage standard : FWD = 4998, RWD = 4999.
+// Pour Formaca c'est inversé.... → le sens est désormais choisi par instance
+// (paramètre invertJogDirection du constructeur, true par défaut = FWD 4999 / RWD 4998).
+constexpr uint16_t JOG_FWD_VALUE_STANDARD = 4998;
+constexpr uint16_t JOG_RWD_VALUE_STANDARD = 4999;
 
-static constexpr uint16_t STOP_VALUE = 0;
+constexpr uint16_t STOP_VALUE = 0;
 
 // Paramètres de mouvement
-static constexpr uint32_t TOLERANCE_PUU = 500;  // modifié le 17 aout 2026
+constexpr uint32_t TOLERANCE_PUU = 500;  // modifié le 17 aout 2026
 // Marge de sécurité sur la butée physique (maxRangePuu) pour absorber les écarts
 // d'arrondi entre les différentes conversions inch->PUU (ex: convToPUU() côté métier)
-static constexpr uint32_t PHYSICAL_LIMIT_MARGIN_PUU = 100;
-static constexpr uint32_t MOVE_TIMEOUT_MS = 60000;
-static constexpr uint32_t RESET_TIMEOUT_MS = 5000;
-static constexpr uint32_t INIT_TIMEOUT_MS = 15000;
-static constexpr uint32_t TRIGGER_DELAY_MS = 150; // 50ms est trop court.
-static constexpr uint32_t RESET_PULSE_MS = 200;
-static constexpr uint32_t RESET_STABILIZE_MS = 500;
-static constexpr uint32_t HOME_SIGNAL_DURATION_MS = 100;
+constexpr uint32_t PHYSICAL_LIMIT_MARGIN_PUU = 100;
+constexpr uint32_t MOVE_TIMEOUT_MS = 60000;
+constexpr uint32_t RESET_TIMEOUT_MS = 5000;
+constexpr uint32_t INIT_TIMEOUT_MS = 15000;
+constexpr uint32_t TRIGGER_DELAY_MS = 150; // 50ms est trop court.
+constexpr uint32_t RESET_PULSE_MS = 200;
+constexpr uint32_t RESET_STABILIZE_MS = 500;
+constexpr uint32_t HOME_SIGNAL_DURATION_MS = 100;
 
 // Types de commande PR (bits 31-28 du registre config)
-static constexpr uint32_t PR_TYPE_SINGLE = 0x2;  // Stop après ce PR
-static constexpr uint32_t PR_TYPE_AUTO   = 0x3;  // Enchaîne sur nextPR
+constexpr uint32_t PR_TYPE_SINGLE = 0x2;  // Stop après ce PR
+constexpr uint32_t PR_TYPE_AUTO   = 0x3;  // Enchaîne sur nextPR
 
 // Valeurs PR (Program Register)
-static constexpr uint8_t PR1_START = 1;
-static constexpr uint8_t PR2_START = 2;
-static constexpr uint8_t PR3_START = 3;
-static constexpr uint16_t PR2_DONE = 20002;
+constexpr uint8_t PR1_START = 1;
+constexpr uint8_t PR2_START = 2;
+constexpr uint8_t PR3_START = 3;
+constexpr uint16_t PR2_DONE = 20002;
 
 // ========================================
 // MASQUES DE BITS POUR DÉCODAGE STATUS
 // ========================================
 
 // Registre Status principal
-#define STATUS_SERVO_READY          0x0001  // Bit 0 - Servo prêt
-#define STATUS_SERVO_ACTIVATED      0x0002  // Bit 1 - Servo activé
-#define STATUS_ZERO_SPEED           0x0004  // Bit 2 - Vitesse zéro
-#define STATUS_TARGET_SPEED_RATED   0x0008  // Bit 3 - Vitesse cible atteinte
-#define STATUS_TARGET_REACHED       0x0010  // Bit 4 - Position cible atteinte
-#define STATUS_SERVO_ALARM          0x0040  // Bit 6 - Alarme servo
-#define STATUS_HOME_DONE            0x0100  // Bit 8 - Homing terminé
+constexpr uint16_t STATUS_SERVO_READY          = 0x0001;  // Bit 0 - Servo prêt
+constexpr uint16_t STATUS_SERVO_ACTIVATED      = 0x0002;  // Bit 1 - Servo activé
+constexpr uint16_t STATUS_ZERO_SPEED           = 0x0004;  // Bit 2 - Vitesse zéro
+constexpr uint16_t STATUS_TARGET_SPEED_RATED   = 0x0008;  // Bit 3 - Vitesse cible atteinte
+constexpr uint16_t STATUS_TARGET_REACHED       = 0x0010;  // Bit 4 - Position cible atteinte
+constexpr uint16_t STATUS_SERVO_ALARM          = 0x0040;  // Bit 6 - Alarme servo
+constexpr uint16_t STATUS_HOME_DONE            = 0x0100;  // Bit 8 - Homing terminé
 
 // Registre Système de Coordonnées Absolues
-#define COORD_ABS_POSITION_LOST     0x0001  // Bit 0 - Position absolue perdue
-#define COORD_BATTERY_ALARM         0x0002  // Bit 1 - Alarme batterie encodeur
-#define COORD_MULTI_TURNS_OVERFLOW  0x0004  // Bit 2 - Dépassement multi-tours
-#define COORD_PUU_OVERFLOW          0x0008  // Bit 3 - Dépassement unités d'impulsion
-#define COORD_ABS_NOT_SET           0x0010  // Bit 4 - Coordonnées absolues non définies
+constexpr uint16_t COORD_ABS_POSITION_LOST     = 0x0001;  // Bit 0 - Position absolue perdue
+constexpr uint16_t COORD_BATTERY_ALARM         = 0x0002;  // Bit 1 - Alarme batterie encodeur
+constexpr uint16_t COORD_MULTI_TURNS_OVERFLOW  = 0x0004;  // Bit 2 - Dépassement multi-tours
+constexpr uint16_t COORD_PUU_OVERFLOW          = 0x0008;  // Bit 3 - Dépassement unités d'impulsion
+constexpr uint16_t COORD_ABS_NOT_SET           = 0x0010;  // Bit 4 - Coordonnées absolues non définies
 
 // Constantes pour gestion EEPROM
-static constexpr uint16_t EEPROM_AUTO_SAVE_DISABLED = 5;     // Désactive sauvegarde auto
-static constexpr uint16_t EEPROM_MANUAL_SAVE_TRIGGER = 8;    // Déclenche sauvegarde manuelle
-static constexpr uint32_t EEPROM_SAVE_DELAY_MS = 200;       // Délai pour sauvegarde
-
-// Énumération pour mode EEPROM
-enum class EEPROMMode {
-    AUTO_SAVE_ENABLED = 0,      // Sauvegarde automatique (défaut drive)
-    AUTO_SAVE_DISABLED = 1,     // Sauvegarde automatique désactivée (recommandé)
-    MANUAL_SAVE_ONLY = 2        // Seulement sauvegarde manuelle
-};
-
-// Politique de tolérance d'une position négative au repos/à l'init
-enum class HomePositionPolicy {
-    NEGATIVE_TOLERATED,           // négatif normal (dérive drive), ne rien invalider
-    NEGATIVE_INVALIDATES_HOME     // négatif significatif + home fait -> invalider home, re-homing requis
-};
+// (le délai de sauvegarde effectif est SureServo::EEPROM_SAVE_DELAY_MS = 1000 ms ; l'ancienne
+// constante globale de 200 ms était masquée par ce membre de classe et n'a jamais servi)
+constexpr uint16_t EEPROM_AUTO_SAVE_DISABLED = 5;     // Désactive sauvegarde auto
+constexpr uint16_t EEPROM_MANUAL_SAVE_TRIGGER = 8;    // Déclenche sauvegarde manuelle
 
 // ========================================
 // CODES D'ALARME SURESERVO 2
 // ========================================
 
 // Erreurs d'alimentation
-#define ALARM_OVERVOLTAGE           0x2110  // Surtension
-#define ALARM_UNDERVOLTAGE          0x2120  // Sous-tension
-#define ALARM_OVERVOLTAGE_MAIN      0x2130  // Surtension circuit principal
+constexpr uint16_t ALARM_OVERVOLTAGE           = 0x2110;  // Surtension
+constexpr uint16_t ALARM_UNDERVOLTAGE          = 0x2120;  // Sous-tension
+constexpr uint16_t ALARM_OVERVOLTAGE_MAIN      = 0x2130;  // Surtension circuit principal
 
 // Erreurs thermiques
-#define ALARM_POWER_MODULE_ABNORMAL 0x2210  // Module de puissance anormal
-#define ALARM_HEATSINK_OVERHEAT     0x2220  // Surchauffe dissipateur
-#define ALARM_DISCHARGE_RESISTOR_OH 0x2230  // Surchauffe résistance de décharge
-#define ALARM_MOTOR_OVERHEAT        0x2320  // Surchauffe moteur
+constexpr uint16_t ALARM_POWER_MODULE_ABNORMAL = 0x2210;  // Module de puissance anormal
+constexpr uint16_t ALARM_HEATSINK_OVERHEAT     = 0x2220;  // Surchauffe dissipateur
+constexpr uint16_t ALARM_DISCHARGE_RESISTOR_OH = 0x2230;  // Surchauffe résistance de décharge
+constexpr uint16_t ALARM_MOTOR_OVERHEAT        = 0x2320;  // Surchauffe moteur
 
 // Erreurs de charge
-#define ALARM_OVERLOAD              0x2310  // Surcharge
-#define ALARM_OVERCURRENT           0x2340  // Surintensité
-#define ALARM_TORQUE_OVERLOAD       0x2350  // Surcharge de couple
+constexpr uint16_t ALARM_OVERLOAD              = 0x2310;  // Surcharge
+constexpr uint16_t ALARM_OVERCURRENT           = 0x2340;  // Surintensité
+constexpr uint16_t ALARM_TORQUE_OVERLOAD       = 0x2350;  // Surcharge de couple
 
 // Erreurs de contrôle
-#define ALARM_OVERSPEED             0x3110  // Survitesse
-#define ALARM_EXCESSIVE_DEVIATION   0x3120  // Déviation excessive
-#define ALARM_PULSE_CONTROL_ERROR   0x3130  // Erreur contrôle impulsion
-#define ALARM_EXCESSIVE_ERROR_PULSE 0x3210  // Impulsion d'erreur excessive
-#define ALARM_ELECTRONIC_GEAR_ERROR 0x3220  // Erreur engrenage électronique
+constexpr uint16_t ALARM_OVERSPEED             = 0x3110;  // Survitesse
+constexpr uint16_t ALARM_EXCESSIVE_DEVIATION   = 0x3120;  // Déviation excessive
+constexpr uint16_t ALARM_PULSE_CONTROL_ERROR   = 0x3130;  // Erreur contrôle impulsion
+constexpr uint16_t ALARM_EXCESSIVE_ERROR_PULSE = 0x3210;  // Impulsion d'erreur excessive
+constexpr uint16_t ALARM_ELECTRONIC_GEAR_ERROR = 0x3220;  // Erreur engrenage électronique
 
 // Erreurs encodeur
-#define ALARM_ENCODER_ERROR         0x4110  // Erreur encodeur
-#define ALARM_ENCODER_OUTPUT_ERROR  0x4220  // Erreur sortie encodeur
-#define ALARM_ENCODER_COUNTER_ERROR 0x4230  // Erreur compteur encodeur
+constexpr uint16_t ALARM_ENCODER_ERROR         = 0x4110;  // Erreur encodeur
+constexpr uint16_t ALARM_ENCODER_OUTPUT_ERROR  = 0x4220;  // Erreur sortie encodeur
+constexpr uint16_t ALARM_ENCODER_COUNTER_ERROR = 0x4230;  // Erreur compteur encodeur
 
 // Erreurs moteur
-#define ALARM_UVW_CONNECTION_ERROR  0x4310  // Erreur connexion UVW
-#define ALARM_MOTOR_MATCH_ERROR     0x4410  // Erreur correspondance moteur
+constexpr uint16_t ALARM_UVW_CONNECTION_ERROR  = 0x4310;  // Erreur connexion UVW
+constexpr uint16_t ALARM_MOTOR_MATCH_ERROR     = 0x4410;  // Erreur correspondance moteur
 
 // Erreurs mémoire
-#define ALARM_EEPROM_ERROR          0x5110  // Erreur EEPROM
-#define ALARM_EEPROM_WRITE_ERROR    0x5120  // Erreur écriture EEPROM
+constexpr uint16_t ALARM_EEPROM_ERROR          = 0x5110;  // Erreur EEPROM
+constexpr uint16_t ALARM_EEPROM_WRITE_ERROR    = 0x5120;  // Erreur écriture EEPROM
 
 // Erreurs sécurité
-#define ALARM_EMERGENCY_STOP        0x6010  // Arrêt d'urgence
-#define ALARM_LIMIT_SWITCH_POS      0x6020  // Interrupteur de fin de course +
-#define ALARM_LIMIT_SWITCH_NEG      0x6030  // Interrupteur de fin de course -
+constexpr uint16_t ALARM_EMERGENCY_STOP        = 0x6010;  // Arrêt d'urgence
+constexpr uint16_t ALARM_LIMIT_SWITCH_POS      = 0x6020;  // Interrupteur de fin de course +
+constexpr uint16_t ALARM_LIMIT_SWITCH_NEG      = 0x6030;  // Interrupteur de fin de course -
 
 // Avertissements
-#define ALARM_HOMING_INCOMPLETE     0x7110  // Retour origine incomplet
-#define ALARM_JOG_IN_POSITION_MODE  0x7120  // JOG en mode position
-#define ALARM_ELECTRONIC_GEAR_WARN  0x7210  // Avertissement engrenage électronique
-#define ALARM_FAN_WARNING           0x7220  // Avertissement ventilateur
-#define ALARM_BATTERY_WARNING       0x7230  // Avertissement batterie
-#define ALARM_ABSOLUTE_SYSTEM_DOWN  0x7240  // Système absolu défaillant
+constexpr uint16_t ALARM_HOMING_INCOMPLETE     = 0x7110;  // Retour origine incomplet
+constexpr uint16_t ALARM_JOG_IN_POSITION_MODE  = 0x7120;  // JOG en mode position
+constexpr uint16_t ALARM_ELECTRONIC_GEAR_WARN  = 0x7210;  // Avertissement engrenage électronique
+constexpr uint16_t ALARM_FAN_WARNING           = 0x7220;  // Avertissement ventilateur
+constexpr uint16_t ALARM_BATTERY_WARNING       = 0x7230;  // Avertissement batterie
+constexpr uint16_t ALARM_ABSOLUTE_SYSTEM_DOWN  = 0x7240;  // Système absolu défaillant
 
 // ========================================
 // STRUCTURE POUR DÉCODAGE DES ALARMES
 // ========================================
 
-struct SureServoAlarm {
+struct AlarmInfo {
     uint16_t code;
     const char* description;
     const char* action;
@@ -156,8 +161,10 @@ struct SureServoAlarm {
 // ========================================
 // TABLE D'ALARMES SURESERVO COMPLÈTE
 // ========================================
+// inline constexpr (C++17) : une seule instance de la table pour tout le programme
+// (l'ancien "static const" en créait une copie par unité de compilation).
 
-static const SureServoAlarm SURESERVO_ALARMS[] = {
+inline constexpr AlarmInfo ALARMS[] = {
     {0x0009, "Deviation excessive de la commande de position", "Vérifier les paramètres"},
     {0x0011, "Erreur avec l'encodeur", "Vérifier le câble de l'encodeur"},
     {0x0013, "Arrêt du drive actif", "Assurez vous qu'il n'y a plus d'arrêt d'urgence"},
@@ -215,7 +222,31 @@ static const SureServoAlarm SURESERVO_ALARMS[] = {
     {0x7240, "Système absolu défaillant", "Refaire origine absolue"}
 };
 
-static const size_t SURESERVO_ALARMS_COUNT = sizeof(SURESERVO_ALARMS) / sizeof(SURESERVO_ALARMS[0]);
+inline constexpr size_t ALARMS_COUNT = sizeof(ALARMS) / sizeof(ALARMS[0]);
+
+} // namespace sureservo
+
+// Alias de compatibilité (nom unique, sans risque de collision)
+using SureServoAlarm = sureservo::AlarmInfo;
+
+// ========================================
+// ÉNUMÉRATIONS PUBLIQUES (portée globale conservée)
+// ========================================
+// Laissées hors namespace : le code applicatif (RessortRoyal2, code généré par PLC Studio)
+// les utilise sans qualification, ex. HomePositionPolicy::NEGATIVE_INVALIDATES_HOME.
+
+// Énumération pour mode EEPROM
+enum class EEPROMMode {
+    AUTO_SAVE_ENABLED = 0,      // Sauvegarde automatique (défaut drive)
+    AUTO_SAVE_DISABLED = 1,     // Sauvegarde automatique désactivée (recommandé)
+    MANUAL_SAVE_ONLY = 2        // Seulement sauvegarde manuelle
+};
+
+// Politique de tolérance d'une position négative au repos/à l'init
+enum class HomePositionPolicy {
+    NEGATIVE_TOLERATED,           // négatif normal (dérive drive), ne rien invalider
+    NEGATIVE_INVALIDATES_HOME     // négatif significatif + home fait -> invalider home, re-homing requis
+};
 
 // ========================================
 // STRUCTURE POUR REGROUPER LES NODES
@@ -362,17 +393,18 @@ public:
      * @brief Constructeur avec validation des nodes
      * @param pulsesPerUnit Nombre d'impulsions par unité de mesure (ex: 10000 ppu/inch)
      * @param nodes Structure contenant tous les pointeurs vers les nodes
+     * @param servoId Identifiant du drive, préfixe de tous ses messages ("[servoId] ...")
+     *        — indispensable pour distinguer plusieurs SureServo dans une même application
+     * @param invertJogDirection true (défaut, câblage Formaca) : FWD = 4999 / RWD = 4998 ;
+     *        false : câblage standard FWD = 4998 / RWD = 4999
      * @throw std::invalid_argument si les nodes obligatoires manquent
      */
    SureServo(double pulsesPerUnit,
               const ServoNodes& nodes,
               HomePositionPolicy homePositionPolicy,
               float maxRangeInches = 0.0f,
-              const char* servoId = "SURE_SERVO");
-
-    static void setBusinessLogicInstance(BusinessLogic* logic) {
-        businessLogicInstance = logic;
-    }
+              const char* servoId = "SURE_SERVO",
+              bool invertJogDirection = true);
 
     // ========================================
     // IMPLÉMENTATIONS DE L'INTERFACE SERVODRIVE
@@ -431,6 +463,28 @@ public:
     uint16_t getAlarmCode() const override;
     bool getIsInitialized() const override;
     const char* getLastError() const override;
+
+    // ========================================
+    // AXES MULTIPLES (interface ServoDrive étendue)
+    // ========================================
+
+    /**
+     * @brief Position mesurée lue sur le drive (node position, signée), sans trace Serial
+     *        (contrairement à getPosition() qui journalise à chaque appel)
+     */
+    int32_t getActualPosition() const override {
+        return nodes.position ? nodes.position->getValueAsInt32() : 0;
+    }
+
+    /**
+     * @brief Vitesse des prochains déplacements : index 0-15 de la table de vitesses
+     *        du drive (P5.060–P5.075), rampe index 0. Valeur bornée à 0..15.
+     */
+    bool setMoveSpeed(int32_t speed) override {
+        if (speed < 0) speed = 0;
+        if (speed > 15) speed = 15;
+        return setSpeedAndRamp((uint8_t)speed, 0);
+    }
     
     // ========================================
     // MÉTHODES SPÉCIFIQUES SURESERVO (CONCRÈTES)
@@ -441,7 +495,7 @@ public:
     bool getServoActivated() const;
     bool getTargetSpeedRated() const;
     bool getTargetPositionReached() const;
-    bool getHomeDone() const;
+    bool getHomeDone() const override;
     bool isHomingFailed() const;
     bool isHomingInProgress() const;
     bool isHomingCompleted() const;
@@ -454,12 +508,10 @@ public:
     bool getAbsoluteCoordonateNotSet() const;
 
     void clearUserPulses();
-#ifdef PERF_MONITOR
     void pmDeactivate() { pm_active = false; }
-#endif
     
     // Description des alarmes
-    const char* getAlarmDescription() const;
+    const char* getAlarmDescription() const override;
     const char* getAlarmAction() const;
     bool clearError();
 
@@ -517,7 +569,7 @@ public:
     bool handleHoming(OperationStatus& status, uint32_t homingSpeed = 0, uint32_t timeoutMs = 0) override;
     bool handleJogging(OperationStatus& status) override;
     bool handleMovingToPosition(int32_t pos, OperationStatus& status, bool waitForSync = true, uint32_t timeoutMs = 60000) override;
-    bool isImmediateStopActive() const {
+    bool isImmediateStopActive() const override {
         return pendingReleaseImmediateStop ||
             (nodes.immediateStop && nodes.immediateStop->getValue());
     }
@@ -525,7 +577,8 @@ public:
     bool isChainedPR1Complete() const { return chainedPR1Complete; }
     void setChainedPRMode(bool enabled);
 
-#ifdef PERF_MONITOR
+    // PERF MONITOR — toujours déclarés (disposition mémoire indépendante des macros) ;
+    // la collecte n'est active que si SURESERVO_PERF_MONITOR est défini et après pmStartCycle().
     void     pmStartCycle();
     void     pmPrintReport(uint32_t cycleTotalMs) const;
     bool     isPmActive() const { return pm_active; }
@@ -534,7 +587,6 @@ public:
     uint32_t pmGetCycleDurationMs() const { return pm_active ? millis() - pm_cycleStartTime : 0; }
     uint32_t pmGetCycleStartTime() const { return pm_cycleStartTime; }
     uint32_t pm_refreshCumul = 0;  // public pour accès main.cpp
-#endif
     bool isPostResetStabilizing() const;
 
     bool setHomeAtCurrentPosition();
@@ -550,6 +602,10 @@ private:
 
     const double pulsesPerUnit;
     const HomePositionPolicy _homePositionPolicy;
+
+    // Valeurs de commande JOG propres à cette instance (voir invertJogDirection du constructeur)
+    const uint16_t fwdJogValue;   // ex-FWD_VALUE global
+    const uint16_t rwdJogValue;   // ex-RWD_VALUE global
     /**
      * @brief Position interne fiable (mise à jour dans case 3)
      */
@@ -643,7 +699,67 @@ private:
     uint32_t _statusBaselineRefreshInterval = 0;
     bool _statusFastPollActive = false;
 
-    static BusinessLogic* businessLogicInstance;
+    // ========================================
+    // ÉTAT PAR INSTANCE (ex-variables "static" locales aux fonctions)
+    // ========================================
+    // Ces variables étaient partagées entre toutes les instances de SureServo : avec plusieurs
+    // drives, l'un pouvait masquer la perte de communication de l'autre, consommer son front
+    // montant ready/mouvement ou valider sa fenêtre de stabilité de reset.
+
+    // Surveillance de la communication Modbus (process())
+    bool     commWatchStarted = false;        // lastValidCommunication initialisé au 1er process()
+    uint32_t lastValidCommunication = 0;
+    uint32_t consecutiveTimeouts = 0;
+
+    // Détection de fronts (process())
+    bool wasReady = false;                    // front montant ready → endPositionResync()
+    bool wasMoving = false;                   // début de mouvement → position non fiable
+
+    // Fenêtre de stabilité du reset (processReset(), 200 ms) — remise à 0 dans startReset()
+    // et lorsque le reset échoue (audit MI-20)
+    uint32_t resetSuccessStartTime = 0;
+
+    // Dernier état "position fiable" journalisé par attemptPositionResync()
+    bool resyncLastHadReliablePosition = true;
+
+    /**
+     * @brief Horodatages de limitation des logs (un par message périodique)
+     */
+    struct LogThrottle {
+        uint32_t commErrorMessage = 0;      // process() : message IHM perte communication (10 s)
+        uint32_t diagnostic = 0;            // process() : diagnostic périodique (30 s)
+        uint32_t initWaitDrive = 0;         // processInitialize() : drive injoignable (5 s)
+        uint32_t initAutoRecovery = 0;      // processInitialize() : reset automatique en cours (2 s)
+        uint32_t initWaitPosition = 0;      // processInitialize() : attente lecture position (500 ms)
+        uint32_t initWaitReady = 0;         // processInitialize() : phase 2 attente servoReady (2 s)
+        uint32_t resetStability = 0;        // processReset() : période de stabilité (50 ms)
+        uint32_t resetWait = 0;             // processReset() : attente ready/alarme (500 ms)
+        uint32_t moveWaitStart = 0;         // processMove() : attente début mouvement (2 s)
+        uint32_t moveWaitReached = 0;       // processMove() : attente target reached (2 s)
+        uint32_t homingWaitHomeDone = 0;    // processHoming() : attente HomeDone (2 s)
+        uint32_t homingStabilization = 0;   // processHoming() : attente stabilisation (1 s)
+        uint32_t idleResync = 0;            // isIdlePositionStable() (5 s)
+        uint32_t resyncConditions = 0;      // attemptPositionResync() (10 s)
+        uint32_t handleHomingProgress = 0;  // handleHoming() (5 s)
+        uint32_t handleMoveProgress = 0;    // handleMovingToPosition() (1 s)
+    } logThrottle;
+
+    // ========================================
+    // JOURNALISATION IDENTIFIÉE PAR DRIVE
+    // ========================================
+    // Tous les messages émis par SureServo (Serial et IHM) sont préfixés par "[servoId] "
+    // afin que plusieurs drives produisent des textes distincts
+    // (PLC_Tools::sendPeriodicMessage déduplique par CRC du texte).
+
+    /** @brief Serial.printf préfixé par "[servoId] " (écriture en un seul bloc) */
+    void logPrintf(const char* format, ...) const __attribute__((format(printf, 2, 3)));
+    /** @brief Serial.println préfixé par "[servoId] " */
+    void logPrintln(const char* text) const;
+    void logPrintln(const String& text) const { logPrintln(text.c_str()); }
+    /** @brief BorneUniverselle::prepareMessage préfixé par "[servoId] " */
+    void notifyUser(uint8_t type, const char* text) const;
+    /** @brief PLC_Tools::sendPeriodicMessage préfixé par "[servoId] " */
+    void notifyUserPeriodic(bool condition, uint8_t type, const char* text) const;
 
     // ========================================
     // ÉTATS INTERNES DES MACHINES À ÉTATS
@@ -674,8 +790,8 @@ private:
     uint32_t phaseStartTime = 0;
 
     // Timeouts effectifs (fixés par startGoToPosition()/startHoming(), fallback sur macros par défaut)
-    uint32_t currentMoveTimeoutMs = MOVE_TIMEOUT_MS;
-    uint32_t currentHomingTimeoutMs = HOMING_TIMEOUT_MS;
+    uint32_t currentMoveTimeoutMs = sureservo::MOVE_TIMEOUT_MS;
+    uint32_t currentHomingTimeoutMs = sureservo::HOMING_TIMEOUT_MS;
 
         // Timeouts et surveillance
     static constexpr uint32_t MODBUS_TIMEOUT_MS = 5000;      // 5 sec sans communication = problème
@@ -800,7 +916,7 @@ private:
     void updateOptionalOutputNodes();
     
     // Décodage des alarmes
-    const SureServoAlarm* findAlarmInfo(uint16_t alarmCode) const;
+    const sureservo::AlarmInfo* findAlarmInfo(uint16_t alarmCode) const;
     
     // Logging et débogage
     void logStatusChange(const char* context = nullptr) const;
@@ -914,7 +1030,7 @@ private:
     uint8_t  homeAtCurrentPositionPhase = 0;
     uint16_t homeAtCurrentPositionSavedMode = 0;
 
-#ifdef PERF_MONITOR
+    // Compteurs PERF MONITOR (toujours présents, voir SURESERVO_PERF_MONITOR)
     mutable bool pm_active        = false;
     uint32_t pm_cycleStartTime    = 0;
     uint32_t pm_processCallCount  = 0;
@@ -939,7 +1055,6 @@ private:
     uint32_t pm_targetToTrigMax   = 0;
     uint32_t pm_smartDelayCount    = 0;  // trigger confirmé par lastRefresh
     uint32_t pm_safetyTimeoutCount = 0;  // trigger par filet de sécurité
-#endif
 };
 
 #endif // SURE_SERVO_H

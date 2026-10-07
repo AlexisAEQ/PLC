@@ -131,6 +131,15 @@ const char MODBUS_NOT_INITIALISED[] PROGMEM = "PLC want to create modbus node bu
 #define PF8574_RX_BOOL  "PF8574_rx-bool"
 #define PF8574_TX_BOOL  "PF8574_tx-bool"
 #define PCA9554_TX_BOOL "PCA9554_tx-bool"
+#define EXP_RX_BOOL     "EXP_rx-bool"       // entrée sur expandeur I2C décrit voie par voie (chip, addr, pin, activeLow)
+#define EXP_TX_BOOL     "EXP_tx-bool"       // sortie sur expandeur I2C décrit voie par voie (chip, addr, pin, activeLow)
+#define CHIP            "chip"
+#define ACTIVE_LOW      "activeLow"
+#define PULL            "pull"              // GPIO : "up" (défaut), "down", "none"
+#define INT_PIN         "int_pin"           // I2C : GPIO de la ligne d'interruption des expandeurs (-1 : aucune)
+#define DE_PIN          "de"                // RS485 : GPIO de validation émetteur (DE/RE), absent si automatique
+#define BOARD           "board"             // fichier matériel d'une carte : buzzer...
+#define BU_BUZZER       "buzzer"
 #define RX_UINT16       "rx-uint16"
 #define TX_UINT16       "tx-uint16"
 #define RX_UINT32       "rx-uint32"
@@ -298,7 +307,9 @@ class BorneUniverselle{
         bool notifyWebClient(bool all = false);
         static void prepareMessage(uint8_t type, const char *text); // send message to web socket
         void prepareMessageImpl(uint8_t type, const char * text);
-        bool getIsKinconyA8S();
+        bool getIsKinconyA8S();     // historique : vrai si la carte déclare un buzzer à couper à la connexion WiFi
+        int8_t getBuzzerPin() const { return buzzerPin; }
+        bool isBuzzerActiveLow() const { return buzzerActiveLow; }
         void printConfigFile();
         bool sendMessage();
         bool isPlcBroken();
@@ -387,7 +398,15 @@ class BorneUniverselle{
         bool isI2CInitialised = false, isRs485Initialised = false, isModbusInitialised = false;
         HardwareSerial *myRS485 = nullptr;
         MyModbus& myModbus; // singleton 
-        bool isKinconyA8S = true;
+        // Buzzer de la carte (bloc "board" du fichier matériel) ; KinCony A8S historique : GPIO2.
+#if defined(CONFIG_IDF_TARGET_ESP32)
+        int8_t buzzerPin = 2;
+#else
+        int8_t buzzerPin = -1;
+#endif
+        bool buzzerActiveLow = false;
+        void applyBoardSettings(JsonDocument& hardwareDoc, const char *fileName);
+        IoExpander *getExpanderFor(JsonObject &hardSection, const char *context, const char *parentName);
         bool plcBroken = false;
         bool inSetPlcBroken = false;  // Protection contre la récursion
         uint32_t clientConnectedAt;
