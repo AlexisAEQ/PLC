@@ -162,7 +162,10 @@ function cmdBuild() {
   const specFile = args[0];
   if (!specFile) die('Usage : build <spec.json> [--force]');
   const spec = readJson(path.resolve(specFile));
-  const { project, errors, warnings, issues } = buildFromSpec(spec);
+  // Reconstruction d'un projet existant : identifiants internes et ordre des champs conservés.
+  const target = flags.out ? path.resolve(flags.out) : spec.name ? path.join(PROJECTS, `${spec.name}.plc.json`) : null;
+  const previous = flags.force && target && existsSync(target) ? readJson(target) : null;
+  const { project, errors, warnings, issues } = buildFromSpec(spec, { previous });
   for (const w of warnings) console.log(`  attention [spec] ${w}`);
   if (errors.length) {
     console.log(`Spec invalide : ${errors.length} erreur(s), rien n'a été écrit.`);
@@ -214,8 +217,15 @@ function cmdSim() {
 }
 
 function cmdExportSpec() {
-  const { project } = loadProject(args[0]);
-  const text = JSON.stringify(specFromProject(project), null, 2) + '\n';
+  const { file, project } = loadProject(args[0]);
+  const spec = specFromProject(project);
+  // Les scénarios existants font partie de la spec exportée (build les réécrit).
+  const scFile = path.join(path.dirname(file), project.name, 'scenarios.json');
+  if (existsSync(scFile)) {
+    const raw = readJson(scFile);
+    spec.scenarios = Array.isArray(raw) ? raw : raw.scenarios || [];
+  }
+  const text = JSON.stringify(spec, null, 2) + '\n';
   if (flags.out) {
     writeFileSync(path.resolve(flags.out), text);
     console.log(`Spec écrite : ${rel(path.resolve(flags.out))}`);
@@ -267,7 +277,8 @@ function cmdDescribe() {
   const logic = normalizeLogic(project.logic);
   const numOf = new Map(logic.steps.map((s) => [s.id, s.num]));
   h('Grafcet — étapes');
-  table(['Étape', 'Libellé', 'Actions'], [...logic.steps].sort((a, b) => a.num - b.num).map((s) => [`${s.initial ? '((' : ''}${s.num}${s.initial ? '))' : ''}`, s.label, s.actions.map(actionText).join(' ; ') || '—']));
+  const act = (a) => actionText(a).replace(/\s{2,}/g, ' ');
+  table(['Étape', 'Libellé', 'Actions'], [...logic.steps].sort((a, b) => a.num - b.num).map((s) => [`${s.initial ? '((' : ''}${s.num}${s.initial ? '))' : ''}`, s.label, s.actions.map(act).join(' ; ') || '—']));
   h('Grafcet — transitions');
   table(['Transition', 'De', 'Vers', 'Réceptivité'], [...logic.transitions].sort((a, b) => a.num - b.num).map((t) => [`T${t.num}`, t.from.map((id) => numOf.get(id)).join(' + '), t.to.map((id) => numOf.get(id)).join(' + '), t.condition]));
   const b = logic.blocks;

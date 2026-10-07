@@ -123,11 +123,12 @@ export function runScenario(project, scenario, { scanMs = 10 } = {}) {
       if (st.press) {
         const p = typeof st.press === 'string' ? { symbol: st.press } : st.press;
         if (!sim.vars.has(p.symbol)) throw new Error(`« ${p.symbol} » : symbole inconnu`);
+        const ms = parseDuration(p.ms, 100);
+        log.push(`  → [${t()}] appui sur ${p.symbol} (${ms} ms)`);
         sim.set(p.symbol, true);
-        sim.run(parseDuration(p.ms, 100));
+        sim.run(ms);
         sim.set(p.symbol, false);
         sim.scan();
-        log.push(`  → [${t()}] appui sur ${p.symbol}`);
       }
       if (st.servo) {
         if (!sim.servo) throw new Error('pas de servo dans le projet');

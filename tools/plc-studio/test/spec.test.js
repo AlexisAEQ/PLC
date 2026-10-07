@@ -46,7 +46,19 @@ test('projet de démonstration : projet -> spec -> projet produit des fichiers i
   assert.deepEqual(r.project.logic.steps.map((s) => [s.x, s.y]), demo.logic.steps.map((s) => [s.x, s.y]));
 });
 
-test('exemple du skill : projet valide, installable, scénarios réussis', () => {
+test('exemples du skill : projets valides, installables, scénarios réussis', () => {
+  for (const file of ['tri-colis', 'ensacheuse', 'presse-servo', 'table-indexation']) {
+    const spec = read(`.claude/skills/plc-projet/examples/${file}.spec.json`);
+    const r = buildFromSpec(spec);
+    assert.deepEqual(r.errors, [], file);
+    const g = generateFiles(r.project, { hardwareFiles: hardwareFiles(), mainCpp: mainCpp() });
+    assert.deepEqual(g.issues.filter((i) => i.level === 'error'), [], file);
+    assert.ok(g.installable, file);
+    for (const res of runScenarios(r.project, spec.scenarios)) assert.ok(res.passed, `${file} / ${res.name}\n${res.log.join('\n')}`);
+  }
+});
+
+test('exemple tri-colis : écrans explicites, projet stable une fois relu par l’éditeur', () => {
   const spec = example();
   const r = buildFromSpec(spec);
   assert.deepEqual(r.errors, []);
@@ -75,6 +87,34 @@ test('mise en page automatique : étapes sur la grille, branches sans chevauchem
   assert.equal(byNum[2].y, byNum[4].y); // branches OU au même niveau
   assert.ok(byNum[4].x - byNum[2].x >= 260);
   for (const t of r.project.logic.transitions) assert.ok(Number.isFinite(t.x) && Number.isFinite(t.y));
+  // Grafcets indépendants empilés ; reprise placée avant une branche longue.
+  const two = {
+    steps: [
+      { id: 'a0', num: 0, initial: true, actions: [] },
+      { id: 'a1', num: 1, actions: [] },
+      { id: 'a2', num: 2, actions: [{ type: 'MSG', level: 'error', text: 'Message très long qui élargit beaucoup la colonne de cette branche' }] },
+      { id: 'a3', num: 3, actions: [] },
+      { id: 'b10', num: 10, initial: true, actions: [] },
+      { id: 'b11', num: 11, actions: [] },
+    ],
+    transitions: [
+      { id: 'x0', from: ['a0'], to: ['a1'], condition: 'a' },
+      { id: 'x1', from: ['a1'], to: ['a2'], condition: 'X1.t >= 30s ET une_condition_longue' },
+      { id: 'x2', from: ['a1'], to: ['a0'], condition: 'NON b' },
+      { id: 'x3', from: ['a2'], to: ['a0'], condition: 'c' },
+      { id: 'x4', from: ['a1'], to: ['a3'], condition: 'X1.t >= 30s ET une_autre_condition_longue' },
+      { id: 'x5', from: ['a3'], to: ['a0'], condition: 'f' },
+      { id: 'y0', from: ['b10'], to: ['b11'], condition: 'd' },
+      { id: 'y1', from: ['b11'], to: ['b10'], condition: 'e' },
+    ],
+  };
+  layoutGrafcet(two);
+  const st = Object.fromEntries(two.steps.map((x) => [x.id, x]));
+  const tr = Object.fromEntries(two.transitions.map((x) => [x.id, x]));
+  assert.ok(st.b10.y > Math.max(st.a0.y, st.a1.y, st.a2.y, st.a3.y, tr.x3.y, tr.x5.y));
+  assert.equal(st.b10.x, st.a0.x);
+  assert.equal(tr.x1.x, st.a1.x); // suite principale dans la colonne de l'étape
+  assert.ok(tr.x1.x < tr.x2.x && tr.x2.x < tr.x4.x, 'la reprise est entre la suite principale et l’autre branche');
   // Divergence ET : étapes côte à côte, convergence en dessous.
   const logic = {
     steps: [0, 1, 2, 3].map((n) => ({ id: `s${n}`, num: n, initial: n === 0, actions: [] })),
@@ -124,4 +164,20 @@ test('scénarios : échec détaillé, durées et modes', () => {
   assert.match(res.failures[1].message, /Moteur = false au lieu de true/);
   const bad = runScenario(project, { steps: [{ set: { Nope: 1 } }] });
   assert.match(bad.failures[0].message, /symbole inconnu/);
+});
+
+test('reconstruction d’un projet existant : export-spec puis build sans changement = fichier identique', () => {
+  const demo = normalizeProject(read('projets/DemoPresse.plc.json'));
+  const r = buildFromSpec(specFromProject(demo), { previous: JSON.parse(JSON.stringify(demo)) });
+  assert.deepEqual(r.errors, []);
+  assert.equal(JSON.stringify(r.project, null, 2), JSON.stringify(demo, null, 2));
+  // Une variable ajoutée ne change pas les identifiants des autres.
+  const spec = specFromProject(demo);
+  spec.variables.push({ symbol: 'Rebuts', label: 'Rebuts', kind: 'indicator', dataType: 'int' });
+  const r2 = buildFromSpec(spec, { previous: demo });
+  const uids = (p) => Object.fromEntries(p.variables.map((v) => [v.symbol, v.uid]));
+  const before = uids(demo);
+  const after = uids(r2.project);
+  for (const [sym, uid] of Object.entries(before)) assert.equal(after[sym], uid, sym);
+  assert.equal(after.Rebuts, 'var_Rebuts');
 });

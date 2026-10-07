@@ -22,18 +22,22 @@ Depuis la racine du dépôt (Node.js ≥ 18, aucune dépendance) :
 | Commande `node tools/plc-studio/cli/plc.mjs …` | Rôle |
 |---|---|
 | `catalog` | Équipements disponibles et noms exacts des voies (`plc.X1`, `io.DI3`…). |
-| `build <spec.json> [--cpp] [--force] [--verbose]` | Spec → `projets/<Nom>.plc.json` + `projets/<Nom>/spec.json` + `projets/<Nom>/scenarios.json`, puis vérification complète, syntaxe C++ (`--cpp`) et scénarios. Refuse d'écraser un projet existant sans `--force`. |
+| `build <spec.json> [--cpp] [--force] [--verbose] [--out <f>]` | Spec → `projets/<Nom>.plc.json` + `projets/<Nom>/spec.json` + `projets/<Nom>/scenarios.json`, puis vérification complète, syntaxe C++ (`--cpp`) et scénarios. Refuse d'écraser un projet existant sans `--force` ; avec `--force`, garde ses identifiants internes et l'ordre de ses champs (diff git minimal). `--out` : écrire ailleurs (essais sans toucher `projets/`). |
 | `check <Nom> [--cpp]` | Vérification d'un projet (y compris retouché dans PLC Studio). |
 | `sim <Nom> [--verbose]` | Rejoue `projets/<Nom>/scenarios.json`. |
 | `describe <Nom> [--md]` | Résumé lisible : E/S, variables, grafcet, modes, écrans. |
-| `export-spec <Nom> --out <f>` | Projet existant → spec (garde écrans et positions du grafcet). |
+| `export-spec <Nom> --out <f>` | Projet existant → spec, avec ses écrans, les positions du grafcet et ses scénarios. |
 
 Références à lire selon le besoin :
 - `references/spec.md` — format complet de la spec et des scénarios (à lire avant d'en écrire une) ;
 - `references/logique.md` — modes de marche, cycle, langage, servo, patrons (arrêt
   d'urgence, marche/arrêt, défauts, temporisations…) ;
-- `examples/tri-colis.spec.json` (convoyeur, sans servo, écrans explicites, défaut de
-  bourrage) et `examples/presse-servo.spec.json` (servo, divergence ET).
+- exemples validés (spec + scénarios), à prendre comme point de départ :
+  `examples/tri-colis.spec.json` (convoyeur, divergence OU, écrans explicites, défaut de
+  bourrage), `examples/ensacheuse.spec.json` (entrée analogique, alarme de durée, second
+  grafcet indépendant pour un compteur), `examples/presse-servo.spec.json` (servo,
+  divergence ET, marche/arrêt à l'écran), `examples/table-indexation.spec.json` (servo
+  en pas à pas, jog, défauts avec acquittement).
 
 ## Démarche
 
@@ -65,10 +69,20 @@ hypothèse n'est raisonnable — et alors une seule fois, en regroupant.
    - `fallback` des sorties pensé pour l'urgence ;
    - réceptivités exclusives dans les divergences OU, fronts (`FM`) pour les boutons ;
    - défauts process gérés dans le grafcet, URGENCE réservée à la sécurité
-     (`references/logique.md`, « Patrons »).
+     (`references/logique.md`, « Patrons ») ;
+   - `run.start` vide : dès que l'arrêt (`run.stop`) retombe, la machine repasse en REPOS
+     et les actions de l'étape initiale reprennent (un convoyeur redémarre) — prévoir une
+     mise en marche (`run.start`) dès qu'un arrêt doit durer ;
+   - messages : `MSG error:` / `MSG warning:` sont toujours affichés, `MSG info:` si
+     `showInfoMessages` (défaut oui), `MSG success:` est masqué par défaut
+     (`showSuccessMessages: false`) ; textes courts (ils élargissent le grafcet) ;
+   - une unité n'est affichée que par `rx-level-bar` : pour une saisie ou une valeur
+     numérique, la mettre dans le libellé (« Poids cible (g) »).
 4. Ajouter les **scénarios** : cycle nominal complet, chaque branche, arrêt d'urgence +
    acquittement, arrêt, chaque exigence particulière (temporisation, comptage, défaut,
-   servo). Un scénario vérifie ce que la demande exige, pas ce que la logique fait.
+   servo). Un scénario vérifie ce que la demande exige, pas ce que la logique fait ; ceux
+   qui vérifient un choix fait à la place de l'utilisateur le disent dans leur nom
+   (« … (choix : acquittement obligatoire) »).
 
 ### 3. Construire et valider
 
@@ -82,11 +96,15 @@ node tools/plc-studio/cli/plc.mjs build <spec.json> --cpp
   si le scénario se trompe (délai trop court, mauvaise hypothèse sur les modes), corriger
   le scénario en le justifiant. Ne jamais affaiblir un scénario juste pour qu'il passe.
 - `--cpp` vérifie la syntaxe du C++ généré avec g++ (si disponible).
+- Le grafcet est placé automatiquement (suite principale à gauche, branches à droite,
+  reprises proches de la colonne principale, grafcets indépendants les uns sous les
+  autres). Pour un grafcet inhabituel, des positions `x`/`y` peuvent être données à
+  **toutes** les étapes et transitions (`references/spec.md`, « Grafcet »).
 
 ### 4. Documenter
 
 Écrire `projets/<Nom>/LISEZMOI.md` :
-- la sortie de `plc.mjs describe <Nom> --md` (équipements, câblage, variables, grafcet, modes, écrans) ;
+- à partir de la sortie de `plc.mjs describe <Nom> --md` (équipements, câblage, variables, grafcet, modes, écrans) ;
 - une section **Hypothèses** (tous les choix faits à la place de l'utilisateur) ;
 - une section **Scénarios validés** (nom et ce que chacun prouve) ;
 - une section **À vérifier sur la machine** (sens des capteurs, temporisations réelles,
@@ -112,10 +130,16 @@ Rapport à l'utilisateur, court :
 Le projet a pu être retouché dans PLC Studio (écrans, positions du grafcet) : ne jamais le
 reconstruire depuis une ancienne spec.
 
-1. `plc.mjs export-spec <Nom> --out <tmp>/spec.json` (reflète l'état actuel, écrans
-   personnalisés et positions compris) ; `plc.mjs describe <Nom>` pour comprendre.
-2. Modifier la spec. Les nouvelles étapes sans `x`/`y` déclenchent la remise en page de
-   tout le grafcet : soit leur donner des positions cohérentes (grille de 10, 180 px entre
-   deux étapes, transition à mi-hauteur), soit accepter la remise en page et le signaler.
-3. `build <spec> --force --cpp`, compléter les scénarios (`projets/<Nom>/scenarios.json`),
-   `sim <Nom>`, mettre à jour `LISEZMOI.md`.
+1. `plc.mjs export-spec <Nom> --out <tmp>/spec.json` (reflète l'état actuel : écrans
+   personnalisés, positions du grafcet et scénarios existants) ; `plc.mjs describe <Nom>`
+   pour comprendre. Reconstruire cette spec sans la modifier redonne le même fichier.
+2. Modifier la spec :
+   - ajouter les nouvelles E/S et variables **à la fin** de leur liste : l'ordre fixe les
+     identifiants des nœuds du firmware et la disposition automatique des écrans ;
+   - nouvelles étapes/transitions : leur donner des `x`/`y` alignés sur les voisines
+     (reprendre l'espacement existant ; transitions d'une même convergence ET au même `y`
+     pour partager la double barre) — sans positions, tout le grafcet est replacé : le
+     signaler ;
+   - compléter les scénarios dans la spec (« scenarios ») : `build` réécrit
+     `projets/<Nom>/scenarios.json`.
+3. `build <spec> --force --cpp`, mettre à jour `LISEZMOI.md`.

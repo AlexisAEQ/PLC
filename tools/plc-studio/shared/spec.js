@@ -112,7 +112,45 @@ const MIN_COL = 260;
 export function layoutGrafcet(logic) {
   const steps = logic.steps;
   const trans = logic.transitions;
+  // Grafcets indépendants (plusieurs étapes initiales sans lien) : placés l'un sous l'autre,
+  // le grafcet principal (plus petite étape initiale) en premier.
+  const comp = new Map();
+  const stepIds = new Set(steps.map((s) => s.id));
+  const adj = new Map(steps.map((s) => [s.id, new Set()]));
+  for (const t of trans) {
+    const ids = [...t.from, ...t.to].filter((id) => stepIds.has(id));
+    for (const a of ids) for (const b of ids) if (a !== b) adj.get(a).add(b);
+  }
+  let n = 0;
+  for (const s of steps) {
+    if (comp.has(s.id)) continue;
+    const stack = [s.id];
+    comp.set(s.id, n);
+    while (stack.length) for (const x of adj.get(stack.pop())) if (!comp.has(x)) (comp.set(x, n), stack.push(x));
+    n++;
+  }
+  const groups = Array.from({ length: n }, (_, i) => ({
+    steps: steps.filter((s) => comp.get(s.id) === i),
+    trans: trans.filter((t) => [...t.from, ...t.to].some((id) => comp.get(id) === i)),
+  }));
+  const rank = (g) => {
+    const init = g.steps.filter((s) => s.initial).map((s) => s.num);
+    return [init.length ? 0 : 1, Math.min(...(init.length ? init : g.steps.map((s) => s.num)))];
+  };
+  groups.sort((a, b) => rank(a)[0] - rank(b)[0] || rank(a)[1] - rank(b)[1]);
+  const orphans = trans.filter((t) => ![...t.from, ...t.to].some((id) => stepIds.has(id)));
+  let top = TOP;
+  for (const g of groups) {
+    layoutOne(g.steps, g.trans, top);
+    top = Math.max(...g.steps.map((s) => s.y), ...g.trans.map((t) => t.y)) + 2 * ROW;
+  }
+  orphans.forEach((t, i) => Object.assign(t, { x: LEFT, y: top + i * ROW }));
+  return logic;
+}
+
+function layoutOne(steps, trans, top) {
   const stepById = new Map(steps.map((s) => [s.id, s]));
+  const transByKey = new Map(trans.map((t) => [`t:${t.id}`, t]));
   const outOf = new Map(steps.map((s) => [s.id, []]));
   const inTo = new Map(steps.map((s) => [s.id, []]));
   for (const t of trans) {
@@ -125,15 +163,15 @@ export function layoutGrafcet(logic) {
   const state = new Map();
   const visit = (key) => {
     state.set(key, 1);
-    const next = key.startsWith('s:') ? (outOf.get(key.slice(2)) || []).map((t) => `t:${t.id}`) : trans.find((t) => `t:${t.id}` === key).to.map((id) => `s:${id}`);
-    for (const n of next) {
-      if (state.get(n) === 1) back.add(`${key}>${n}`);
-      else if (!state.has(n)) visit(n);
+    const next = key.startsWith('s:') ? (outOf.get(key.slice(2)) || []).map((t) => `t:${t.id}`) : transByKey.get(key).to.filter((id) => stepById.has(id)).map((id) => `s:${id}`);
+    for (const nk of next) {
+      if (state.get(nk) === 1) back.add(`${key}>${nk}`);
+      else if (!state.has(nk)) visit(nk);
     }
     state.set(key, 2);
   };
-  const roots = steps.filter((s) => s.initial);
-  for (const s of [...roots, ...steps]) if (!state.has(`s:${s.id}`)) visit(`s:${s.id}`);
+  const byNum = [...steps].sort((a, b) => (b.initial ? 1 : 0) - (a.initial ? 1 : 0) || a.num - b.num);
+  for (const s of byNum) if (!state.has(`s:${s.id}`)) visit(`s:${s.id}`);
 
   // 2. Rangées (plus long chemin sans les reprises) : étapes aux rangs pairs, transitions aux impairs.
   const layer = new Map();
@@ -152,16 +190,15 @@ export function layoutGrafcet(logic) {
     for (const id of t.to) if (stepById.has(id)) addEdge(`t:${t.id}`, `s:${id}`);
   }
   const queue = [...succ.keys()].filter((k) => !indeg.get(k));
-  // Étapes initiales d'abord, puis l'ordre de déclaration.
   queue.sort((a, b) => (a.startsWith('s:') && stepById.get(a.slice(2))?.initial ? -1 : 0) - (b.startsWith('s:') && stepById.get(b.slice(2))?.initial ? -1 : 0));
   for (const k of queue) layer.set(k, k.startsWith('s:') ? 0 : 1);
   while (queue.length) {
     const k = queue.shift();
     order.push(k);
-    for (const n of succ.get(k)) {
-      layer.set(n, Math.max(layer.get(n) || 0, layer.get(k) + 1));
-      indeg.set(n, indeg.get(n) - 1);
-      if (!indeg.get(n)) queue.push(n);
+    for (const nk of succ.get(k)) {
+      layer.set(nk, Math.max(layer.get(nk) || 0, layer.get(k) + 1));
+      indeg.set(nk, indeg.get(nk) - 1);
+      if (!indeg.get(nk)) queue.push(nk);
     }
   }
 
@@ -179,54 +216,66 @@ export function layoutGrafcet(logic) {
   for (const k of order) {
     if (!col.has(k)) {
       // Prédécesseurs déjà placés (arcs avant) : on reprend la colonne la plus à gauche.
-      const preds = k.startsWith('s:') ? (inTo.get(k.slice(2)) || []).map((t) => `t:${t.id}`) : trans.find((t) => `t:${t.id}` === k).from.map((id) => `s:${id}`);
+      const preds = k.startsWith('s:') ? (inTo.get(k.slice(2)) || []).map((t) => `t:${t.id}`) : transByKey.get(k).from.map((id) => `s:${id}`);
       const placed = preds.filter((p) => col.has(p) && !back.has(`${p}>${k}`)).map((p) => col.get(p));
       setCol(k, placed.length ? Math.min(...placed) : newCol());
     }
     const c = col.get(k);
     if (k.startsWith('s:')) {
-      // Les reprises (retour vers une étape amont) passent après les branches qui descendent.
-      const outs = [...(outOf.get(k.slice(2)) || [])].sort((a, b) => isLoop(a) - isLoop(b));
+      // Ordre des colonnes : la suite principale (première transition qui descend), puis les
+      // reprises (lignes de retour courtes, sans croiser les autres branches), puis les autres branches.
+      const all = outOf.get(k.slice(2)) || [];
+      const main = all.find((t) => !isLoop(t));
+      const outs = [main, ...all.filter((t) => isLoop(t)), ...all.filter((t) => t !== main && !isLoop(t))].filter(Boolean);
       outs.forEach((t, i) => {
         if (!back.has(`${k}>t:${t.id}`)) setCol(`t:${t.id}`, i === 0 ? c : newCol());
       });
     } else {
-      const t = trans.find((x) => `t:${x.id}` === k);
-      t.to.forEach((id, i) => {
-        if (!back.has(`${k}>s:${id}`)) setCol(`s:${id}`, i === 0 ? c : newCol());
+      transByKey.get(k).to.forEach((id, i) => {
+        if (stepById.has(id) && !back.has(`${k}>s:${id}`)) setCol(`s:${id}`, i === 0 ? c : newCol());
       });
     }
   }
 
-  // 4. Largeur des colonnes selon les actions, réceptivités et libellés.
-  const right = new Map();
-  const left = new Map();
-  const grow = (m, c, v) => m.set(c, Math.max(m.get(c) || 0, v));
-  for (const s of steps) {
-    const c = col.get(`s:${s.id}`) ?? 0;
-    const w = s.actions?.length ? Math.max(...s.actions.map((a) => actionText(a).length)) * 7 + 24 : 0;
-    grow(right, c, STEP_W / 2 + 20 + w);
-    grow(left, c, s.label ? s.label.length * 6.5 + 8 : STEP_W / 2);
+  // 4. Abscisses : chaque colonne se place juste à droite de ce qui occupe les mêmes rangées
+  //    (actions, réceptivités et libellés compris), au moins une colonne à droite de la principale.
+  const nodes = [
+    ...steps.map((s) => ({
+      c: col.get(`s:${s.id}`) ?? 0,
+      layer: layer.get(`s:${s.id}`) ?? 0,
+      right: STEP_W / 2 + 20 + (s.actions?.length ? Math.max(...s.actions.map((a) => actionText(a).length)) * 7 + 24 : 0),
+      left: s.label ? s.label.length * 6.5 + 8 : STEP_W / 2,
+    })),
+    ...trans.map((t) => ({ c: col.get(`t:${t.id}`) ?? 0, layer: layer.get(`t:${t.id}`) ?? 1, right: 24 + String(t.condition || '').length * 7.2, left: 50 })),
+  ];
+  const xs = [LEFT];
+  for (let c = 1; c <= maxCol; c++) {
+    let x = LEFT + MIN_COL;
+    for (const nd of nodes.filter((z) => z.c === c))
+      for (const m of nodes)
+        if (m.c < c && Math.abs(m.layer - nd.layer) <= 1) x = Math.max(x, xs[m.c] + MIN_COL, xs[m.c] + m.right + 50 + nd.left);
+    xs[c] = Math.ceil(x / 20) * 20;
   }
-  for (const t of trans) {
-    const c = col.get(`t:${t.id}`) ?? 0;
-    grow(right, c, 24 + String(t.condition || '').length * 7.2);
-    grow(left, c, 50);
-  }
-  const xs = [];
-  for (let c = 0; c <= maxCol; c++) xs[c] = c === 0 ? LEFT : xs[c - 1] + Math.max(MIN_COL, Math.ceil(((right.get(c - 1) || 0) + 50 + (left.get(c) || 0)) / 20) * 20);
 
   for (const s of steps) {
     const k = `s:${s.id}`;
     s.x = xs[col.get(k) ?? 0];
-    s.y = TOP + (layer.get(k) ?? 0) * ROW;
+    s.y = top + (layer.get(k) ?? 0) * ROW;
   }
-  for (const t of trans) {
+  // Reprises d'une même rangée décalées verticalement : leurs lignes de retour ne se superposent pas.
+  const loopsInRow = new Map();
+  for (const t of [...trans].sort((a, b) => (col.get(`t:${a.id}`) ?? 0) - (col.get(`t:${b.id}`) ?? 0))) {
     const k = `t:${t.id}`;
+    const L = layer.get(k) ?? 1;
+    let dy = 0;
+    if (isLoop(t)) {
+      const i = loopsInRow.get(L) || 0;
+      loopsInRow.set(L, i + 1);
+      dy = 20 * i;
+    }
     t.x = xs[col.get(k) ?? 0];
-    t.y = TOP + (layer.get(k) ?? 1) * ROW;
+    t.y = top + L * ROW + dy;
   }
-  return logic;
 }
 
 // ---------------------------------------------------------------------------
@@ -235,7 +284,10 @@ const asList = (x) => (x === undefined || x === null ? [] : Array.isArray(x) ? x
 // Spec -> projet. Retourne { project, errors, warnings, issues } :
 //   errors/warnings : problèmes de la spec elle-même (voie inconnue, étape absente…) ;
 //   issues : vérification complète de PLC Studio (validateProject) sur le projet produit.
-export function buildFromSpec(spec) {
+// options.previous : version actuelle du projet (reconstruction d'un projet existant) — ses
+//   identifiants internes et l'ordre de ses champs sont conservés, pour un diff git lisible.
+export function buildFromSpec(spec, { previous = null } = {}) {
+  const prev = previousIds(previous);
   const errors = [];
   const warnings = [];
   const fail = (msg) => errors.push(msg);
@@ -265,7 +317,7 @@ export function buildFromSpec(spec) {
     }
     if (eqById.has(e.id)) fail(`deux équipements ont l'id « ${e.id} ».`);
     const entry = CATALOG[e.type];
-    const eq = normalizeEquipment({ uid: `eq_${toSymbol(e.id)}`, type: e.type, label: e.label || entry.defaultLabel || entry.label, options: e.options || {} });
+    const eq = normalizeEquipment({ uid: prev.equipment(e) || `eq_${toSymbol(e.id)}`, type: e.type, label: e.label || entry.defaultLabel || entry.label, options: e.options || {} });
     if (entry.modbus) eq.address = e.address ?? entry.defaultAddress;
     project.equipment.push(eq);
     project.variables.push(...systemVariablesFor(eq));
@@ -312,13 +364,14 @@ export function buildFromSpec(spec) {
     if (symbols.has(symbol)) fail(`${what} : symbole « ${symbol} » déjà utilisé.`);
     symbols.add(symbol);
     const v = normalizeVariable({
-      uid: `var_${symbol}`,
+      uid: prev.variable(symbol) || `var_${symbol}`,
       symbol,
       label: raw.label || symbol,
       comment: raw.comment || '',
       ...extra,
     });
     for (const k of ['inverse', 'fallback', 'initial', 'min', 'max', 'step', 'unit', 'choices']) if (raw[k] !== undefined) v[k] = raw[k];
+    if (raw.initial !== undefined && v.kind !== 'parameter') warnings.push(`${what} : « initial » n'est utilisé que pour les paramètres (les autres variables démarrent à 0 / faux / "").`);
     if (v.kind === 'parameter' && raw.initial === undefined) v.initial = v.dataType === 'bool' ? false : v.dataType === 'text' ? '' : 0;
     v.hmi = { show: raw.show ?? v.kind !== 'memory' };
     if (raw.widget) v.hmi.widget = raw.widget;
@@ -375,7 +428,7 @@ export function buildFromSpec(spec) {
         fail(`étape ${num} : ${e.message}.`);
       }
     }
-    const st = { id: `s${num}`, num, label: s.label || '', initial: !!s.initial, actions };
+    const st = { id: prev.step(num) || `s${num}`, num, label: s.label || '', ...(s.initial ? { initial: true } : {}), actions };
     if (Number.isFinite(s.x) && Number.isFinite(s.y)) Object.assign(st, { x: s.x, y: s.y });
     stepByNum.set(num, st);
     logicSteps.push(st);
@@ -403,7 +456,7 @@ export function buildFromSpec(spec) {
     const from = asList(t.from).map((n) => ref(n, 'amont')).filter(Boolean);
     const to = asList(t.to).map((n) => ref(n, 'aval')).filter(Boolean);
     if (!from.length || !to.length) fail(`transition T${num} : « from » et « to » obligatoires.`);
-    const tr = { id: `t${num}`, num, from, to, condition: String(t.condition ?? 'VRAI').trim() || 'VRAI' };
+    const tr = { id: prev.transition(num) || `t${num}`, num, from, to, condition: String(t.condition ?? 'VRAI').trim() || 'VRAI' };
     if (Number.isFinite(t.x) && Number.isFinite(t.y)) Object.assign(tr, { x: t.x, y: t.y });
     logicTrans.push(tr);
   }
@@ -446,11 +499,11 @@ export function buildFromSpec(spec) {
     project.hmi = {
       auto: false,
       pages: asList(spec.hmi.pages).map((pg, pi) => ({
-        id: `page_${pi + 1}`,
+        id: prev.page(pg.name) || `page_${pi + 1}`,
         name: pg.name || `Page ${pi + 1}`,
         ...(pg.password ? { password: String(pg.password) } : {}),
         sections: asList(pg.sections).map((sec, si) => ({
-          id: `sec_${pi + 1}_${si + 1}`,
+          id: prev.section(pg.name, sec.name) || `sec_${pi + 1}_${si + 1}`,
           name: sec.name || `Section ${si + 1}`,
           orientation: sec.orientation || 'horizontal',
           ...(sec.password ? { password: String(sec.password) } : {}),
@@ -487,7 +540,46 @@ export function buildFromSpec(spec) {
   const layout = buildLayout(normalized);
   const pages = effectivePages(normalized, layout);
   const issues = validateProject({ ...normalized, hmi: { ...normalized.hmi, pages } }, layout);
-  return { project: normalized, errors, warnings, issues };
+  return { project: previous ? orderLike(normalized, previous) : normalized, errors, warnings, issues };
+}
+
+// Identifiants internes d'une version précédente du projet, retrouvés par nom.
+function previousIds(previous) {
+  const none = () => null;
+  if (!previous) return { equipment: none, variable: none, step: none, transition: none, page: none, section: none };
+  const eqs = previous.equipment || [];
+  const vars = new Map((previous.variables || []).filter((v) => !v.system).map((v) => [v.symbol, v.uid]));
+  const steps = new Map((previous.logic?.steps || []).map((s) => [s.num, s.id]));
+  const trans = new Map((previous.logic?.transitions || []).map((t) => [t.num, t.id]));
+  const pages = previous.hmi?.auto === false ? previous.hmi.pages || [] : [];
+  const taken = new Set();
+  return {
+    equipment(e) {
+      const hit = eqs.find((x) => !taken.has(x.uid) && x.type === e.type && x.label === (e.label || x.label)) || eqs.find((x) => !taken.has(x.uid) && x.type === e.type);
+      if (hit) taken.add(hit.uid);
+      return hit?.uid || null;
+    },
+    variable: (symbol) => vars.get(symbol) || null,
+    step: (num) => steps.get(num) || null,
+    transition: (num) => trans.get(num) || null,
+    page: (name) => pages.find((p) => p.name === name)?.id || null,
+    section: (pageName, name) => pages.find((p) => p.name === pageName)?.sections?.find((s) => s.name === name)?.id || null,
+  };
+}
+
+// Réordonne les champs comme dans la version précédente (objets et éléments de même identité).
+function orderLike(obj, ref) {
+  if (Array.isArray(obj)) {
+    if (!Array.isArray(ref)) return obj;
+    const key = (x) => (x && typeof x === 'object' ? x.uid ?? x.id ?? null : null);
+    const byKey = new Map(ref.filter((x) => key(x) !== null).map((x) => [key(x), x]));
+    return obj.map((x, i) => orderLike(x, key(x) !== null ? byKey.get(key(x)) : ref[i]));
+  }
+  if (!obj || typeof obj !== 'object' || !ref || typeof ref !== 'object' || Array.isArray(ref)) return obj;
+  const out = {};
+  for (const k of Object.keys(ref)) if (k in obj) out[k] = orderLike(obj[k], ref[k]);
+  for (const k of Object.keys(obj)) if (!(k in out)) out[k] = obj[k];
+  return out;
 }
 
 function defaultWidget(project, layout, ref) {

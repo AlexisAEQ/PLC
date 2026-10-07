@@ -31,7 +31,8 @@ INITIALISATION ─▶ ARRÊT ─▶ (PRISE D'ORIGINE) ─▶ REPOS ⇄ CYCLE
   nécessaire après une urgence.
 - **MANUEL** (servo) : `jogPlus` / `jogMinus` font avancer le servo tant qu'ils sont vrais ;
   `jogMode` faux → ARRÊT. Accessible depuis ARRÊT, ou depuis REPOS si le grafcet est en
-  situation initiale.
+  situation initiale : `jogMode` activé pendant un cycle fait passer en MANUEL dès le
+  retour en situation initiale (fin du cycle).
 
 ## Cycle d'automate (10 ms)
 
@@ -86,6 +87,13 @@ Symboles sensibles à la casse. Une réceptivité doit être booléenne ; une va
 - Un déplacement refusé par le variateur (pas prêt, en alarme, mouvement déjà en cours) ou
   une alarme du servo met la machine en URGENCE : ne pas enchaîner deux `SERVO_MOVE` sans
   attendre `Servo.enPosition`.
+- `SERVO_STOP` : `Servo.enMouvement` retombe aussitôt (une transition
+  `NON Servo.enMouvement` derrière un arrêt est franchie dans le même cycle) ; un
+  `SERVO_MOVE` qui suit attend la fin de l'arrêt immédiat du variateur (≈ 0,5 s) avant de
+  partir — attendre `Servo.enPosition` comme d'habitude.
+- `Servo.position` est relue sur le variateur (toutes les 250 ms environ) : valeur un peu
+  en retard pendant un mouvement, exacte à l'arrêt. Pas de déplacement relatif : calculer
+  la cible (voir « Indexation » dans les patrons).
 - Les signaux `servoOn`, `immediateStop`, `alarmsReset` sont pilotés par le bloc servo :
   câblez-les (`servoSignals`), ne les écrivez pas dans le grafcet.
 
@@ -108,6 +116,13 @@ une électrovanne monostable qui doit garder sa position).
 **Temporisations** : `X4.t >= 2s` ou un paramètre en ms (`X4.t >= Tempo_ms`) — préférer un
 paramètre réglable quand la valeur dépend du réglage machine.
 
+**Indexation (pas à pas du servo)** : étape « Calcul » avec `SET Cible := Poste + Pas` (ou,
+pour se recaler sur la grille après un jog, `SET Cible := ((Servo.position + Pas / 2) / Pas + 1) * Pas`),
+divergence OU `Cible <= Course_max` → étape « Avance » (`SERVO_MOVE Cible @ Vitesse`,
+`SET Poste := Cible`) / `Cible > Course_max` → retour à 0 puis reprise ; transition suivante
+`Servo.enPosition`. Calculer depuis une variable mémorisée (`Poste`) évite d'accumuler les
+écarts de mesure.
+
 **Comptage** : `INC Pieces` à l'activation d'une étape traversée une fois par pièce ;
 remise à zéro par une commande : étape ou transition dédiée avec `SET Pieces := 0`.
 
@@ -127,6 +142,15 @@ si deux transitions d'une même étape sont vraies en même temps, toutes deux s
 **Signalisation d'état** : l'état machine (`@etat`) s'affiche à l'écran ; les sorties
 câblées sont toutes à 0 en ARRÊT : un voyant « en marche » se pilote par `N Voyant` dans
 les étapes concernées.
+
+**Messages à l'opérateur** : `MSG error:` / `MSG warning:` (toujours affichés), `MSG info:`
+(affiché si `showInfoMessages`, défaut oui) ; `MSG success:` est masqué par défaut
+(`showSuccessMessages: false`). Textes courts : ils s'affichent dans le grafcet.
+
+**Grafcets indépendants** (ex. remise à zéro d'un compteur pendant le cycle) : une seconde
+étape initiale avec sa propre boucle ; elle tourne en parallèle du grafcet principal en
+REPOS/CYCLE (mais rappel : REPOS exige que *toutes* les étapes initiales seules soient
+actives).
 
 ## Limites actuelles du framework à signaler à l'utilisateur
 

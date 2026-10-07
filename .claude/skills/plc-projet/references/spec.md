@@ -95,8 +95,10 @@ Sommaire : [Projet](#projet) · [Équipements](#équipements) · [E/S câblées]
 | `indicator` | bool, int, float, text | Calculée par la logique, affichée. |
 | `memory` | bool, int, float | Variable de travail, non affichée (`show: true` pour l'afficher). |
 
-Champs facultatifs : `comment` (devient l'info-bulle), `initial`, `min`, `max`, `step`
-(curseur), `unit`, `choices` (liste « ; » pour `tx-dropdown`), `show`, `widget`.
+Champs facultatifs : `comment` (devient l'info-bulle), `initial` (**paramètres
+seulement** ; les autres variables démarrent à 0 / faux / ""), `min`, `max`, `step`
+(curseur), `unit` (affichée seulement par `rx-level-bar` : sinon la mettre dans le
+libellé), `choices` (liste « ; » pour `tx-dropdown`), `show`, `widget`.
 
 ## Grafcet
 
@@ -123,9 +125,14 @@ Champs facultatifs : `comment` (devient l'info-bulle), `initial`, `min`, `max`, 
   exclusives). Une transition vers une étape plus haute = reprise (boucle). `num` facultatif
   (T0, T1… dans l'ordre). `condition` : voir references/logique.md ; défaut `VRAI`.
 - Positions : sans `x`/`y`, le grafcet est placé automatiquement sur la grille de l'éditeur
-  (branches côte à côte, reprises à gauche). Si **toutes** les étapes et transitions ont
-  `x`/`y` (spec exportée d'un projet retouché), elles sont conservées ; sinon tout est
-  replacé.
+  (suite principale à gauche, branches à droite, reprises proches de la colonne
+  principale et dessinées à gauche, grafcets indépendants les uns sous les autres). Si
+  **toutes** les étapes et transitions ont `x`/`y` (spec exportée d'un projet retouché, ou
+  placement à la main), elles sont conservées ; sinon tout est replacé. Repères pour un
+  placement à la main : centre des étapes, grille de 10 ; 180 px entre deux étapes
+  successives et transition à mi-hauteur ; branches espacées d'au moins 260 px (plus si
+  les actions ou réceptivités sont longues) ; transitions d'une même convergence ET au
+  même `y` (une seule double barre) ; deux reprises d'une même rangée décalées de 20 px.
 
 ## Actions
 
@@ -143,6 +150,15 @@ Texte court ou objet (format du projet, ex. `{ "type": "N", "target": "Verin", "
 
 Cibles : sorties câblées, indicateurs, mémoires, paramètres, commandes (ex. `SET Depart_ecran := FAUX`) ;
 jamais les entrées ni les signaux du servo. N/S/R : booléens ; INC/DEC : numériques.
+
+- Les valeurs (`SET`, `NSET`, `SERVO_MOVE` position et vitesse) et les conditions de `N`
+  sont des expressions complètes : variables, `X3`, `Servo.position`, arithmétique,
+  `MIN`/`MAX`…
+- Ordre : les actions à l'activation s'exécutent dans l'ordre de la liste ; un `SET` est
+  visible par les actions suivantes et par les réceptivités évaluées dans le même cycle.
+- Messages : `error` et `warning` toujours affichés ; `info` si `options.showInfoMessages`
+  (défaut vrai) ; `success` masqué tant que `options.showSuccessMessages` est faux (défaut)
+  — le simulateur les enregistre tous.
 Une même variable ne doit pas être à la fois pilotée par N/S/R et affectée par SET/INC.
 
 ## Modes et sécurités
@@ -203,7 +219,7 @@ leur valeur initiale) et enchaîne des pas :
 
 | Pas | Effet |
 |---|---|
-| `{ "set": { "AU_OK": true, "Cible": 5000 } }` | Force des entrées / écrit des variables (restent forcées). |
+| `{ "set": { "AU_OK": true, "Cible": 5000 } }` | Force des entrées / écrit des variables (restent forcées). Valeur **logique** : pour une entrée `inverse`, `true` = actionnée. |
 | `{ "press": "Depart" }` · `{ "press": { "symbol": "Depart", "ms": 300 } }` | Appui : vrai pendant 100 ms (défaut), puis faux. |
 | `{ "wait": "2s" }` | Laisse tourner (`ms`, `s`, `min`, `h` ; nombre = ms ; `1,5s` accepté). |
 | `{ "until": <condition>, "timeout": "5s" }` | Tourne jusqu'à ce que la condition soit vraie ; échec au-delà du délai (défaut 10 s). |

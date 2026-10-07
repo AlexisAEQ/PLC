@@ -1,0 +1,1407 @@
+{
+  "format": "plc-studio-spec",
+  "name": "Ensacheuse",
+  "description": "Ensacheuse : sac posé sur la balance, départ par bouton, dosage par vis jusqu'au poids cible réglable, soudure temporisée, éjection par vérin, compteur de sacs et alarme de dosage trop long.",
+  "execution": "hmi",
+  "equipment": [
+    {
+      "id": "plc",
+      "type": "Kincony_KC868_A8S",
+      "label": "Automate"
+    },
+    {
+      "id": "ana",
+      "type": "Waveshare_8AI",
+      "label": "Module analogique",
+      "address": 3
+    }
+  ],
+  "io": [
+    {
+      "symbol": "AU_OK",
+      "label": "Arrêt d'urgence OK",
+      "at": "plc.X1",
+      "comment": "Chaîne d'arrêt d'urgence (contact NF) : vrai = pas d'urgence"
+    },
+    {
+      "symbol": "BP_Depart",
+      "label": "Bouton départ",
+      "at": "plc.X2",
+      "comment": "Bouton poussoir NO : lance le dosage du sac posé sur la balance"
+    },
+    {
+      "symbol": "Sac_present",
+      "label": "Sac sur la balance",
+      "at": "plc.X3",
+      "comment": "Capteur de présence sac : vrai = sac présent"
+    },
+    {
+      "symbol": "Poids",
+      "label": "Poids balance",
+      "at": "ana.AI1",
+      "min": 0,
+      "max": 10000,
+      "unit": "g",
+      "widget": "rx-level-bar",
+      "comment": "0 à 10000 = 0 à 10 kg (1 point = 1 g), poids brut sac compris"
+    },
+    {
+      "symbol": "Vis_doseuse",
+      "label": "Vis doseuse",
+      "at": "plc.Y1",
+      "fallback": "off"
+    },
+    {
+      "symbol": "Soudeuse",
+      "label": "Soudeuse (fermeture)",
+      "at": "plc.Y2",
+      "fallback": "off",
+      "comment": "1 = mâchoires fermées ; à 0 en urgence (mâchoires ouvertes)"
+    },
+    {
+      "symbol": "Verin_ejection",
+      "label": "Vérin d'éjection",
+      "at": "plc.Y3",
+      "fallback": "off",
+      "comment": "Distributeur monostable : 0 = vérin rentré"
+    }
+  ],
+  "variables": [
+    {
+      "symbol": "Marche",
+      "label": "Marche",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "Mise en marche (après mise sous tension, arrêt ou urgence)"
+    },
+    {
+      "symbol": "Arret",
+      "label": "Arrêt",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "Arrêt immédiat : vis, soudeuse et vérin coupés, cycle abandonné"
+    },
+    {
+      "symbol": "Acquit",
+      "label": "Acquitter",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "Acquitte l'arrêt d'urgence et l'alarme de dosage (retour en attente)"
+    },
+    {
+      "symbol": "RAZ_sacs",
+      "label": "Remise à zéro",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "Remet le compteur de sacs à zéro"
+    },
+    {
+      "symbol": "Poids_cible",
+      "label": "Poids cible (g)",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 5000,
+      "min": 100,
+      "max": 10000,
+      "unit": "g",
+      "comment": "La vis s'arrête quand la balance atteint ce poids (lecture brute, sac compris)"
+    },
+    {
+      "symbol": "Tempo_soudure",
+      "label": "Durée de soudure (ms)",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 2000,
+      "min": 100,
+      "max": 10000,
+      "unit": "ms",
+      "comment": "Temps de fermeture de la soudeuse"
+    },
+    {
+      "symbol": "Tempo_ejection",
+      "label": "Durée d'éjection (ms)",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 1000,
+      "min": 100,
+      "max": 5000,
+      "unit": "ms",
+      "comment": "Temps de sortie du vérin d'éjection (pas de capteur de fin de course)"
+    },
+    {
+      "symbol": "Duree_max_dosage",
+      "label": "Dosage maximal (s)",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 30,
+      "min": 5,
+      "max": 300,
+      "unit": "s",
+      "comment": "Alarme si le poids cible n'est pas atteint dans ce délai"
+    },
+    {
+      "symbol": "Sacs",
+      "label": "Sacs produits",
+      "kind": "indicator",
+      "dataType": "int"
+    },
+    {
+      "symbol": "Alarme_dosage",
+      "label": "Alarme dosage trop long",
+      "kind": "indicator",
+      "dataType": "bool"
+    }
+  ],
+  "grafcet": {
+    "steps": [
+      {
+        "num": 0,
+        "label": "Attente sac",
+        "initial": true,
+        "actions": []
+      },
+      {
+        "num": 1,
+        "label": "Dosage",
+        "actions": [
+          "N Vis_doseuse"
+        ]
+      },
+      {
+        "num": 2,
+        "label": "Soudure",
+        "actions": [
+          "N Soudeuse"
+        ]
+      },
+      {
+        "num": 3,
+        "label": "Éjection",
+        "actions": [
+          "N Verin_ejection",
+          "INC Sacs"
+        ]
+      },
+      {
+        "num": 4,
+        "label": "Évacuation sac",
+        "actions": []
+      },
+      {
+        "num": 5,
+        "label": "Alarme dosage",
+        "actions": [
+          "N Alarme_dosage",
+          "MSG error: Dosage trop long : vérifier la trémie et la vis, acquitter puis relancer par Départ"
+        ]
+      },
+      {
+        "num": 10,
+        "label": "Compteur",
+        "initial": true,
+        "actions": []
+      },
+      {
+        "num": 11,
+        "label": "RAZ compteur",
+        "actions": [
+          "SET Sacs := 0"
+        ]
+      }
+    ],
+    "transitions": [
+      {
+        "num": 0,
+        "from": 0,
+        "to": 1,
+        "condition": "FM(BP_Depart) ET Sac_present"
+      },
+      {
+        "num": 1,
+        "from": 1,
+        "to": 2,
+        "condition": "Poids >= Poids_cible ET Sac_present"
+      },
+      {
+        "num": 2,
+        "from": 1,
+        "to": 0,
+        "condition": "NON Sac_present"
+      },
+      {
+        "num": 3,
+        "from": 1,
+        "to": 5,
+        "condition": "X1.t >= Duree_max_dosage * 1000 ET Poids < Poids_cible ET Sac_present"
+      },
+      {
+        "num": 4,
+        "from": 2,
+        "to": 3,
+        "condition": "X2.t >= Tempo_soudure"
+      },
+      {
+        "num": 5,
+        "from": 3,
+        "to": 4,
+        "condition": "X3.t >= Tempo_ejection"
+      },
+      {
+        "num": 6,
+        "from": 4,
+        "to": 0,
+        "condition": "NON Sac_present"
+      },
+      {
+        "num": 7,
+        "from": 5,
+        "to": 0,
+        "condition": "FM(Acquit)"
+      },
+      {
+        "num": 8,
+        "from": 10,
+        "to": 11,
+        "condition": "FM(RAZ_sacs)"
+      },
+      {
+        "num": 9,
+        "from": 11,
+        "to": 10,
+        "condition": "NON RAZ_sacs"
+      }
+    ]
+  },
+  "modes": {
+    "emergency": {
+      "condition": "NON AU_OK",
+      "reset": "Acquit"
+    },
+    "run": {
+      "start": "Marche",
+      "stop": "Arret"
+    }
+  },
+  "hmi": {
+    "pages": [
+      {
+        "name": "Production",
+        "sections": [
+          {
+            "name": "État",
+            "items": [
+              "@etat",
+              {
+                "ref": "Poids",
+                "widget": "rx-level-bar"
+              },
+              "Sac_present",
+              {
+                "ref": "Alarme_dosage",
+                "props": {
+                  "color": "red",
+                  "blink": true
+                }
+              }
+            ]
+          },
+          {
+            "name": "Commandes",
+            "items": [
+              {
+                "ref": "Marche",
+                "widget": "tx-button-hold",
+                "props": {
+                  "color": "success"
+                }
+              },
+              {
+                "ref": "Arret",
+                "widget": "tx-button-hold",
+                "props": {
+                  "color": "danger"
+                }
+              },
+              {
+                "ref": "Acquit",
+                "widget": "tx-button-hold",
+                "props": {
+                  "color": "warning"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Dosage",
+            "items": [
+              "Poids_cible"
+            ]
+          },
+          {
+            "name": "Compteur",
+            "items": [
+              "Sacs",
+              {
+                "ref": "RAZ_sacs",
+                "widget": "tx-button-hold",
+                "props": {
+                  "color": "neutral"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Réglages",
+        "sections": [
+          {
+            "name": "Temps",
+            "items": [
+              "Tempo_soudure",
+              "Tempo_ejection",
+              "Duree_max_dosage"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Entrées sorties",
+        "sections": [
+          {
+            "name": "Entrées",
+            "orientation": "vertical",
+            "items": [
+              "AU_OK",
+              "BP_Depart",
+              "Sac_present",
+              {
+                "ref": "Poids",
+                "widget": "rx-numeric",
+                "label": "Poids balance (g)"
+              }
+            ]
+          },
+          {
+            "name": "Sorties",
+            "orientation": "vertical",
+            "items": [
+              "Vis_doseuse",
+              "Soudeuse",
+              "Verin_ejection"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "name": "Cycle nominal : dosage jusqu'au poids cible, soudure, éjection, comptage",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": false,
+            "Soudeuse": false,
+            "Verin_ejection": false
+          }
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "expect": {
+            "steps": [
+              0,
+              10
+            ]
+          }
+        },
+        {
+          "set": {
+            "Sac_present": true,
+            "Poids": 150
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "expect": {
+            "mode": "CYCLE",
+            "Vis_doseuse": true,
+            "Soudeuse": false,
+            "Verin_ejection": false
+          }
+        },
+        {
+          "set": {
+            "Poids": 4999
+          }
+        },
+        {
+          "wait": "200ms"
+        },
+        {
+          "expect": {
+            "X1": true,
+            "Vis_doseuse": true
+          }
+        },
+        {
+          "comment": "Poids cible 5000 g (valeur initiale) atteint : la vis s'arrête, la soudeuse ferme"
+        },
+        {
+          "set": {
+            "Poids": 5000
+          }
+        },
+        {
+          "until": "X2",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": false,
+            "Soudeuse": true,
+            "Verin_ejection": false
+          }
+        },
+        {
+          "comment": "Soudure pendant 2000 ms (valeur initiale)"
+        },
+        {
+          "wait": "1800ms"
+        },
+        {
+          "expect": {
+            "X2": true,
+            "Soudeuse": true
+          }
+        },
+        {
+          "until": "X3",
+          "timeout": "400ms"
+        },
+        {
+          "expect": {
+            "Soudeuse": false,
+            "Verin_ejection": true,
+            "Sacs": 1
+          }
+        },
+        {
+          "comment": "Vérin sorti pendant 1000 ms puis rentré"
+        },
+        {
+          "wait": "800ms"
+        },
+        {
+          "expect": {
+            "X3": true,
+            "Verin_ejection": true
+          }
+        },
+        {
+          "until": "X4",
+          "timeout": "400ms"
+        },
+        {
+          "expect": {
+            "Verin_ejection": false
+          }
+        },
+        {
+          "comment": "Le sac a quitté la balance : retour en attente"
+        },
+        {
+          "set": {
+            "Sac_present": false,
+            "Poids": 0
+          }
+        },
+        {
+          "until": {
+            "steps": [
+              0,
+              10
+            ]
+          },
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "mode": "REPOS",
+            "Sacs": 1,
+            "Vis_doseuse": false,
+            "Soudeuse": false,
+            "Verin_ejection": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "Poids cible et durée de soudure réglés à l'écran",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Poids_cible": 2000,
+            "Tempo_soudure": 500,
+            "Sac_present": true,
+            "Poids": 100
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "set": {
+            "Poids": 1999
+          }
+        },
+        {
+          "wait": "200ms"
+        },
+        {
+          "expect": {
+            "X1": true,
+            "Vis_doseuse": true
+          }
+        },
+        {
+          "set": {
+            "Poids": 2000
+          }
+        },
+        {
+          "until": "X2",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": false,
+            "Soudeuse": true
+          }
+        },
+        {
+          "wait": "400ms"
+        },
+        {
+          "expect": {
+            "X2": true,
+            "Soudeuse": true
+          }
+        },
+        {
+          "until": "X3",
+          "timeout": "300ms"
+        },
+        {
+          "expect": {
+            "Soudeuse": false,
+            "Verin_ejection": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Départ refusé sans sac, et bouton départ sur front",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "comment": "Pas de sac : le départ est ignoré"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "wait": "300ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              0,
+              10
+            ],
+            "Vis_doseuse": false
+          }
+        },
+        {
+          "comment": "Bouton départ maintenu puis sac posé : pas de départ sans nouvel appui"
+        },
+        {
+          "set": {
+            "BP_Depart": true
+          }
+        },
+        {
+          "wait": "200ms"
+        },
+        {
+          "set": {
+            "Sac_present": true
+          }
+        },
+        {
+          "wait": "300ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              0,
+              10
+            ],
+            "Vis_doseuse": false
+          }
+        },
+        {
+          "set": {
+            "BP_Depart": false
+          }
+        },
+        {
+          "wait": "100ms"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "300ms"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alarme si le dosage dure plus de 30 s : vis arrêtée, acquittement, reprise par départ",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Sac_present": true,
+            "Poids": 100
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "comment": "Le poids ne monte pas (trémie vide) : pas d'alarme avant 30 s"
+        },
+        {
+          "set": {
+            "Poids": 1200
+          }
+        },
+        {
+          "wait": "29.5s"
+        },
+        {
+          "expect": {
+            "X1": true,
+            "Vis_doseuse": true,
+            "Alarme_dosage": false
+          }
+        },
+        {
+          "until": "X5",
+          "timeout": "1s"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": false,
+            "Alarme_dosage": true,
+            "Soudeuse": false
+          }
+        },
+        {
+          "message": "Dosage trop long"
+        },
+        {
+          "comment": "L'alarme reste affichée tant qu'elle n'est pas acquittée"
+        },
+        {
+          "wait": "2s"
+        },
+        {
+          "expect": {
+            "X5": true,
+            "Alarme_dosage": true,
+            "Vis_doseuse": false
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "expect": {
+            "X5": true,
+            "Vis_doseuse": false
+          }
+        },
+        {
+          "comment": "Acquittement : retour en attente, sans redémarrage de la vis"
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": {
+            "steps": [
+              0,
+              10
+            ]
+          },
+          "timeout": "200ms"
+        },
+        {
+          "wait": "300ms"
+        },
+        {
+          "expect": {
+            "mode": "REPOS",
+            "Alarme_dosage": false,
+            "Vis_doseuse": false,
+            "Sacs": 0
+          }
+        },
+        {
+          "comment": "Nouveau départ avec le même sac : le dosage reprend jusqu'au poids cible"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "300ms"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": true
+          }
+        },
+        {
+          "set": {
+            "Poids": 5000
+          }
+        },
+        {
+          "until": "X2",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Soudeuse": true,
+            "Vis_doseuse": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sac retiré pendant le dosage : cycle abandonné, pas de redémarrage sans départ",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Sac_present": true,
+            "Poids": 100
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": true
+          }
+        },
+        {
+          "set": {
+            "Sac_present": false,
+            "Poids": 0
+          }
+        },
+        {
+          "until": {
+            "steps": [
+              0,
+              10
+            ]
+          },
+          "timeout": "50ms"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": false,
+            "mode": "REPOS"
+          }
+        },
+        {
+          "comment": "Sac reposé : la vis ne repart pas toute seule"
+        },
+        {
+          "set": {
+            "Sac_present": true,
+            "Poids": 100
+          }
+        },
+        {
+          "wait": "500ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              0,
+              10
+            ],
+            "Vis_doseuse": false
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "300ms"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Arrêt d'urgence pendant le dosage, acquittement et remise en marche",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Sac_present": true,
+            "Poids": 100
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "expect": {
+            "Vis_doseuse": true
+          }
+        },
+        {
+          "set": {
+            "AU_OK": false
+          }
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE",
+            "steps": [],
+            "Vis_doseuse": false,
+            "Soudeuse": false,
+            "Verin_ejection": false
+          }
+        },
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "wait": "2s"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE"
+          }
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "3s"
+        },
+        {
+          "wait": "500ms"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT",
+            "Vis_doseuse": false
+          }
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "expect": {
+            "steps": [
+              0,
+              10
+            ],
+            "Vis_doseuse": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "Arrêt d'urgence pendant la soudure : soudeuse ouverte",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Sac_present": true,
+            "Poids": 100
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "set": {
+            "Poids": 5000
+          }
+        },
+        {
+          "until": "X2",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Soudeuse": true
+          }
+        },
+        {
+          "set": {
+            "AU_OK": false
+          }
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE",
+            "Soudeuse": false,
+            "Vis_doseuse": false,
+            "Verin_ejection": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bouton Arrêt de l'écran pendant la soudure",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Sac_present": true,
+            "Poids": 100
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "set": {
+            "Poids": 5000
+          }
+        },
+        {
+          "until": "X2",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Soudeuse": true
+          }
+        },
+        {
+          "press": "Arret"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT",
+            "steps": [],
+            "Soudeuse": false,
+            "Vis_doseuse": false,
+            "Verin_ejection": false
+          }
+        },
+        {
+          "wait": "1s"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT"
+          }
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "expect": {
+            "steps": [
+              0,
+              10
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Compteur de sacs : deux sacs puis remise à zéro",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Tempo_soudure": 200,
+            "Tempo_ejection": 200
+          }
+        },
+        {
+          "expect": {
+            "Sacs": 0
+          }
+        },
+        {
+          "comment": "Sac 1"
+        },
+        {
+          "set": {
+            "Sac_present": true,
+            "Poids": 100
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "set": {
+            "Poids": 5000
+          }
+        },
+        {
+          "until": "X4",
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Sac_present": false,
+            "Poids": 0
+          }
+        },
+        {
+          "until": {
+            "steps": [
+              0,
+              10
+            ]
+          },
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Sacs": 1
+          }
+        },
+        {
+          "comment": "Sac 2"
+        },
+        {
+          "set": {
+            "Sac_present": true,
+            "Poids": 100
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "set": {
+            "Poids": 5000
+          }
+        },
+        {
+          "until": "X4",
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Sac_present": false,
+            "Poids": 0
+          }
+        },
+        {
+          "until": {
+            "steps": [
+              0,
+              10
+            ]
+          },
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Sacs": 2
+          }
+        },
+        {
+          "comment": "Remise à zéro depuis l'écran"
+        },
+        {
+          "press": "RAZ_sacs"
+        },
+        {
+          "expect": {
+            "Sacs": 0
+          }
+        },
+        {
+          "until": {
+            "steps": [
+              0,
+              10
+            ]
+          },
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "mode": "REPOS",
+            "Sacs": 0
+          }
+        }
+      ]
+    }
+  ]
+}

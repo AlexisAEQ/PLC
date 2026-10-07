@@ -90,6 +90,13 @@
       "widget": "tx-button-hold"
     },
     {
+      "symbol": "Marche",
+      "label": "Marche",
+      "kind": "command",
+      "dataType": "bool",
+      "widget": "tx-button-hold"
+    },
+    {
       "symbol": "Arret",
       "label": "Arrêt",
       "kind": "command",
@@ -213,7 +220,7 @@
         "actions": [
           "INC Pieces",
           "R Mem",
-          "MSG success: Pièce terminée"
+          "MSG info: Pièce terminée"
         ]
       },
       {
@@ -269,7 +276,7 @@
       "reset": "Acquit"
     },
     "run": {
-      "start": "",
+      "start": "Marche",
       "stop": "Arret"
     },
     "servo": {
@@ -287,7 +294,7 @@
   "description": "Presse : serrage par vérin, usinage par servo (position et vitesse réglables) en parallèle d'un soufflage, comptage des pièces, retour du servo en position 0.",
   "scenarios": [
     {
-      "name": "Prise d'origine puis cycle complet",
+      "name": "Mise en marche, prise d'origine puis cycle complet",
       "steps": [
         {
           "set": {
@@ -296,7 +303,16 @@
           }
         },
         {
-          "comment": "Initialisation du variateur et prise d'origine automatique avant le premier cycle"
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "10s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "comment": "Prise d'origine automatique au premier passage en REPOS"
         },
         {
           "until": {
@@ -365,6 +381,31 @@
       ]
     },
     {
+      "name": "Pas de mise en marche sans appui sur Marche",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "10s"
+        },
+        {
+          "wait": "3s"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT",
+            "Servo.origineFaite": false
+          }
+        }
+      ]
+    },
+    {
       "name": "Pas de départ sans pièce",
       "steps": [
         {
@@ -372,6 +413,18 @@
             "AU_OK": true,
             "Piece": false
           }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "10s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "comment": "Prise d'origine automatique au premier passage en REPOS"
         },
         {
           "until": {
@@ -396,6 +449,69 @@
       ]
     },
     {
+      "name": "Arrêt pendant le cycle : la machine reste à l'arrêt jusqu'à Marche",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Piece": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "10s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "comment": "Prise d'origine automatique au premier passage en REPOS"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "press": "Arret"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT",
+            "Verin": false,
+            "steps": []
+          }
+        },
+        {
+          "wait": "2s"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT"
+          }
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "5s"
+        }
+      ]
+    },
+    {
       "name": "Alarme servo pendant l'usinage : urgence, réarmement",
       "steps": [
         {
@@ -403,6 +519,18 @@
             "AU_OK": true,
             "Piece": true
           }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "10s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "comment": "Prise d'origine automatique au premier passage en REPOS"
         },
         {
           "until": {
@@ -444,6 +572,18 @@
         },
         {
           "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "10s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "comment": "Prise d'origine automatique au premier passage en REPOS"
+        },
+        {
+          "until": {
             "mode": "REPOS"
           },
           "timeout": "20s"
@@ -457,6 +597,18 @@
           "set": {
             "AU_OK": true
           }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "10s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "comment": "Prise d'origine automatique au premier passage en REPOS"
         },
         {
           "until": {
@@ -492,6 +644,18 @@
         },
         {
           "press": "Acquit"
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "10s"
+        },
+        {
+          "press": "Marche"
+        },
+        {
+          "comment": "Prise d'origine automatique au premier passage en REPOS"
         },
         {
           "until": {
