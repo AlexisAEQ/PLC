@@ -1,6 +1,6 @@
 // Étape 4 : éditeur de grafcet et modes de marche.
 
-import { ACTION_TYPES, normalizeLogic, starterGrafcet, isWritable, compileLogic } from '/shared/grafcet.js';
+import { ACTION_TYPES, normalizeLogic, starterGrafcet, isWritable, compileLogic, actionText } from '/shared/grafcet.js';
 import { SERVO_PROPS } from '/shared/expr.js';
 import { h, input, checkbox, select, card, pageHead, button, confirmDialog, issueList } from '../ui.js';
 import { exprInput } from '../exprinput.js';
@@ -192,35 +192,6 @@ function deleteSelection(store) {
 
 // ---------------------------------------------------------------------------
 // Dessin
-function actionText(a) {
-  switch (a.type) {
-    case 'N':
-      return `N  ${a.target || '?'}${a.condition ? `  si ${a.condition}` : ''}`;
-    case 'S':
-      return `S  ${a.target || '?'}`;
-    case 'R':
-      return `R  ${a.target || '?'}`;
-    case 'SET':
-      return `${a.target || '?'} := ${a.value || '?'}`;
-    case 'NSET':
-      return `${a.target || '?'} = ${a.value || '?'}  (continu)`;
-    case 'INC':
-      return `${a.target || '?'} + 1`;
-    case 'DEC':
-      return `${a.target || '?'} − 1`;
-    case 'SERVO_MOVE':
-      return `Servo → ${a.position || '?'}  (vitesse ${a.speed || '?'})`;
-    case 'SERVO_HOME':
-      return 'Servo : prise d’origine';
-    case 'SERVO_STOP':
-      return 'Servo : arrêt';
-    case 'MSG':
-      return `Message : ${a.text || ''}`;
-    default:
-      return a.type;
-  }
-}
-
 export function drawGrafcet(svg, store, { onSelect, onDragEnd, sim = null }) {
   const logic = store.project.logic;
   const steps = new Map(logic.steps.map((x) => [x.id, x]));

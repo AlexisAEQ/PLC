@@ -1,0 +1,1931 @@
+{
+  "format": "plc-studio-spec",
+  "name": "TableIndexation",
+  "description": "Table d'indexation sur SureServo : à chaque appui sur Départ, la table avance d'un pas, attend la pièce sous le poinçon, poinçonne pendant une durée réglable et attend la remontée du poinçon. Retour à 0 en fin de course (360000 imp.), jog depuis l'écran, prise d'origine automatique.",
+  "hostname": "tableindexation",
+  "execution": "hmi",
+  "equipment": [
+    {
+      "id": "plc",
+      "type": "Kincony_KC868_A8S",
+      "label": "Automate",
+      "options": {
+        "rtc": true
+      }
+    },
+    {
+      "id": "servo",
+      "type": "SureServo",
+      "label": "Servo",
+      "address": 127,
+      "options": {
+        "pulsesPerUnit": 1,
+        "maxRange": 360000,
+        "homePolicy": "NEGATIVE_INVALIDATES_HOME"
+      }
+    }
+  ],
+  "servoSignals": {
+    "servoOn": "plc.Y6",
+    "immediateStop": "plc.Y7",
+    "alarmsReset": "plc.Y8"
+  },
+  "io": [
+    {
+      "symbol": "AU_OK",
+      "label": "Arrêt d'urgence OK",
+      "at": "plc.X1",
+      "comment": "Chaîne d'arrêt d'urgence NF : vrai quand tout va bien"
+    },
+    {
+      "symbol": "BP_Depart",
+      "label": "Bouton départ",
+      "at": "plc.X2",
+      "comment": "Contact NO : un appui = un pas d'indexation"
+    },
+    {
+      "symbol": "BP_Arret",
+      "label": "Bouton arrêt",
+      "at": "plc.X3",
+      "inverse": true,
+      "comment": "Contact NF : vrai quand le bouton est enfoncé (ou le fil coupé)"
+    },
+    {
+      "symbol": "Piece_presente",
+      "label": "Pièce sous le poinçon",
+      "at": "plc.X4"
+    },
+    {
+      "symbol": "Poincon_haut",
+      "label": "Poinçon en haut",
+      "at": "plc.X5"
+    },
+    {
+      "symbol": "Poincon",
+      "label": "Poinçon",
+      "at": "plc.Y1",
+      "fallback": "off",
+      "comment": "Électrovanne de descente du poinçon (relâchée = poinçon remonte)"
+    },
+    {
+      "symbol": "Voyant_defaut",
+      "label": "Voyant défaut",
+      "at": "plc.Y2",
+      "fallback": "on",
+      "comment": "Allumé en arrêt d'urgence, alarme servo, pièce absente, poinçon non remonté ou origine perdue"
+    }
+  ],
+  "variables": [
+    {
+      "symbol": "Acquit",
+      "label": "Acquitter",
+      "kind": "command",
+      "dataType": "bool",
+      "comment": "Acquitte l'arrêt d'urgence et les défauts"
+    },
+    {
+      "symbol": "Mode_jog",
+      "label": "Mode jog",
+      "kind": "command",
+      "dataType": "bool",
+      "widget": "tx-bool",
+      "comment": "Accessible table à l'arrêt, hors cycle"
+    },
+    {
+      "symbol": "Jog_plus",
+      "label": "Jog +",
+      "kind": "command",
+      "dataType": "bool",
+      "widget": "tx-button-hold"
+    },
+    {
+      "symbol": "Jog_moins",
+      "label": "Jog -",
+      "kind": "command",
+      "dataType": "bool",
+      "widget": "tx-button-hold"
+    },
+    {
+      "symbol": "Pas",
+      "label": "Pas d'indexation",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 9000,
+      "min": 1,
+      "max": 360000,
+      "unit": "imp",
+      "comment": "Avance de la table à chaque départ"
+    },
+    {
+      "symbol": "Vitesse",
+      "label": "Vitesse d'indexation",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 10,
+      "min": 0,
+      "max": 15,
+      "comment": "Index 0 à 15 de la table des vitesses du variateur (pas et retour à 0)"
+    },
+    {
+      "symbol": "Vitesse_jog",
+      "label": "Vitesse de jog",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 100,
+      "min": 1,
+      "max": 3000,
+      "comment": "Vitesse de jog envoyée au variateur (1 à 3000)"
+    },
+    {
+      "symbol": "Tempo_poincon",
+      "label": "Durée poinçonnage",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 500,
+      "min": 50,
+      "max": 10000,
+      "unit": "ms"
+    },
+    {
+      "symbol": "Tempo_piece",
+      "label": "Attente pièce max.",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 5000,
+      "min": 500,
+      "max": 60000,
+      "unit": "ms",
+      "comment": "Au-delà : défaut pièce absente"
+    },
+    {
+      "symbol": "Tempo_remontee",
+      "label": "Remontée poinçon max.",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 3000,
+      "min": 500,
+      "max": 60000,
+      "unit": "ms",
+      "comment": "Au-delà : défaut poinçon non remonté"
+    },
+    {
+      "symbol": "Cible",
+      "label": "Position visée",
+      "kind": "indicator",
+      "dataType": "int",
+      "unit": "imp"
+    }
+  ],
+  "grafcet": {
+    "steps": [
+      {
+        "num": 0,
+        "label": "Attente départ",
+        "initial": true,
+        "actions": [
+          "N Voyant_defaut si NON Servo.origineFaite"
+        ]
+      },
+      {
+        "num": 1,
+        "label": "Calcul du pas",
+        "actions": [
+          "SET Cible := ((Servo.position + Pas / 2) / Pas + 1) * Pas"
+        ]
+      },
+      {
+        "num": 2,
+        "label": "Avance d'un pas",
+        "actions": [
+          "SERVO_MOVE Cible @ Vitesse"
+        ]
+      },
+      {
+        "num": 3,
+        "label": "Retour à 0",
+        "actions": [
+          "SET Cible := Pas",
+          "SERVO_MOVE 0 @ Vitesse"
+        ]
+      },
+      {
+        "num": 4,
+        "label": "Attente pièce",
+        "actions": []
+      },
+      {
+        "num": 5,
+        "label": "Poinçonnage",
+        "actions": [
+          "N Poincon"
+        ]
+      },
+      {
+        "num": 6,
+        "label": "Remontée poinçon",
+        "actions": []
+      },
+      {
+        "num": 7,
+        "label": "Défaut pièce absente",
+        "actions": [
+          "N Voyant_defaut",
+          "MSG error: Pièce absente sous le poinçon : la mettre en place puis acquitter"
+        ]
+      },
+      {
+        "num": 8,
+        "label": "Défaut poinçon",
+        "actions": [
+          "N Voyant_defaut",
+          "MSG error: Poinçon non remonté : vérifier le poinçon puis acquitter"
+        ]
+      }
+    ],
+    "transitions": [
+      {
+        "from": 0,
+        "to": 1,
+        "condition": "FM(BP_Depart) ET Poincon_haut ET Servo.origineFaite"
+      },
+      {
+        "from": 1,
+        "to": 2,
+        "condition": "Cible <= 360000"
+      },
+      {
+        "from": 1,
+        "to": 3,
+        "condition": "Cible > 360000"
+      },
+      {
+        "from": 2,
+        "to": 4,
+        "condition": "Servo.enPosition"
+      },
+      {
+        "from": 3,
+        "to": 2,
+        "condition": "Servo.enPosition"
+      },
+      {
+        "from": 4,
+        "to": 5,
+        "condition": "Piece_presente"
+      },
+      {
+        "from": 4,
+        "to": 7,
+        "condition": "NON Piece_presente ET X4.t >= Tempo_piece"
+      },
+      {
+        "from": 5,
+        "to": 6,
+        "condition": "X5.t >= Tempo_poincon"
+      },
+      {
+        "from": 6,
+        "to": 0,
+        "condition": "Poincon_haut"
+      },
+      {
+        "from": 6,
+        "to": 8,
+        "condition": "NON Poincon_haut ET X6.t >= Tempo_remontee"
+      },
+      {
+        "from": 7,
+        "to": 4,
+        "condition": "FM(Acquit) ET Piece_presente"
+      },
+      {
+        "from": 8,
+        "to": 0,
+        "condition": "FM(Acquit) ET Poincon_haut"
+      }
+    ]
+  },
+  "modes": {
+    "emergency": {
+      "condition": "NON AU_OK",
+      "reset": "Acquit"
+    },
+    "run": {
+      "start": "",
+      "stop": "BP_Arret"
+    },
+    "servo": {
+      "homing": "auto",
+      "homingCondition": "",
+      "jogEnabled": true,
+      "jogMode": "Mode_jog",
+      "jogPlus": "Jog_plus",
+      "jogMinus": "Jog_moins",
+      "jogSpeed": "Vitesse_jog",
+      "torque": ""
+    }
+  },
+  "hmi": "auto",
+  "scenarios": [
+    {
+      "name": "Prise d'origine automatique au démarrage",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "comment": "Aucun appui : initialisation du variateur puis prise d'origine automatique"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "expect": {
+            "Servo.origineFaite": true,
+            "steps": [
+              0
+            ],
+            "Servo.position": 0,
+            "Poincon": false,
+            "Voyant_defaut": false
+          }
+        },
+        {
+          "message": "Prise d'origine terminée"
+        }
+      ]
+    },
+    {
+      "name": "Cycle nominal : pas de 9000, pièce, poinçon 500 ms, remontée, pas suivant",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X4",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Servo.position": 9000,
+            "Cible": 9000,
+            "Poincon": false,
+            "mode": "CYCLE"
+          }
+        },
+        {
+          "comment": "Pas de pièce : le poinçon ne descend pas, la table attend"
+        },
+        {
+          "wait": "1s"
+        },
+        {
+          "expect": {
+            "steps": [
+              4
+            ],
+            "Poincon": false
+          }
+        },
+        {
+          "set": {
+            "Piece_presente": true
+          }
+        },
+        {
+          "until": "X5",
+          "timeout": "100ms"
+        },
+        {
+          "expect": {
+            "Poincon": true
+          }
+        },
+        {
+          "set": {
+            "Poincon_haut": false
+          }
+        },
+        {
+          "comment": "Le poinçon reste commandé 500 ms"
+        },
+        {
+          "wait": "450ms"
+        },
+        {
+          "expect": {
+            "X5": true,
+            "Poincon": true
+          }
+        },
+        {
+          "wait": "70ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              6
+            ],
+            "Poincon": false
+          }
+        },
+        {
+          "comment": "Départ ignoré tant que le poinçon n'est pas remonté"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "wait": "300ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              6
+            ],
+            "Servo.position": 9000
+          }
+        },
+        {
+          "set": {
+            "Poincon_haut": true,
+            "Piece_presente": false
+          }
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ]
+          },
+          "timeout": "100ms"
+        },
+        {
+          "expect": {
+            "mode": "REPOS",
+            "Servo.position": 9000
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X4",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Servo.position": 18000,
+            "Cible": 18000
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pas et durée de poinçonnage réglables",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true,
+            "Piece_presente": true,
+            "Pas": 12000,
+            "Tempo_poincon": 1000
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X5",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Servo.position": 12000,
+            "Poincon": true
+          }
+        },
+        {
+          "wait": "950ms"
+        },
+        {
+          "expect": {
+            "X5": true,
+            "Poincon": true
+          }
+        },
+        {
+          "wait": "70ms"
+        },
+        {
+          "expect": {
+            "Poincon": false
+          }
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ]
+          },
+          "timeout": "100ms"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X5",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Servo.position": 24000
+          }
+        }
+      ]
+    },
+    {
+      "name": "Course max. : 40 pas de 9000 jusqu'à 360000, puis retour à 0 avant le pas suivant",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true,
+            "Piece_presente": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "comment": "Pas par défaut (9000) : 40 pas pour atteindre la course max. de 360000"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 9000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 18000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 27000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 36000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 45000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 54000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 63000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 72000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 81000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 90000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 99000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 108000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 117000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 126000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 135000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 144000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 153000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 162000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 171000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 180000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 189000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 198000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 207000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 216000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 225000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 234000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 243000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 252000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 261000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 270000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 279000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 288000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 297000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 306000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 315000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 324000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 333000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 342000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 351000
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 360000
+          },
+          "timeout": "3s"
+        },
+        {
+          "expect": {
+            "Servo.position": 360000,
+            "mode": "REPOS"
+          }
+        },
+        {
+          "comment": "41e départ : 360000 + 9000 dépasserait la course : retour à 0 avant le pas suivant"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X3",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "mode": "CYCLE",
+            "Poincon": false
+          }
+        },
+        {
+          "until": "Servo.position = 0",
+          "timeout": "10s"
+        },
+        {
+          "until": "X5",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Servo.position": 9000,
+            "Cible": 9000,
+            "mode": "CYCLE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pas non multiple de la course : jamais au-delà de 360000",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true,
+            "Piece_presente": true,
+            "Pas": 100000
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 100000
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 200000
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 300000
+          },
+          "timeout": "5s"
+        },
+        {
+          "comment": "300000 + 100000 dépasserait 360000 : retour à 0 puis pas de 100000"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X3",
+          "timeout": "200ms"
+        },
+        {
+          "until": "Servo.position = 0",
+          "timeout": "10s"
+        },
+        {
+          "until": "X5",
+          "timeout": "5s"
+        },
+        {
+          "expect": {
+            "Servo.position": 100000,
+            "mode": "CYCLE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pièce absente : défaut, voyant, pas de poinçonnage, acquittement",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X4",
+          "timeout": "2s"
+        },
+        {
+          "wait": "4.5s"
+        },
+        {
+          "expect": {
+            "X4": true,
+            "Voyant_defaut": false,
+            "Poincon": false
+          }
+        },
+        {
+          "until": "X7",
+          "timeout": "1s"
+        },
+        {
+          "expect": {
+            "Voyant_defaut": true,
+            "Poincon": false
+          }
+        },
+        {
+          "message": "Pièce absente"
+        },
+        {
+          "comment": "Acquittement sans pièce : le défaut reste"
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "wait": "200ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              7
+            ],
+            "Voyant_defaut": true
+          }
+        },
+        {
+          "set": {
+            "Piece_presente": true
+          }
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": "X5",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Voyant_defaut": false,
+            "Poincon": true
+          }
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ]
+          },
+          "timeout": "2s"
+        }
+      ]
+    },
+    {
+      "name": "Poinçon non remonté : défaut, voyant, départ bloqué, acquittement",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true,
+            "Piece_presente": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X5",
+          "timeout": "2s"
+        },
+        {
+          "set": {
+            "Poincon_haut": false
+          }
+        },
+        {
+          "until": "X6",
+          "timeout": "1s"
+        },
+        {
+          "wait": "2.5s"
+        },
+        {
+          "expect": {
+            "X6": true,
+            "Voyant_defaut": false
+          }
+        },
+        {
+          "until": "X8",
+          "timeout": "1s"
+        },
+        {
+          "expect": {
+            "Voyant_defaut": true,
+            "Poincon": false
+          }
+        },
+        {
+          "message": "Poinçon non remonté"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "wait": "300ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              8
+            ],
+            "Servo.position": 9000
+          }
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "wait": "100ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              8
+            ]
+          }
+        },
+        {
+          "set": {
+            "Poincon_haut": true
+          }
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ]
+          },
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Voyant_defaut": false
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X5",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Servo.position": 18000
+          }
+        }
+      ]
+    },
+    {
+      "name": "Départ refusé si le poinçon n'est pas en haut",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": false
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "wait": "500ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 0,
+            "Poincon": false,
+            "mode": "REPOS"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Arrêt d'urgence pendant l'avance : servo arrêté, voyant, acquittement, reprise",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true,
+            "Pas": 90000
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X2",
+          "timeout": "500ms"
+        },
+        {
+          "wait": "200ms"
+        },
+        {
+          "set": {
+            "AU_OK": false
+          }
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE",
+            "steps": [],
+            "Poincon": false,
+            "Voyant_defaut": true
+          }
+        },
+        {
+          "expect": "Servo.position > 0 ET Servo.position < 90000"
+        },
+        {
+          "message": "Arrêt d'urgence"
+        },
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "wait": "2s"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE",
+            "Voyant_defaut": true
+          }
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "expect": {
+            "steps": [
+              0
+            ],
+            "Voyant_defaut": false
+          }
+        },
+        {
+          "comment": "Départ suivant : la table termine le pas interrompu (poste 90000)"
+        },
+        {
+          "set": {
+            "Piece_presente": true
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X5",
+          "timeout": "5s"
+        },
+        {
+          "expect": {
+            "Servo.position": 90000
+          }
+        }
+      ]
+    },
+    {
+      "name": "Arrêt d'urgence pendant le poinçonnage : poinçon relâché",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true,
+            "Piece_presente": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X5",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Poincon": true
+          }
+        },
+        {
+          "set": {
+            "AU_OK": false
+          }
+        },
+        {
+          "wait": "20ms"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE",
+            "Poincon": false,
+            "Voyant_defaut": true,
+            "steps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bouton arrêt NF : arrêt immédiat, reprise au départ suivant",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true,
+            "Piece_presente": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X5",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Poincon": true
+          }
+        },
+        {
+          "comment": "Bouton arrêt enfoncé (ou fil coupé)"
+        },
+        {
+          "set": {
+            "BP_Arret": true
+          }
+        },
+        {
+          "wait": "30ms"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT",
+            "Poincon": false,
+            "steps": []
+          }
+        },
+        {
+          "wait": "1s"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT"
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT",
+            "Servo.position": 9000
+          }
+        },
+        {
+          "set": {
+            "BP_Arret": false
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "expect": {
+            "steps": [
+              0
+            ],
+            "Poincon": false,
+            "Servo.position": 9000
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X5",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Servo.position": 18000
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jog depuis l'écran, réalignement au départ suivant, jog refusé en cycle",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "set": {
+            "Mode_jog": true
+          }
+        },
+        {
+          "until": {
+            "mode": "MANUEL"
+          },
+          "timeout": "500ms"
+        },
+        {
+          "set": {
+            "Jog_plus": true
+          }
+        },
+        {
+          "wait": "1s"
+        },
+        {
+          "set": {
+            "Jog_plus": false
+          }
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": "Servo.position > 1000"
+        },
+        {
+          "set": {
+            "Jog_moins": true
+          }
+        },
+        {
+          "wait": "300ms"
+        },
+        {
+          "set": {
+            "Jog_moins": false
+          }
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": "Servo.position > 500 ET Servo.position < 1900"
+        },
+        {
+          "comment": "Départ sans effet en mode jog"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "expect": "Servo.position > 500 ET Servo.position < 1900"
+        },
+        {
+          "expect": {
+            "mode": "MANUEL"
+          }
+        },
+        {
+          "set": {
+            "Mode_jog": false
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "comment": "Départ : la table repart sur la grille des postes (9000)"
+        },
+        {
+          "set": {
+            "Piece_presente": true
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X5",
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Servo.position": 9000
+          }
+        },
+        {
+          "comment": "Mode jog demandé en plein cycle : refusé jusqu'à la fin du cycle"
+        },
+        {
+          "set": {
+            "Mode_jog": true
+          }
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": {
+            "mode": "CYCLE",
+            "Poincon": true
+          }
+        },
+        {
+          "until": {
+            "mode": "MANUEL"
+          },
+          "timeout": "2s"
+        },
+        {
+          "expect": {
+            "Poincon": false,
+            "Servo.position": 9000
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alarme servo pendant l'avance : urgence, voyant, réarmement",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true,
+            "Pas": 90000
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "until": "X2",
+          "timeout": "500ms"
+        },
+        {
+          "servo": "alarm"
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE",
+            "Voyant_defaut": true,
+            "Poincon": false,
+            "steps": []
+          }
+        },
+        {
+          "message": "Alarme servo"
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "expect": {
+            "Voyant_defaut": false,
+            "steps": [
+              0
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Origine perdue : départ bloqué, voyant, nouvelle prise d'origine après arrêt",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Poincon_haut": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "servo": "loseHome"
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": {
+            "Voyant_defaut": true,
+            "steps": [
+              0
+            ]
+          }
+        },
+        {
+          "press": "BP_Depart"
+        },
+        {
+          "wait": "300ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              0
+            ],
+            "Servo.position": 0
+          }
+        },
+        {
+          "press": "BP_Arret"
+        },
+        {
+          "until": {
+            "mode": "REPOS",
+            "Servo.origineFaite": true
+          },
+          "timeout": "20s"
+        },
+        {
+          "expect": {
+            "Voyant_defaut": false
+          }
+        }
+      ]
+    }
+  ]
+}

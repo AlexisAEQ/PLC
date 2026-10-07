@@ -167,6 +167,34 @@ Le projet déclare `"execution_mode": "hmi"` ou `"headless"` dans `config.json`.
 **Le firmware actuel ne lit pas encore cette clé** : `main.cpp` n'exécute la logique
 que lorsqu'un navigateur est connecté (audit CR-2). La correction est prévue.
 
+## Ligne de commande et cahier des charges (spec)
+
+`cli/plc.mjs` fait sans interface ce que fait PLC Studio : créer un projet depuis un cahier
+des charges compact, le vérifier, rejouer des scénarios de simulation, le décrire. Le
+projet produit s'ouvre ensuite normalement dans PLC Studio (« Ouvrir… »).
+
+```bash
+node tools/plc-studio/cli/plc.mjs catalog                  # équipements et noms des voies
+node tools/plc-studio/cli/plc.mjs build ma-machine.spec.json --cpp
+node tools/plc-studio/cli/plc.mjs check TriColis --cpp     # projet retouché dans l'éditeur
+node tools/plc-studio/cli/plc.mjs sim TriColis --verbose   # projets/TriColis/scenarios.json
+node tools/plc-studio/cli/plc.mjs describe TriColis --md
+node tools/plc-studio/cli/plc.mjs export-spec TriColis --out spec.json
+```
+
+La spec décrit la machine avec des noms lisibles : voies `plc.X1`, `io.DI3`, étapes par
+numéro, actions en texte court (`N Verin si Piece`, `SET Compteur := 0`,
+`SERVO_MOVE Cible @ Vitesse`), écrans automatiques ou explicites, et des scénarios
+(`set`, `press`, `wait`, `until`, `expect`, `message`) exécutés par le simulateur. Le grafcet
+est placé automatiquement sur la grille de l'éditeur. `build` refuse d'écraser un projet
+existant sans `--force` (il a pu être retouché dans l'éditeur) : pour le modifier, partir de
+`export-spec`, qui conserve écrans personnalisés et positions.
+
+Format complet : `.claude/skills/plc-projet/references/spec.md`. Exemples :
+`.claude/skills/plc-projet/examples/`. Le skill Claude Code `plc-projet` (même dossier)
+utilise cette ligne de commande pour créer un projet à partir d'une description du
+comportement souhaité.
+
 ## Tests
 
 ```bash
@@ -175,7 +203,8 @@ cd tools/plc-studio && npm test
 
 Les tests vérifient notamment que la formule d'identifiant retrouve les 58 nœuds de
 `data/config.json` et les `#define` de `RessortRoyal2.h`, le langage des réceptivités,
-la compilation du grafcet et la bascule de `main.cpp`.
+la compilation du grafcet, la bascule de `main.cpp`, l'aller-retour projet → spec → projet
+(fichiers générés identiques) et les scénarios des exemples du skill.
 
 ```bash
 npm run check:cpp
