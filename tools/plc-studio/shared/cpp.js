@@ -196,6 +196,16 @@ function axisCreate(a, N) {
       if (ref) lines.push(`    axDrive_${s}->setTorqueReferenceCurrent(${ref});`);
       break;
     }
+    case 'stepperonline-servo': {
+      const fam = a.def.family === 'T6' ? 'T6' : 'A6RS';
+      const accel = Math.max(0, Math.min(fam === 'T6' ? 32767 : 65535, Math.round(Number(o.accelTime) || 0)));
+      lines.push(
+        `    if (!axNodes_${s}.validateRequired(StepperOnlineFamily::${fam})) { ${broken(`nœuds obligatoires de l'axe « ${a.label} » manquants`)} return false; }`,
+        `    axDrive_${s}.reset(new StepperOnlineServo(StepperOnlineFamily::${fam}, axNodes_${s}, ${cstr(a.label)}));`
+      );
+      if (accel) lines.push(`    axDrive_${s}->setAccelTime(${accel});`);
+      break;
+    }
     case 'stepper': {
       const factor = Math.max(1, Math.round(Number(o.stepsPerUnit) || 1));
       const maxSteps = Math.max(0, Math.round((Number(o.maxRange) || 0) * factor));

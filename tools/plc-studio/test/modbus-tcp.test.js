@@ -145,6 +145,11 @@ test('Robots AUBO / FAIRINO et pas-à-pas StepperOnline : génération, registre
   assert.match(src, /new StepperOnlineRS\(StepperOnlineRSModel::CL86RS, axNodes_Ascenseur, "Ascenseur"\)/);
   assert.match(src, /axDrive_Convoyeur->setAccelTime\(500\);/);
   assert.match(src, /axDrive_Convoyeur->setTorqueReferenceCurrent\(60\);/);
+  assert.match(src, /axNodes_Rotation\.validateRequired\(StepperOnlineFamily::A6RS\)/);
+  assert.match(src, /new StepperOnlineServo\(StepperOnlineFamily::A6RS, axNodes_Rotation, "Rotation"\)/);
+  assert.match(src, /axDrive_Rotation->setAccelTime\(150\);/);
+  assert.match(src, /new StepperOnlineServo\(StepperOnlineFamily::T6, axNodes_Pince, "Pince"\)/);
+  assert.doesNotMatch(src, /axDrive_Pince->setAccelTime/);
   // Position affichée : recopiée de l'AxisController (mots 32 bits remis dans l'ordre par le drive).
   assert.match(src, /initNodePtr\(axDisp_Ascenseur_displayPosition,/);
   assert.match(src, /axDisp_Ascenseur_displayPosition->setValueFromInt32\(_p\)/);

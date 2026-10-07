@@ -213,8 +213,8 @@ export function robotCellProject() {
   return p;
 }
 
-// Îlot robotisé : KC868-A16v3, robots AUBO et FAIRINO (Modbus TCP), deux axes pas-à-pas
-// StepperOnline (DM882RS en RTU, CL57RS derrière une passerelle Modbus TCP).
+// Îlot robotisé : KC868-A16v3, robots AUBO et FAIRINO (Modbus TCP), axes StepperOnline :
+// pas-à-pas DM882RS (RTU) et CL86RS (passerelle Modbus TCP), servos A6-RS et T6 (RTU).
 export function robotIslandProject() {
   const p = newProject('IlotRobots');
   p.wifi = [{ name: 'Atelier', ssid: 'atelier', pwd: 'secret123', dhcp: true }];
@@ -226,6 +226,11 @@ export function robotIslandProject() {
   const conv = addEquipment(p, 'StepperOnlineDM_RS', 'Convoyeur');
   Object.assign(conv.options, { model: 'DM882RS', accelTime: 500, torqueRefCurrent: 60 });
   conv.address = 5;
+  const rot = addEquipment(p, 'StepperOnlineA6RS', 'Rotation');
+  rot.address = 3;
+  rot.options.accelTime = 150;
+  const pince = addEquipment(p, 'StepperOnlineT6', 'Pince');
+  pince.address = 4;
   const lift = addEquipment(p, 'StepperOnlineCL_RS', 'Ascenseur');
   Object.assign(lift.options, { transport: 'tcp', ip: '192.168.10.70', model: 'CL86RS', maxRange: 50000 });
   lift.address = 2;
@@ -260,12 +265,22 @@ export function robotIslandProject() {
           { type: 'SERVO_MOVE', axis: lift.uid, position: 'Hauteur', speed: '300' },
         ],
       },
-      { id: 's2', num: 2, label: 'Convoyeur', actions: [{ type: 'SET', target: 'Aubo_depart', value: '0' }, { type: 'SERVO_MOVE', axis: conv.uid, position: '40000', speed: '600' }] },
+      {
+        id: 's2',
+        num: 2,
+        label: 'Convoyeur',
+        actions: [
+          { type: 'SET', target: 'Aubo_depart', value: '0' },
+          { type: 'SERVO_MOVE', axis: conv.uid, position: '40000', speed: '600' },
+          { type: 'SERVO_MOVE', axis: rot.uid, position: '5000', speed: '200' },
+          { type: 'SERVO_MOVE', axis: pince.uid, position: '2500', speed: '100' },
+        ],
+      },
     ],
     transitions: [
       { id: 't0', num: 0, from: ['s0'], to: ['s1'], condition: 'FM(Depart) ET Aubo_pret = 1 ET Aubo_X > -500' },
       { id: 't1', num: 1, from: ['s1'], to: ['s2'], condition: 'Aubo_fini = 1 ET Fr_fini ET Ascenseur.enPosition ET Fr_Z < 0' },
-      { id: 't2', num: 2, from: ['s2'], to: ['s0'], condition: 'Convoyeur.enPosition' },
+      { id: 't2', num: 2, from: ['s2'], to: ['s0'], condition: 'Convoyeur.enPosition ET Rotation.enPosition ET Pince.enPosition' },
     ],
     blocks: { emergency: { condition: 'NON AU_OK', reset: 'Acquit' }, run: { start: '', stop: '' } },
   };

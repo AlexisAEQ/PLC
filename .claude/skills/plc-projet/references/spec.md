@@ -94,6 +94,9 @@ Modbus et ses `signals` (voies de l'automate) :
     variateurs pas-à-pas Modbus (usine 38400 8N1) ; `model`, `pulsesPerUnit`, `maxRange`,
     `accelTime` (ms pour 1000 tr/min, défaut 300), `torqueRefCurrent` (0,1 A, 0 = couple non
     géré) ; positions en pas, vitesses en tr/min. Voir `docs/axes/stepperonline-rs.md`.
+  - `StepperOnlineA6RS` / `StepperOnlineT6` (servos StepperOnline RS485) : `pulsesPerUnit`,
+    `maxRange`, `accelTime` (ms ; 0 = réglage du variateur) ; vitesses en tr/min ; couple
+    (`torque`) sur T6 seulement. Adresses en partie supposées : `docs/axes/stepperonline-servo.md`.
   - `Stepper` (STEP/DIR sur GPIO) : `stepsPerUnit`, `maxRange`, `acceleration` (pas/s²),
     `homingDirection` (`"-1"`/`"1"`), `homingSpeed`, `homingBackoff`, `invertDirection`,
     `enableActiveLow` ; vitesses en pas/s. Voir `docs/axes/stepper.md`.

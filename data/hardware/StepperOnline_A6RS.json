@@ -1,0 +1,94 @@
+{
+    // Variateur StepperOnline A6-RS (A6 RS485) piloté en Modbus RTU (classe StepperOnlineServo,
+    // famille A6RS). Adresse Modbus de Cgg.nn = (gg << 8) | nn, gg et nn en hexadécimal
+    // (C04.11 -> 0x0411 = 1041, C11.06 -> 0x1106 = 4358) ; surveillance U40.nn -> 0x40nn.
+    // Les offsets ci-dessous sont ces adresses en décimal, d'où registersOffset = 0.
+    // Bus : C0A.00 adresse (1 par défaut), C0A.01 vitesse (7 = 115200, défaut), C0A.02 format
+    // (0 = 8N1, défaut). Les écritures Modbus restent en RAM (aucune sauvegarde C0A.05).
+    // NON compatible avec Lichuan A6 (PA_xxx) ni Lichuan A5 (Pgg-nn).
+    // Paramétrage du variateur, ids et adresses vérifiées / supposées :
+    // docs/axes/stepperonline-servo.md
+    "hardware": "StepperOnline_A6RS",
+    "registersOffset": 0,
+
+    // Informatif (non lu par le firmware) : affectations de StepperOnlineOptions::defaultsFor(A6RS)
+    "stepperonline": {
+        "family": "A6RS",
+        "inputs": { "servoOn": "DI5 (fonction 1)", "startMove": "DI1 (fonction 19)", "alarmReset": "DI2 (fonction 2)", "homingStart": "DI3 (fonction 25)" },
+        "statusBits": { "ready": 0, "alarm": 1, "inPosition": 2, "homeDone": 3 }
+    },
+
+    "ModbusReadHoldingRegister":
+    [
+        {
+            // [status] U40.05 (0x4005) : état des sorties DO (bit n = DO n+1, fonctions réglées dans C04)
+            "id": 1,
+            "offset": 16389
+        },
+        {
+            // [servoOnReadback] C04.11 (0x0411) relu : détection d'un redémarrage du variateur
+            "id": 5,
+            "offset": 1041
+        }
+        // À activer après vérification sur le variateur (adresse ou taille non confirmées) :
+        // [actualSpeed] U40.01 (0x4001) vitesse moteur, tr/min : { "id": 3, "offset": 16385 }
+        // Diagnostic : U40.04 (0x4004) état des DI : { "id": 6, "offset": 16388 }
+    ],
+
+    "ModbusWriteHoldingRegister":
+    [
+        {
+            // [servoOn] C04.11 (0x0411) : logique de DI5 (fonction 1 servo ON) ; 1 = actif, 0 = inactif
+            "id": 1,
+            "offset": 1041
+        },
+        {
+            // [moveSpeed] C11.08 (0x1108) : vitesse du groupe de positions 1, tr/min
+            "id": 2,
+            "offset": 4360
+        },
+        {
+            // [accelTime] C11.0A (0x110A) : temps d'accélération du groupe 1, ms
+            "id": 3,
+            "offset": 4362
+        },
+        {
+            // [decelTime] C11.0C (0x110C) : temps de décélération du groupe 1, ms
+            "id": 4,
+            "offset": 4364
+        },
+        {
+            // [startMove] C04.01 (0x0401) : logique de DI1 (fonction 19, départ de la planification)
+            "id": 5,
+            "offset": 1025
+        },
+        {
+            // [homingStart] C04.09 (0x0409) : logique de DI3 (fonction 25, départ prise d'origine)
+            "id": 6,
+            "offset": 1033
+        },
+        {
+            // [alarmReset] C04.05 (0x0405) : logique de DI2 (fonction 2, acquittement défaut)
+            "id": 7,
+            "offset": 1029
+        }
+    ],
+
+    "ModbusReadDobbleHoldingRegister":
+    [
+        {
+            // [position] U40.16 (0x4016) : position absolue, unités de commande (mot bas d'abord, supposé)
+            "id": 1,
+            "offset": 16406
+        }
+    ],
+
+    "ModbusWriteDobbleHoldingRegister":
+    [
+        {
+            // [targetPosition] C11.06 (0x1106) : déplacement du groupe 1, 32 bits signés (FC 0x10, mot bas d'abord, supposé)
+            "id": 1,
+            "offset": 4358
+        }
+    ]
+}

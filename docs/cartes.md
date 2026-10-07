@@ -104,7 +104,7 @@ le format RS485 est changé dans les options de l'automate.
 
 Plusieurs axes de types différents peuvent être pilotés par un même projet : SureServo
 (Modbus), Lichuan A6 / A5 (Modbus, `docs/axes/lichuan.md`), variateurs pas-à-pas
-StepperOnline DM556RS / DM882RS / CL57RS / CL86RS (Modbus, `docs/axes/stepperonline-rs.md`)
-et moteurs pas-à-pas STEP/DIR (`docs/axes/stepper.md`). Les robots AUBO et FAIRINO se
+StepperOnline DM556RS / DM882RS / CL57RS / CL86RS (Modbus, `docs/axes/stepperonline-rs.md`),
+servos StepperOnline A6-RS et T6 RS485 (Modbus, `docs/axes/stepperonline-servo.md`) et moteurs pas-à-pas STEP/DIR (`docs/axes/stepper.md`). Les robots AUBO et FAIRINO se
 pilotent en Modbus TCP (`docs/robots/`). Chacun est piloté par un `AxisController`
 (`src/AxisController`) dans la classe générée par PLC Studio.

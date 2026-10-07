@@ -210,6 +210,82 @@ const stepperOnlineRsOptions = (models, maxCurrent) => [
   { key: 'torqueRefCurrent', label: 'Courant crête du moteur (0,1 A)', type: 'number', default: 0, help: `100 % du couple de l’axe ; 0 = couple non géré. Maximum ${maxCurrent / 10} A.` },
 ];
 
+// Servos StepperOnline A6-RS / T6 (src/StepperOnlineServo) : positions en unités de commande,
+// vitesses en tr/min. Position affichée recopiée de AxisController::position() (T6 : mots
+// 32 bits inversés), comme pour STEPPERONLINE_RS_AXIS.
+const STEPPERONLINE_SERVO_AXIS = {
+  kind: 'stepperonline-servo',
+  cppClass: 'StepperOnlineServo',
+  include: 'StepperOnlineServo/StepperOnlineServo.h',
+  nodesStruct: 'StepperOnlineServoNodes',
+  positionUnit: 'unités de commande (impulsions)',
+  speedUnit: 'tr/min',
+  speedMin: 1,
+  speedMax: 3000,
+  defaultSpeed: 100,
+  jogSpeedUnit: 'tr/min',
+  jogSpeedMin: 1,
+  jogSpeedMax: 3000,
+  defaultJogSpeed: 60,
+  hmi: {
+    numeric: ['displayPosition'],
+    indicators: ['servoReady', 'driveInitialised', 'homeDone', 'inPosition', 'servoAlarm', 'modbusError'],
+    alarms: ['servoAlarm', 'modbusError'],
+  },
+  refAliases: {
+    pret: 'servoReady',
+    initialise: 'driveInitialised',
+    origineFaite: 'homeDone',
+    enPosition: 'inPosition',
+    alarme: 'servoAlarm',
+    erreurModbus: 'modbusError',
+    position: 'displayPosition',
+    codeAlarme: 'alarmCode',
+    etat: 'status',
+  },
+};
+
+const stepperOnlineServoTail = [
+  {
+    suffix: 'position lue',
+    type: 'ModbusReadDobbleHoldingRegister',
+    modbus: true,
+    nodes: [{ id: 1, name: 'position brute', field: 'position', cpp: 'Uint32InputNode', refreshInterval: 250 }],
+  },
+  {
+    suffix: 'consignes',
+    type: 'ModbusWriteDobbleHoldingRegister',
+    modbus: true,
+    nodes: [{ id: 1, name: 'cible', field: 'targetPosition', cpp: 'Uint32OutputNode' }],
+  },
+  {
+    suffix: 'position',
+    type: 'tx-uint32',
+    virtual: true,
+    nodes: [{ id: 1, name: 'position', field: 'displayPosition', cpp: 'Uint32OutputNode', label: 'Position', display: 'position' }],
+  },
+  {
+    suffix: 'etat',
+    type: 'tx-bool',
+    virtual: true,
+    nodes: [
+      { id: 1, name: 'pret', field: 'servoReady', cpp: 'BooleanOutputNode', label: 'Servo prêt' },
+      { id: 2, name: 'en position', field: 'inPosition', cpp: 'BooleanOutputNode', label: 'En position' },
+      { id: 3, name: 'vitesse nulle', field: 'zeroSpeed', cpp: 'BooleanOutputNode', label: 'Vitesse nulle' },
+      { id: 4, name: 'origine faite', field: 'homeDone', cpp: 'BooleanOutputNode', label: 'Origine faite' },
+      { id: 5, name: 'alarme', field: 'servoAlarm', cpp: 'BooleanOutputNode', label: 'Alarme servo' },
+      { id: 6, name: 'initialise', field: 'driveInitialised', cpp: 'BooleanOutputNode', label: 'Variateur initialisé' },
+      { id: 7, name: 'erreur modbus', field: 'modbusError', cpp: 'BooleanOutputNode', label: 'Erreur Modbus' },
+    ],
+  },
+];
+
+const stepperOnlineServoOptions = (rampHelp) => [
+  { key: 'pulsesPerUnit', label: 'Impulsions par unité', type: 'number', default: 1, help: '1 = travail direct en unités de commande du variateur.' },
+  { key: 'maxRange', label: 'Course maximale (unités)', type: 'number', default: 0, help: 'Butée logicielle haute ; 0 = pas de butée haute.' },
+  { key: 'accelTime', label: 'Temps de rampe (ms)', type: 'number', default: 0, help: rampHelp },
+];
+
 export const CATALOG = {
   Kincony_KC868_A8S: {
     defaultLabel: 'Automate',
@@ -758,6 +834,86 @@ export const CATALOG = {
     axis: { ...STEPPERONLINE_RS_AXIS, closedLoop: true, models: ['CL57RS', 'CL86RS'] },
     options: stepperOnlineRsOptions(['CL57RS', 'CL86RS'], 80),
     sections: stepperOnlineRsSections(true),
+  },
+
+  StepperOnlineA6RS: {
+    defaultLabel: 'Servo',
+    label: 'Servo StepperOnline A6-RS (Modbus)',
+    description: "Servo StepperOnline A6 RS485 (paramètres Cgg.nn) piloté en Modbus RTU (115200 8N1 d'usine) par la logique des entrées DI. Adresses en partie supposées : mise en service et vérifications dans docs/axes/stepperonline-servo.md.",
+    role: 'axis',
+    hardware: 'StepperOnline_A6RS',
+    modbus: true,
+    defaultAddress: 1,
+    groups: [],
+    axis: { ...STEPPERONLINE_SERVO_AXIS, family: 'A6RS', torque: false },
+    options: stepperOnlineServoOptions('0 = réglage du variateur conservé. A6-RS : ms (C11.0A / C11.0C).'),
+    sections: [
+      {
+        suffix: 'registres lus',
+        type: 'ModbusReadHoldingRegister',
+        modbus: true,
+        nodes: [
+          { id: 1, name: 'etat', field: 'status', cpp: 'Uint16InputNode', refreshInterval: 200, label: 'État des DO' },
+          { id: 5, name: 'servo relu', field: 'servoOnReadback', cpp: 'Uint16InputNode', refreshInterval: 1000 },
+        ],
+      },
+      {
+        suffix: 'registres ecrits',
+        type: 'ModbusWriteHoldingRegister',
+        modbus: true,
+        nodes: [
+          { id: 1, name: 'servo on', field: 'servoOn', cpp: 'Uint16OutputNode' },
+          { id: 2, name: 'vitesse', field: 'moveSpeed', cpp: 'Uint16OutputNode' },
+          { id: 3, name: 'acceleration', field: 'accelTime', cpp: 'Uint16OutputNode' },
+          { id: 4, name: 'deceleration', field: 'decelTime', cpp: 'Uint16OutputNode' },
+          { id: 5, name: 'depart', field: 'startMove', cpp: 'Uint16OutputNode' },
+          { id: 6, name: 'depart origine', field: 'homingStart', cpp: 'Uint16OutputNode' },
+          { id: 7, name: 'acquittement', field: 'alarmReset', cpp: 'Uint16OutputNode' },
+        ],
+      },
+      ...stepperOnlineServoTail,
+    ],
+  },
+
+  StepperOnlineT6: {
+    defaultLabel: 'Servo',
+    label: 'Servo StepperOnline T6 RS485 (Modbus)',
+    description: "Servo StepperOnline T6 RS485 (paramètres Prx.yy, mode PR Leadshine) piloté en Modbus RTU. Adresses en partie supposées : mise en service et vérifications dans docs/axes/stepperonline-servo.md.",
+    role: 'axis',
+    hardware: 'StepperOnline_T6',
+    modbus: true,
+    defaultAddress: 1,
+    groups: [],
+    axis: { ...STEPPERONLINE_SERVO_AXIS, family: 'T6', torque: true, hmi: { ...STEPPERONLINE_SERVO_AXIS.hmi, numeric: ['displayPosition', 'alarmCode'] } },
+    options: stepperOnlineServoOptions('0 = réglage du variateur conservé. T6 : ms pour 1000 tr/min (Pr9.04 / Pr9.05).'),
+    sections: [
+      {
+        suffix: 'registres lus',
+        type: 'ModbusReadHoldingRegister',
+        modbus: true,
+        nodes: [
+          { id: 2, name: 'code alarme', field: 'alarmCode', cpp: 'Uint16InputNode', refreshInterval: 500, label: 'Code d’alarme' },
+          { id: 4, name: 'etat pr', field: 'prStatus', cpp: 'Uint16InputNode', refreshInterval: 200, label: 'État PR' },
+          { id: 5, name: 'servo relu', field: 'servoOnReadback', cpp: 'Uint16InputNode', refreshInterval: 1000 },
+        ],
+      },
+      {
+        suffix: 'registres ecrits',
+        type: 'ModbusWriteHoldingRegister',
+        modbus: true,
+        nodes: [
+          { id: 1, name: 'servo on', field: 'servoOn', cpp: 'Uint16OutputNode' },
+          { id: 2, name: 'vitesse', field: 'moveSpeed', cpp: 'Uint16OutputNode' },
+          { id: 3, name: 'acceleration', field: 'accelTime', cpp: 'Uint16OutputNode' },
+          { id: 4, name: 'deceleration', field: 'decelTime', cpp: 'Uint16OutputNode' },
+          { id: 7, name: 'mot de commande', field: 'alarmReset', cpp: 'Uint16OutputNode' },
+          { id: 8, name: 'commande pr', field: 'command', cpp: 'Uint16OutputNode' },
+          { id: 9, name: 'mode pr0', field: 'pathMode', cpp: 'Uint16OutputNode' },
+          { id: 10, name: 'couple max', field: 'torqueLimit', cpp: 'Uint16OutputNode' },
+        ],
+      },
+      ...stepperOnlineServoTail,
+    ],
   },
 
   Stepper: {

@@ -1,0 +1,111 @@
+{
+    // Variateur StepperOnline T6 version RS485 (ex. T6-1000RS) piloté en Modbus RTU (classe
+    // StepperOnlineServo, famille T6), en mode PR (Pr0.01 = 6). Jeu de paramètres de type
+    // Leadshine : Prx.yy -> x * 0x100 + 2 * yy + 1 (Pr3.04 -> 0x0309, Pr4.00 -> 0x0401) ;
+    // mode PR : Pr8.yy -> 0x6000 + yy, Pr9.yy (chemin PR0) -> 0x6200 + yy.
+    // Les offsets ci-dessous sont ces adresses en décimal, d'où registersOffset = 0.
+    // Valeurs 32 bits : mot HAUT d'abord (la classe échange les mots, option highWordFirst).
+    // Bus : Pr5.29 format (4 = 8N1), Pr5.30 vitesse (6 = 115200), Pr5.31 adresse (1 par défaut).
+    // NON compatible avec Lichuan A6 / A5 ni avec StepperOnline A6-RS.
+    // Paramétrage du variateur, ids et adresses vérifiées / supposées :
+    // docs/axes/stepperonline-servo.md
+    "hardware": "StepperOnline_T6",
+    "registersOffset": 0,
+
+    // Informatif (non lu par le firmware) : valeurs de StepperOnlineOptions::defaultsFor(T6)
+    "stepperonline": {
+        "family": "T6",
+        "commands": { "startPath0": "0x0010", "homing": "0x0020", "stop": "0x0040", "alarmReset": "0x1801 <- 0x1111" },
+        "servoOn": { "on": "Pr4.00 = 0x83", "off": "Pr4.00 = 0x03" },
+        "pathModeWord": "0x0011"
+    },
+
+    "ModbusReadHoldingRegister":
+    [
+        {
+            // [alarmCode] 0x0B03 : alarme courante (0 = aucune) - adresse supposée (série RS Leadshine)
+            "id": 2,
+            "offset": 2819
+        },
+        {
+            // [prStatus] Pr8.02 (0x6002) relu : 0x000P chemin terminé, 0x01P/0x020/0x040 commande
+            // pas encore prise en compte, 0x10P chemin en cours, 0x200 positionnement en cours
+            "id": 4,
+            "offset": 24578
+        },
+        {
+            // [servoOnReadback] Pr4.00 (0x0401) relu : détection d'un redémarrage du variateur
+            "id": 5,
+            "offset": 1025
+        }
+        // À activer après vérification sur le variateur (adresses supposées) :
+        // [status] 0x0B05 état du variateur (bit 0 prêt, bit 2 défaut) : { "id": 1, "offset": 2821 }
+        // [actualSpeed] 0x0B06 vitesse moteur, tr/min : { "id": 3, "offset": 2822 }
+    ],
+
+    "ModbusWriteHoldingRegister":
+    [
+        {
+            // [servoOn] Pr4.00 (0x0401) : fonction de SI1 ; 0x83 = SRV-ON normalement fermé
+            // (servo ON sans câblage), 0x03 = SRV-ON normalement ouvert (servo OFF sans câblage)
+            "id": 1,
+            "offset": 1025
+        },
+        {
+            // [moveSpeed] Pr9.03 (0x6203) : vitesse du chemin PR0, tr/min
+            "id": 2,
+            "offset": 25091
+        },
+        {
+            // [accelTime] Pr9.04 (0x6204) : accélération du chemin PR0, ms pour 1000 tr/min
+            "id": 3,
+            "offset": 25092
+        },
+        {
+            // [decelTime] Pr9.05 (0x6205) : décélération du chemin PR0, ms pour 1000 tr/min
+            "id": 4,
+            "offset": 25093
+        },
+        {
+            // [alarmReset] 0x1801 : mot de commande, 0x1111 = acquittement de l'alarme courante
+            "id": 7,
+            "offset": 6145
+        },
+        {
+            // [command] Pr8.02 (0x6002) : 0x0010 chemin PR0, 0x0020 prise d'origine, 0x0040 arrêt
+            "id": 8,
+            "offset": 24578
+        },
+        {
+            // [pathMode] Pr9.00 (0x6200) : mode du chemin PR0 (0x0011 = position absolue + interruption)
+            "id": 9,
+            "offset": 25088
+        },
+        {
+            // [torqueLimit] Pr0.13 (0x001B) : 1re limite de couple, % du couple nominal
+            "id": 10,
+            "offset": 27
+        }
+    ],
+
+    "ModbusReadDobbleHoldingRegister":
+    [
+        {
+            // [position] Pr8.42/Pr8.43 (0x602A/0x602B) : position commande, unités de commande (mot haut d'abord)
+            "id": 1,
+            "offset": 24618
+        }
+        // Diagnostic, à activer après vérification :
+        // [feedbackPosition] 0x602C/0x602D position moteur : { "id": 2, "offset": 24620 }
+    ],
+
+    "ModbusWriteDobbleHoldingRegister":
+    [
+        {
+            // [targetPosition] Pr9.01/Pr9.02 (0x6201/0x6202) : position du chemin PR0, 32 bits signés
+            // (FC 0x10, mot haut d'abord)
+            "id": 1,
+            "offset": 25089
+        }
+    ]
+}
