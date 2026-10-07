@@ -229,8 +229,9 @@ export function buildLayout(project) {
         const extra = {};
         if (g.supportsInverse && v?.inverse) extra.inverse = true;
         if (g.refreshInterval) extra.refreshInterval = g.refreshInterval;
-        if (v) addNode(section, { id, name: v.symbol, ref: `var:${v.uid}`, extra, variable: v.uid });
-        else addNode(section, { id, name: `${g.prefix}${id}`, ref: `chan:${eq.uid}:${g.key}:${id}`, extra, label: `${g.prefix}${id}` });
+        const signed = g.signed ? { signed: true } : {};
+        if (v) addNode(section, { id, name: v.symbol, ref: `var:${v.uid}`, extra, variable: v.uid, ...signed });
+        else addNode(section, { id, name: `${g.prefix}${id}`, ref: `chan:${eq.uid}:${g.key}:${id}`, extra, label: `${g.prefix}${id}`, ...signed });
       }
     }
 
@@ -246,7 +247,9 @@ export function buildLayout(project) {
       for (const n of s.nodes) {
         const extra = {};
         if (n.refreshInterval) extra.refreshInterval = n.refreshInterval;
-        addNode(section, { id: n.id, name: n.name, ref: `axis:${eq.uid}:${n.field}`, extra, cppClass: n.cpp, label: n.label || n.name, field: n.field, axis: eq.uid });
+        // display : nœud d'affichage écrit par la classe générée (ex. position lue par le drive),
+        // hors de la structure de nœuds du drive.
+        addNode(section, { id: n.id, name: n.name, ref: `axis:${eq.uid}:${n.field}`, extra, cppClass: n.cpp, label: n.label || n.name, field: n.field, axis: eq.uid, ...(n.display ? { display: n.display } : {}) });
       }
     }
   }

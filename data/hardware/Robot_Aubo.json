@@ -1,0 +1,182 @@
+{
+    // Robot collaboratif AUBO (i-series / iS-series) avec contrôleur ARCS, piloté en Modbus TCP.
+    // L'automate est client (maître) ; le contrôleur ARCS est serveur (esclave) :
+    // Configuration > Bus de terrain > Modbus, activer « Modbus TCP » (esclave), port 502,
+    // n° d'unité 1. Mise en service, poignée de main et vérifications : docs/robots/aubo.md
+    //
+    // VÉRIFIÉ (guide AUBO « ARCS Modbus ») : registres généraux 300 à 525, registres de
+    // maintien (FC03), adresse 300 utilisée telle quelle dans l'exemple AUBO -> adresses
+    // comptées à partir de 0, registersOffset = 0.
+    // CONVENTION DE CE PROJET (pas une table AUBO) : la répartition des registres 300..331
+    // ci-dessous. Le programme robot doit la respecter (getInt16Register / setInt16Register).
+    // Les commandes natives (départ / pause / arrêt du projet, état du robot) sont dans la table
+    // « modbus从站地址表 » fournie par AUBO sur demande : non publique, donc absentes ici.
+    // Démarrage / arrêt / pause et états critiques : à câbler en TOR (voir la doc).
+    "hardware": "Robot_Aubo",
+    "registersOffset": 0,
+
+    // Automate -> robot (FC06, un registre par écriture)
+    "ModbusWriteHoldingRegister":
+    [
+        {
+            // [PROG] numéro de programme (tâche) demandé, 1..n
+            "id": 1,
+            "offset": 300
+        },
+        {
+            // [DEPART] demande de cycle : 1 = départ, remis à 0 dès que EN_COURS = 1
+            "id": 2,
+            "offset": 301
+        },
+        {
+            // [ABANDON] 1 = abandonner la tâche en cours (arrêt coopératif, PAS un arrêt de sécurité)
+            "id": 3,
+            "offset": 302
+        },
+        {
+            // [ACQUIT] 1 = acquittement du code défaut programme (DEFAUT)
+            "id": 4,
+            "offset": 303
+        },
+        {
+            // [P1] paramètre libre (ex. nombre de pièces)
+            "id": 5,
+            "offset": 304
+        },
+        {
+            // [P2] paramètre libre
+            "id": 6,
+            "offset": 305
+        },
+        {
+            // [P3] paramètre libre
+            "id": 7,
+            "offset": 306
+        },
+        {
+            // [P4] paramètre libre
+            "id": 8,
+            "offset": 307
+        },
+        {
+            // [VIE_API] battement de vie de l'automate (compteur), surveillé par le robot
+            "id": 9,
+            "offset": 308
+        }
+    ],
+
+    // Robot -> automate (FC03, écrits par le programme robot)
+    "ModbusReadHoldingRegister":
+    [
+        {
+            // [PRET] 1 = programme maître en attente d'un ordre
+            "id": 1,
+            "offset": 310
+        },
+        {
+            // [EN_COURS] 1 = tâche PROG en cours (accusé de réception de DEPART)
+            "id": 2,
+            "offset": 311
+        },
+        {
+            // [FINI] 1 = tâche terminée (remis à 0 par le robot au départ suivant)
+            "id": 3,
+            "offset": 312
+        },
+        {
+            // [DEFAUT] code défaut du programme robot, 0 = aucun
+            "id": 4,
+            "offset": 313
+        },
+        {
+            // [ECHO_PROG] numéro de la tâche acceptée
+            "id": 5,
+            "offset": 314
+        },
+        {
+            // [VIE_ROBOT] battement de vie du robot (compteur)
+            "id": 6,
+            "offset": 315
+        },
+        {
+            // [V1] valeur retour libre
+            "id": 7,
+            "offset": 316
+        },
+        {
+            // [V2] valeur retour libre
+            "id": 8,
+            "offset": 317
+        },
+        {
+            // [V3] valeur retour libre
+            "id": 9,
+            "offset": 318
+        },
+        {
+            // [V4] valeur retour libre
+            "id": 10,
+            "offset": 319
+        },
+        {
+            // [TCP_X] position outil X, entier signé 16 bits, 0,1 mm (recopiée par le programme robot)
+            "id": 11,
+            "offset": 320
+        },
+        {
+            // [TCP_Y] 0,1 mm, signé
+            "id": 12,
+            "offset": 321
+        },
+        {
+            // [TCP_Z] 0,1 mm, signé
+            "id": 13,
+            "offset": 322
+        },
+        {
+            // [TCP_RX] 0,1 degré, signé
+            "id": 14,
+            "offset": 323
+        },
+        {
+            // [TCP_RY] 0,1 degré, signé
+            "id": 15,
+            "offset": 324
+        },
+        {
+            // [TCP_RZ] 0,1 degré, signé
+            "id": 16,
+            "offset": 325
+        },
+        {
+            // [J1] angle articulaire, 0,1 degré, signé
+            "id": 17,
+            "offset": 326
+        },
+        {
+            // [J2]
+            "id": 18,
+            "offset": 327
+        },
+        {
+            // [J3]
+            "id": 19,
+            "offset": 328
+        },
+        {
+            // [J4]
+            "id": 20,
+            "offset": 329
+        },
+        {
+            // [J5]
+            "id": 21,
+            "offset": 330
+        },
+        {
+            // [J6]
+            "id": 22,
+            "offset": 331
+        }
+    ]
+}

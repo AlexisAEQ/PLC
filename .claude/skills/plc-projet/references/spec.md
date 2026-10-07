@@ -63,6 +63,16 @@ Modbus et ses `signals` (voies de l'automate) :
   `options.port` (502). En TCP, `address` est le n° d'unité 0 à 255 (souvent 1 ; adresse de
   l'esclave derrière une passerelle TCP → RTU), unique par IP/port. Au plus 8 IP, 16
   équipements TCP, un seul port par IP. Voir `docs/modbus-tcp.md`.
+- Robots (TCP par défaut, poignée de main avec un programme robot, voir `docs/robots/`) :
+  `Robot_Aubo` — voies `PROG`, `DEPART`, `ABANDON`, `ACQUIT`, `P1`…`P4`, `VIE_API`
+  (registres écrits, entiers) ; `PRET`, `EN_COURS`, `FINI`, `DEFAUT`,
+  `ECHO_PROG`, `VIE_ROBOT`, `V1`…`V4` (registres lus, 0/1 ou valeurs) ; `TCP_X`…`J6`
+  (signés, 0,1 mm / 0,1°). `Robot_Fairino` (IP d'usine 192.168.58.2) — `DEMARRER` (bobine
+  502, front), `DO0`…`DO7`, banque `DEPART`/`ABANDON`/`ACQUIT` (sorties TOR), banque `PRET`,
+  `EN_COURS`, `FINI`, `DEFAUT` (entrées TOR), `PROG`, `P1`…`P3`, `VIE_API` (registres écrits),
+  `ECHO_PROG`, `CODE_DEFAUT`, `VIE_ROBOT`, `V1`, `V2`, `TCP_X`…`J6` (lus). Exemple :
+  `"at": "robot.PRET"` ; une condition sur un registre s'écrit `Robot_pret = 1`.
+  Adresses en partie supposées : à vérifier à la mise en service.
 - `ModbusGeneric` (robot, automate tiers, passerelle ; TCP par défaut) : voies `Q1`…`Q16`
   (bobines écrites), `I1`…`I16` (bobines lues), `W1`…`W16` (registres écrits, **sorties
   entières** 0-65535), `R1`…`R16` (registres lus), `IR1`…`IR16` (registres d'entrée).
@@ -80,6 +90,10 @@ Modbus et ses `signals` (voies de l'automate) :
   - `LichuanA6` / `LichuanA5` : `pulsesPerUnit`, `maxRange` (0 = pas de butée haute),
     `accelTime` (ms, 0 = réglage du variateur) ; vitesses en tr/min. Paramétrage du
     variateur : `docs/axes/lichuan.md`.
+  - `StepperOnlineDM_RS` (DM556RS / DM882RS) et `StepperOnlineCL_RS` (CL57RS / CL86RS) :
+    variateurs pas-à-pas Modbus (usine 38400 8N1) ; `model`, `pulsesPerUnit`, `maxRange`,
+    `accelTime` (ms pour 1000 tr/min, défaut 300), `torqueRefCurrent` (0,1 A, 0 = couple non
+    géré) ; positions en pas, vitesses en tr/min. Voir `docs/axes/stepperonline-rs.md`.
   - `Stepper` (STEP/DIR sur GPIO) : `stepsPerUnit`, `maxRange`, `acceleration` (pas/s²),
     `homingDirection` (`"-1"`/`"1"`), `homingSpeed`, `homingBackoff`, `invertDirection`,
     `enableActiveLow` ; vitesses en pas/s. Voir `docs/axes/stepper.md`.

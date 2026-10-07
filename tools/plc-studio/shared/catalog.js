@@ -98,6 +98,118 @@ const LICHUAN_AXIS = {
   },
 };
 
+// Variateurs pas-à-pas StepperOnline « RS » (src/StepperOnlineRS, protocole Leadshine PR) :
+// positions en pas, vitesses en tr/min. La position 32 bits du variateur est en mots inversés
+// par rapport aux nœuds « Dobble » : l'écran affiche le nœud displayPosition, recopié de
+// AxisController::position() par la classe générée.
+const STEPPERONLINE_RS_AXIS = {
+  kind: 'stepperonline-rs',
+  cppClass: 'StepperOnlineRS',
+  include: 'StepperOnlineRS/StepperOnlineRS.h',
+  nodesStruct: 'StepperOnlineRSNodes',
+  positionUnit: 'pas (impulsions Pr0.00)',
+  speedUnit: 'tr/min',
+  speedMin: 1,
+  speedMax: 3000,
+  defaultSpeed: 120,
+  jogSpeedUnit: 'tr/min',
+  jogSpeedMin: 1,
+  jogSpeedMax: 3000,
+  defaultJogSpeed: 60,
+  torque: true, // abaisse le courant crête ; effectif seulement si le courant de référence est réglé
+  hmi: {
+    numeric: ['displayPosition', 'alarmCode'],
+    indicators: ['servoReady', 'driveInitialised', 'homeDone', 'inPosition', 'servoAlarm', 'modbusError'],
+    alarms: ['servoAlarm', 'modbusError'],
+  },
+  refAliases: {
+    pret: 'servoReady',
+    initialise: 'driveInitialised',
+    origineFaite: 'homeDone',
+    enPosition: 'inPosition',
+    alarme: 'servoAlarm',
+    erreurModbus: 'modbusError',
+    position: 'displayPosition',
+    codeAlarme: 'alarmCode',
+    vitesse: 'actualSpeed',
+    etat: 'status',
+  },
+};
+
+const stepperOnlineRsSections = (closedLoop) => [
+  {
+    suffix: 'registres lus',
+    type: 'ModbusReadHoldingRegister',
+    modbus: true,
+    nodes: [
+      { id: 1, name: 'etat', field: 'status', cpp: 'Uint16InputNode', refreshInterval: 200, label: 'Mot d’état' },
+      { id: 2, name: 'code alarme', field: 'alarmCode', cpp: 'Uint16InputNode', refreshInterval: 500, label: 'Code d’alarme' },
+      { id: 3, name: 'declenchement lu', field: 'triggerStatus', cpp: 'Uint16InputNode', refreshInterval: 200 },
+      { id: 4, name: 'avertissement pr', field: 'prWarning', cpp: 'Uint16InputNode', refreshInterval: 500 },
+      ...(closedLoop ? [{ id: 5, name: 'alimentation relue', field: 'softwareEnableReadback', cpp: 'Uint16InputNode', refreshInterval: 1000 }] : []),
+      { id: 6, name: 'vitesse', field: 'actualSpeed', cpp: 'Uint16InputNode', refreshInterval: 500, label: 'Vitesse (tr/min)' },
+    ],
+  },
+  {
+    suffix: 'registres ecrits',
+    type: 'ModbusWriteHoldingRegister',
+    modbus: true,
+    nodes: [
+      { id: 1, name: 'mode pr0', field: 'prMode', cpp: 'Uint16OutputNode' },
+      { id: 2, name: 'vitesse', field: 'moveSpeed', cpp: 'Uint16OutputNode' },
+      { id: 3, name: 'acceleration', field: 'accelTime', cpp: 'Uint16OutputNode' },
+      { id: 4, name: 'deceleration', field: 'decelTime', cpp: 'Uint16OutputNode' },
+      { id: 5, name: 'declenchement', field: 'trigger', cpp: 'Uint16OutputNode' },
+      { id: 6, name: 'mot de commande', field: 'controlWord', cpp: 'Uint16OutputNode' },
+      ...(closedLoop ? [{ id: 7, name: 'alimentation', field: 'softwareEnable', cpp: 'Uint16OutputNode' }] : []),
+      { id: 9, name: 'courant crete', field: 'peakCurrent', cpp: 'Uint16OutputNode' },
+    ],
+  },
+  {
+    suffix: 'position lue',
+    type: 'ModbusReadDobbleHoldingRegister',
+    modbus: true,
+    nodes: [
+      { id: 1, name: 'position brute', field: 'position', cpp: 'Uint32InputNode', refreshInterval: 250 },
+      ...(closedLoop ? [{ id: 2, name: 'position codeur', field: 'feedbackPosition', cpp: 'Uint32InputNode', refreshInterval: 1000 }] : []),
+    ],
+  },
+  {
+    suffix: 'consignes',
+    type: 'ModbusWriteDobbleHoldingRegister',
+    modbus: true,
+    nodes: [{ id: 1, name: 'cible', field: 'targetPosition', cpp: 'Uint32OutputNode' }],
+  },
+  {
+    suffix: 'position',
+    type: 'tx-uint32',
+    virtual: true,
+    nodes: [{ id: 1, name: 'position', field: 'displayPosition', cpp: 'Uint32OutputNode', label: 'Position (pas)', display: 'position' }],
+  },
+  {
+    suffix: 'etat',
+    type: 'tx-bool',
+    virtual: true,
+    nodes: [
+      { id: 1, name: 'pret', field: 'servoReady', cpp: 'BooleanOutputNode', label: 'Variateur prêt' },
+      { id: 2, name: 'en position', field: 'inPosition', cpp: 'BooleanOutputNode', label: 'En position' },
+      { id: 3, name: 'vitesse nulle', field: 'zeroSpeed', cpp: 'BooleanOutputNode', label: 'Moteur à l’arrêt' },
+      { id: 4, name: 'origine faite', field: 'homeDone', cpp: 'BooleanOutputNode', label: 'Origine faite' },
+      { id: 5, name: 'alarme', field: 'servoAlarm', cpp: 'BooleanOutputNode', label: 'Alarme variateur' },
+      { id: 6, name: 'initialise', field: 'driveInitialised', cpp: 'BooleanOutputNode', label: 'Variateur initialisé' },
+      { id: 7, name: 'erreur modbus', field: 'modbusError', cpp: 'BooleanOutputNode', label: 'Erreur Modbus' },
+    ],
+  },
+];
+
+const stepperOnlineRsOptions = (models, maxCurrent) => [
+  { key: 'model', label: 'Modèle', type: 'select', default: models[0], choices: models.map((m) => ({ value: m, label: m })) },
+  { key: 'pulsesPerUnit', label: 'Pas par unité', type: 'number', default: 1, help: '1 = travail direct en pas (Pr0.00 impulsions par tour).' },
+  { key: 'maxRange', label: 'Course maximale (unités)', type: 'number', default: 0, help: 'Butée logicielle haute ; 0 = pas de butée haute.' },
+  { key: 'accelTime', label: 'Rampe (ms pour 1000 tr/min)', type: 'number', default: 300, help: '0 = rampe du variateur conservée.' },
+  { key: 'torqueRefCurrent', label: 'Courant crête du moteur (0,1 A)', type: 'number', default: 0, help: `100 % du couple de l’axe ; 0 = couple non géré. Maximum ${maxCurrent / 10} A.` },
+];
+
 export const CATALOG = {
   Kincony_KC868_A8S: {
     defaultLabel: 'Automate',
@@ -270,6 +382,52 @@ export const CATALOG = {
       { key: 'w', label: 'Registres écrits (FC06)', short: 'Registres ecrits', type: 'ModbusWriteHoldingRegister', dir: 'out', dataType: 'int', ids: range(1, 16), prefix: 'W' },
       { key: 'r', label: 'Registres lus (FC03)', short: 'Registres lus', type: 'ModbusReadHoldingRegister', dir: 'in', dataType: 'int', ids: range(1, 16), prefix: 'R', refreshInterval: 200 },
       { key: 'ir', label: 'Registres d’entrée lus (FC04)', short: 'Registres entree', type: 'ModbusReadInputRegister', dir: 'in', dataType: 'int', ids: range(1, 16), prefix: 'IR', refreshInterval: 200 },
+    ],
+  },
+
+  Robot_Aubo: {
+    defaultLabel: 'Robot',
+    label: 'Robot AUBO (contrôleur ARCS, Modbus TCP)',
+    description: "Cobot AUBO à contrôleur ARCS, serveur Modbus TCP (port 502, unité 1). Poignée de main dans les registres généraux 300 à 331, avec un programme robot qui suit cette convention ; départ, arrêt, pause et états critiques en TOR câblés. Mise en service : docs/robots/aubo.md.",
+    role: 'modbus-io',
+    hardware: 'Robot_Aubo',
+    modbus: true,
+    defaultAddress: 1,
+    defaultTransport: 'tcp',
+    groups: [
+      { key: 'cmd', label: 'Consignes vers le robot (300-308)', short: 'Consignes', type: 'ModbusWriteHoldingRegister', dir: 'out', dataType: 'int', ids: range(1, 9), prefix: 'CMD',
+        names: { 1: 'PROG', 2: 'DEPART', 3: 'ABANDON', 4: 'ACQUIT', 5: 'P1', 6: 'P2', 7: 'P3', 8: 'P4', 9: 'VIE_API' } },
+      { key: 'sts', label: 'Retours du robot (310-319)', short: 'Retours', type: 'ModbusReadHoldingRegister', dir: 'in', dataType: 'int', ids: range(1, 10), prefix: 'STS', refreshInterval: 200,
+        names: { 1: 'PRET', 2: 'EN_COURS', 3: 'FINI', 4: 'DEFAUT', 5: 'ECHO_PROG', 6: 'VIE_ROBOT', 7: 'V1', 8: 'V2', 9: 'V3', 10: 'V4' } },
+      { key: 'pos', label: 'Positions (320-331, 0,1 mm / 0,1°, signées)', short: 'Positions', type: 'ModbusReadHoldingRegister', dir: 'in', dataType: 'int', ids: range(11, 22), prefix: 'POS', refreshInterval: 1000, signed: true,
+        names: { 11: 'TCP_X', 12: 'TCP_Y', 13: 'TCP_Z', 14: 'TCP_RX', 15: 'TCP_RY', 16: 'TCP_RZ', 17: 'J1', 18: 'J2', 19: 'J3', 20: 'J4', 21: 'J5', 22: 'J6' } },
+    ],
+  },
+
+  Robot_Fairino: {
+    defaultLabel: 'Robot',
+    label: 'Robot FAIRINO série FR (Modbus TCP)',
+    description: "Cobot FAIRINO série FR (contrôleur V3.7.3 ou plus), serveur Modbus TCP (192.168.58.2, port 502, unité 1). Bobine 502 = départ du programme configuré ; poignée de main par les signaux utilisateur de l'esclave (adresses à confirmer) ; arrêt, pause et acquittement en TOR câblés. Mise en service : docs/robots/fairino.md.",
+    role: 'modbus-io',
+    hardware: 'Robot_Fairino',
+    modbus: true,
+    defaultAddress: 1,
+    defaultTransport: 'tcp',
+    defaultIp: '192.168.58.2',
+    groups: [
+      { key: 'start', label: 'Départ programme (bobine 502)', short: 'Depart', type: 'ModbusWriteCoil', dir: 'out', dataType: 'bool', ids: [1], prefix: 'START', names: { 1: 'DEMARRER' } },
+      { key: 'do', label: 'Sorties du coffret robot (bobines 300-307)', short: 'Sorties robot', type: 'ModbusWriteCoil', dir: 'out', dataType: 'bool', ids: range(2, 9), prefix: 'DO',
+        names: { 2: 'DO0', 3: 'DO1', 4: 'DO2', 5: 'DO3', 6: 'DO4', 7: 'DO5', 8: 'DO6', 9: 'DO7' } },
+      { key: 'cmd', label: 'Commandes vers le robot (bobines utilisateur)', short: 'Commandes', type: 'ModbusWriteMultipleCoils', dir: 'out', dataType: 'bool', bank: { nodeId: 1, bits: 8 }, prefix: 'CMD',
+        names: { 0: 'DEPART', 1: 'ABANDON', 2: 'ACQUIT' } },
+      { key: 'sts', label: 'États du robot (entrées TOR utilisateur)', short: 'Etats', type: 'ModbusReadMultipleInputsStatus', dir: 'in', dataType: 'bool', bank: { nodeId: 1, bits: 8 }, prefix: 'STS', supportsInverse: true,
+        names: { 0: 'PRET', 1: 'EN_COURS', 2: 'FINI', 3: 'DEFAUT' } },
+      { key: 'w', label: 'Consignes vers le robot', short: 'Consignes', type: 'ModbusWriteHoldingRegister', dir: 'out', dataType: 'int', ids: range(1, 5), prefix: 'W',
+        names: { 1: 'PROG', 2: 'P1', 3: 'P2', 4: 'P3', 5: 'VIE_API' } },
+      { key: 'ir', label: 'Retours du robot', short: 'Retours', type: 'ModbusReadInputRegister', dir: 'in', dataType: 'int', ids: range(1, 5), prefix: 'IR', refreshInterval: 200,
+        names: { 1: 'ECHO_PROG', 2: 'CODE_DEFAUT', 3: 'VIE_ROBOT', 4: 'V1', 5: 'V2' } },
+      { key: 'pos', label: 'Positions (0,1 mm / 0,1°, signées)', short: 'Positions', type: 'ModbusReadInputRegister', dir: 'in', dataType: 'int', ids: range(6, 17), prefix: 'POS', refreshInterval: 1000, signed: true,
+        names: { 6: 'TCP_X', 7: 'TCP_Y', 8: 'TCP_Z', 9: 'TCP_RX', 10: 'TCP_RY', 11: 'TCP_RZ', 12: 'J1', 13: 'J2', 14: 'J3', 15: 'J4', 16: 'J5', 17: 'J6' } },
     ],
   },
 
@@ -574,6 +732,34 @@ export const CATALOG = {
     ],
   },
 
+  StepperOnlineDM_RS: {
+    defaultLabel: 'Axe',
+    label: 'Pas-à-pas StepperOnline DM556RS / DM882RS (Modbus)',
+    description: "Variateur pas-à-pas boucle ouverte StepperOnline RS (mode PR, protocole Leadshine) piloté en Modbus RTU (usine 38400 8N1). Mise en service : docs/axes/stepperonline-rs.md.",
+    role: 'axis',
+    hardware: 'StepperOnline_DM_RS',
+    modbus: true,
+    defaultAddress: 1,
+    groups: [],
+    axis: { ...STEPPERONLINE_RS_AXIS, closedLoop: false, models: ['DM556RS', 'DM882RS'] },
+    options: stepperOnlineRsOptions(['DM556RS', 'DM882RS'], 82),
+    sections: stepperOnlineRsSections(false),
+  },
+
+  StepperOnlineCL_RS: {
+    defaultLabel: 'Axe',
+    label: 'Pas-à-pas boucle fermée StepperOnline CL57RS / CL86RS (Modbus)',
+    description: "Variateur pas-à-pas boucle fermée StepperOnline RS (mode PR, protocole Leadshine) piloté en Modbus RTU (usine 38400 8N1). Mise en service : docs/axes/stepperonline-rs.md.",
+    role: 'axis',
+    hardware: 'StepperOnline_CL_RS',
+    modbus: true,
+    defaultAddress: 1,
+    groups: [],
+    axis: { ...STEPPERONLINE_RS_AXIS, closedLoop: true, models: ['CL57RS', 'CL86RS'] },
+    options: stepperOnlineRsOptions(['CL57RS', 'CL86RS'], 80),
+    sections: stepperOnlineRsSections(true),
+  },
+
   Stepper: {
     defaultLabel: 'Axe',
     label: 'Moteur pas-à-pas (STEP/DIR)',
@@ -690,7 +876,11 @@ export const MODBUS_TRANSPORT_OPTIONS = [
 ];
 for (const entry of Object.values(CATALOG)) {
   if (!entry.modbus) continue;
-  const transport = MODBUS_TRANSPORT_OPTIONS.map((o) => (o.key === 'transport' && entry.defaultTransport ? { ...o, default: entry.defaultTransport } : o));
+  const transport = MODBUS_TRANSPORT_OPTIONS.map((o) => {
+    if (o.key === 'transport' && entry.defaultTransport) return { ...o, default: entry.defaultTransport };
+    if (o.key === 'ip' && entry.defaultIp) return { ...o, default: entry.defaultIp };
+    return o;
+  });
   entry.options = [...transport, ...(entry.options || [])];
 }
 

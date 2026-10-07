@@ -242,6 +242,8 @@ const SPEED_MODELS = {
   sureservo: { speedRate: (v) => 8000 * (v + 1), jogRate: 20 },
   lichuan: { speedRate: (rpm) => Math.max(1, rpm) * 200, jogRate: 200 / 60 },
   stepper: { speedRate: (sps) => Math.max(1, sps), jogRate: 1 },
+  // StepperOnline RS : tr/min, 10 000 pas par tour (Pr0.00 par défaut)
+  'stepperonline-rs': { speedRate: (rpm) => (Math.max(1, rpm) * 10000) / 60, jogRate: 10000 / 60 },
 };
 
 export class AxisSim {

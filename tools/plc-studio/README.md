@@ -57,8 +57,9 @@ Vous pouvez revenir à n'importe quelle étape : tout est recalculé et revérif
    KC868-A8v3, Waveshare ESP32-S3-POE-ETH-8DI-8DO, Waveshare ESP32-S3-RS485-WLED,
    M5Stack StamPLC, Homemaster MiniPLC (chacun indique son environnement PlatformIO) ;
    modules Waveshare (8DIO, 16DO, 8AI) ; autant d'axes que nécessaire : SureServo 2,
-   Lichuan A6 / A5 (Modbus), moteurs pas-à-pas STEP/DIR ; équipement Modbus générique
-   (robot, automate tiers…). Chaque équipement Modbus passe par le RS485 (RTU) ou par le
+   Lichuan A6 / A5 (Modbus), pas-à-pas StepperOnline DM-RS / CL-RS (Modbus), moteurs
+   pas-à-pas STEP/DIR ; robots AUBO et FAIRINO, équipement Modbus générique (robot,
+   automate tiers…). Chaque équipement Modbus passe par le RS485 (RTU) ou par le
    réseau (TCP : IP, port, n° d'unité ; voir `docs/modbus-tcp.md`). L'automate est
    toujours déclaré en premier (il porte le bus RS485, sinon le firmware bloque au
    démarrage).

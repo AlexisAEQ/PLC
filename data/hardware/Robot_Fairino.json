@@ -1,0 +1,222 @@
+{
+    // Robot collaboratif FAIRINO (série FR) piloté en Modbus TCP. L'automate est client (maître),
+    // le contrôleur est serveur (esclave) : WebApp, page ModbusTCP, « Paramètres esclave »
+    // (logiciel contrôleur V3.7.3 ou plus récent), port 502. IP d'usine du contrôleur : 192.168.58.2.
+    // Mise en service, poignée de main et vérifications : docs/robots/fairino.md
+    //
+    // VÉRIFIÉ (manuel FAIRINO, § « ModbusTCP slave ») :
+    //   bobines 300..599 = commandes du maître ; 300 = DO0 du coffret ; 502 = démarrer le programme
+    //   configuré (front 0 -> 1, mode automatique) ; registres d'entrée 310..473 = état temps réel.
+    // SUPPOSÉ (Annexe 1 du manuel non consultée) : base 0 (registersOffset = 0), DO1..DO7 contigus
+    // à DO0, et zone des signaux utilisateur (DI/DO/AI/AO de l'esclave) à partir de l'adresse 100.
+    // Relever les adresses réelles dans le WebApp ou à l'analyseur Modbus avant la première mise
+    // en mouvement (procédure dans la doc).
+    "hardware": "Robot_Fairino",
+    "registersOffset": 0,
+
+    // Bobines unitaires (FC05)
+    "ModbusWriteCoil":
+    [
+        {
+            // [DEMARRER] VÉRIFIÉ : 0 -> 1 lance le programme configuré (mode automatique).
+            // Toujours écrire 0 après l'accusé (EN_COURS) pour préparer le front suivant.
+            "id": 1,
+            "offset": 502
+        },
+        {
+            // [DO0] sortie DO0 du coffret robot (VÉRIFIÉ)
+            "id": 2,
+            "offset": 300
+        },
+        {
+            // [DO1] SUPPOSÉ contigu à DO0
+            "id": 3,
+            "offset": 301
+        },
+        {
+            // [DO2] SUPPOSÉ
+            "id": 4,
+            "offset": 302
+        },
+        {
+            // [DO3] SUPPOSÉ
+            "id": 5,
+            "offset": 303
+        },
+        {
+            // [DO4] SUPPOSÉ
+            "id": 6,
+            "offset": 304
+        },
+        {
+            // [DO5] SUPPOSÉ
+            "id": 7,
+            "offset": 305
+        },
+        {
+            // [DO6] SUPPOSÉ
+            "id": 8,
+            "offset": 306
+        },
+        {
+            // [DO7] SUPPOSÉ
+            "id": 9,
+            "offset": 307
+        }
+        // NON ACTIVÉS, adresses non confirmées (Annexe 1) — ne pas décommenter sans vérification :
+        // { "id": 10, "offset": 501 }, // reprise ? (fragment « 501 ... resume » du manuel 3.8.0)
+        // { "id": 11, "offset": 500 }, // pause ? (supposition)
+        // { "id": 12, "offset": 503 }  // arrêt ? (supposition)
+    ],
+
+    // Signaux utilisateur « DI » de l'esclave (bobines) écrits d'un bloc (FC15) — SUPPOSÉ base 100.
+    // Lus côté robot par ModbusSlaveReadDI / ModbusSlaveWaitDI.
+    "ModbusWriteMultipleCoils":
+    [
+        {
+            // bit 1 [DEPART] demande de cycle, bit 2 [ABANDON] arrêt coopératif de la tâche,
+            // bit 3 [ACQUIT] acquittement défaut programme, bits 4..8 libres
+            "id": 1,
+            "offset": 100,
+            "nb_values": 8
+        }
+    ],
+
+    // Signaux utilisateur « DO » de l'esclave (entrées TOR, FC02) — SUPPOSÉ base 100.
+    // Écrits côté robot par ModbusSlaveWriteDO.
+    "ModbusReadMultipleInputsStatus":
+    [
+        {
+            // bit 1 [PRET] programme maître en attente, bit 2 [EN_COURS] tâche acceptée,
+            // bit 3 [FINI] tâche terminée, bit 4 [DEFAUT] défaut programme, bits 5..8 libres
+            "id": 1,
+            "offset": 100,
+            "nb_values": 8
+        }
+    ],
+
+    // Signaux utilisateur « AI » de l'esclave (registres de maintien, FC06) — SUPPOSÉ base 100.
+    // Lus côté robot par ModbusSlaveReadAI.
+    "ModbusWriteHoldingRegister":
+    [
+        {
+            // [PROG] numéro de tâche demandé, 1..n
+            "id": 1,
+            "offset": 100
+        },
+        {
+            // [P1] paramètre libre
+            "id": 2,
+            "offset": 101
+        },
+        {
+            // [P2] paramètre libre
+            "id": 3,
+            "offset": 102
+        },
+        {
+            // [P3] paramètre libre
+            "id": 4,
+            "offset": 103
+        },
+        {
+            // [VIE_API] battement de vie de l'automate (compteur)
+            "id": 5,
+            "offset": 104
+        }
+    ],
+
+    // Signaux utilisateur « AO » de l'esclave (registres d'entrée, FC04) — SUPPOSÉ base 100.
+    // Écrits côté robot par ModbusSlaveWriteAO (entiers 16 bits ; pas de flottant côté automate).
+    "ModbusReadInputRegister":
+    [
+        {
+            // [ECHO_PROG] numéro de la tâche acceptée
+            "id": 1,
+            "offset": 100
+        },
+        {
+            // [CODE_DEFAUT] 0 = aucun
+            "id": 2,
+            "offset": 101
+        },
+        {
+            // [VIE_ROBOT] battement de vie du robot (compteur)
+            "id": 3,
+            "offset": 102
+        },
+        {
+            // [V1] valeur retour libre
+            "id": 4,
+            "offset": 103
+        },
+        {
+            // [V2] valeur retour libre
+            "id": 5,
+            "offset": 104
+        },
+        {
+            // [TCP_X] 0,1 mm, entier signé 16 bits (recopié par le programme robot)
+            "id": 6,
+            "offset": 105
+        },
+        {
+            // [TCP_Y] 0,1 mm, signé
+            "id": 7,
+            "offset": 106
+        },
+        {
+            // [TCP_Z] 0,1 mm, signé
+            "id": 8,
+            "offset": 107
+        },
+        {
+            // [TCP_RX] 0,1 degré, signé
+            "id": 9,
+            "offset": 108
+        },
+        {
+            // [TCP_RY] 0,1 degré, signé
+            "id": 10,
+            "offset": 109
+        },
+        {
+            // [TCP_RZ] 0,1 degré, signé
+            "id": 11,
+            "offset": 110
+        },
+        {
+            // [J1] 0,1 degré, signé
+            "id": 12,
+            "offset": 111
+        },
+        {
+            // [J2]
+            "id": 13,
+            "offset": 112
+        },
+        {
+            // [J3]
+            "id": 14,
+            "offset": 113
+        },
+        {
+            // [J4]
+            "id": 15,
+            "offset": 114
+        },
+        {
+            // [J5]
+            "id": 16,
+            "offset": 115
+        },
+        {
+            // [J6]
+            "id": 17,
+            "offset": 116
+        }
+        // État natif du contrôleur : registres d'entrée 310..473 (VÉRIFIÉ pour la plage, détail
+        // champ par champ NON VÉRIFIÉ). Ajouter ici les registres identifiés, par exemple :
+        // { "id": 20, "offset": 310 }
+    ]
+}

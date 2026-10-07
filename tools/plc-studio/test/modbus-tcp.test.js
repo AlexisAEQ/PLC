@@ -129,3 +129,48 @@ test('Modbus TCP : simulation de la poignée de main robot (registre écrit, rep
   assert.equal(sim.get('Programme'), 0);
   assert.equal(sim.get('Vitesse_robot'), 65535);
 });
+
+test('Robots AUBO / FAIRINO et pas-à-pas StepperOnline : génération, registres signés, écriture au repos', async () => {
+  const { robotIslandProject } = await import('./fixtures.js');
+  const r = build(robotIslandProject());
+  assert.deepEqual(errors(r.issues), []);
+  const cfg = JSON.parse(r.files.find((f) => f.kind === 'config').content);
+  const fr = cfg.children.find((s) => s.name === 'Fairino Depart');
+  assert.deepEqual(fr.tcp, { ip: '192.168.58.2', port: 502 }, 'IP d’usine FAIRINO par défaut');
+  assert.equal(cfg.children.find((s) => s.name === 'Convoyeur registres lus').tcp, undefined);
+  assert.deepEqual(cfg.children.find((s) => s.name === 'Ascenseur registres lus').tcp, { ip: '192.168.10.70', port: 502 });
+
+  const src = r.files.filter((f) => f.kind === 'cpp').map((f) => f.content).join('\n');
+  assert.match(src, /new StepperOnlineRS\(StepperOnlineRSModel::DM882RS, axNodes_Convoyeur, "Convoyeur"\)/);
+  assert.match(src, /new StepperOnlineRS\(StepperOnlineRSModel::CL86RS, axNodes_Ascenseur, "Ascenseur"\)/);
+  assert.match(src, /axDrive_Convoyeur->setAccelTime\(500\);/);
+  assert.match(src, /axDrive_Convoyeur->setTorqueReferenceCurrent\(60\);/);
+  // Position affichée : recopiée de l'AxisController (mots 32 bits remis dans l'ordre par le drive).
+  assert.match(src, /initNodePtr\(axDisp_Ascenseur_displayPosition,/);
+  assert.match(src, /axDisp_Ascenseur_displayPosition->setValueFromInt32\(_p\)/);
+  assert.doesNotMatch(src, /axNodes_Ascenseur\.displayPosition/);
+  // Positions robot signées, sorties Modbus écrites au démarrage.
+  assert.match(src, /v_Aubo_X\(\) \{ return \(int32_t\)\(int16_t\)n_Aubo_X->getValue\(\); \}/);
+  assert.match(src, /v_Aubo_pret\(\) \{ return \(int32_t\)n_Aubo_pret->getValue\(\); \}/);
+  assert.match(src, /if \(n_Fr_start\) n_Fr_start->forceIsChanged\(\);/);
+  assert.match(src, /if \(bank_0\) bank_0->forceIsChanged\(\);/);
+  assert.doesNotMatch(src, /n_Aubo_X->forceIsChanged/);
+
+  // Simulation : les deux axes StepperOnline prennent leur origine puis se déplacent.
+  const sim = new Simulator(robotIslandProject());
+  sim.set('AU_OK', true);
+  sim.run(3000);
+  assert.equal(sim.mode, 'IDLE');
+  sim.set('Aubo_pret', 1);
+  sim.set('Depart', true);
+  sim.run(50);
+  assert.deepEqual(sim.activeSteps(), [1]);
+  assert.equal(sim.get('Aubo_prog'), 2);
+  assert.equal(sim.get('Fr_start'), true);
+  sim.run(5000);
+  assert.ok(sim.axisByUid.get(robotIslandProjectUid(sim, 'Ascenseur')).position() > 0);
+});
+
+function robotIslandProjectUid(sim, label) {
+  return [...sim.axisByUid.values()].find((a) => a.label === label).uid;
+}

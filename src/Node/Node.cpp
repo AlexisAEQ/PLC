@@ -499,8 +499,9 @@ uint16_t Uint16OutputNode::getValue(){
 }
 
 void Uint16OutputNode::setValue(uint16_t _value, bool force){
-    Serial.printf("%lu::setValue for node: %s, with value: %u\r\n", millis(), getName(), _value);
     if (force || _value != hideValue){
+        // Trace seulement quand la valeur change (les drives appellent setValue à chaque cycle)
+        Serial.printf("%lu::setValue for node: %s, with value: %u\r\n", millis(), getName(), _value);
         updateNeeded = true;
         hideValue = _value;
     }

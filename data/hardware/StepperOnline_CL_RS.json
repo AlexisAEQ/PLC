@@ -1,0 +1,127 @@
+{
+    // Variateurs pas-à-pas StepperOnline CL57RS / CL86RS (boucle fermée) pilotés en Modbus RTU
+    // (classe StepperOnlineRS, modèles CL57RS / CL86RS). Protocole des variateurs Leadshine RS :
+    // trajet PR0 (Pr9.00..9.05) déclenché par Pr8.02. Les offsets sont les adresses du manuel
+    // (hexadécimal) converties en décimal, d'où registersOffset = 0.
+    // Mots 32 bits : poids FORT à l'adresse basse (la classe échange les mots des nodes « Dobble »).
+    // Bus : vitesse Pr5.22, adresse Pr5.23, format Pr5.24 (usine : 38400 bit/s, 8N1) ou DIP.
+    // Même carte de registres que StepperOnline_DM_RS + alimentation par logiciel Pr0.07 et
+    // position réelle (codeur). Paramétrage du variateur et ids : docs/axes/stepperonline-rs.md
+    "hardware": "StepperOnline_CL_RS",
+    "registersOffset": 0,
+
+    // Informatif (non lu par le firmware) : StepperOnlineRSOptions::defaultsFor(CL57RS / CL86RS)
+    "stepperOnlineRS": {
+        "models": ["CL57RS", "CL86RS"],
+        "closedLoop": true,
+        "statusBits": { "fault": 0, "enabled": 1, "running": 2, "commandDone": 4, "pathDone": 5, "homeDone": 6 },
+        "trigger": { "pr0": "0x10", "homing": "0x20", "setZero": "0x21", "quickStop": "0x40" }
+    },
+
+    "ModbusReadHoldingRegister":
+    [
+        {
+            // [status] 0x1003 : état du mouvement (bit0 défaut, bit1 alimenté, bit2 en mouvement,
+            // bit4 commande terminée, bit5 trajet terminé, bit6 origine faite)
+            "id": 1,
+            "offset": 4099
+        },
+        {
+            // [alarmCode] 0x2203 : alarme courante (0 = aucune ; champ de bits)
+            "id": 2,
+            "offset": 8707
+        },
+        {
+            // [triggerStatus] Pr8.02 0x6002 relu : 0x000P terminé, 0x010P trajet en cours, 0x0200 attente positionnement
+            "id": 3,
+            "offset": 24578
+        },
+        {
+            // [prWarning] Pr8.29 0x601D : avertissement PR (0x100 fin de course en prise d'origine, 0x102 dépassement)
+            "id": 4,
+            "offset": 24605
+        },
+        {
+            // [softwareEnableReadback] Pr0.07 0x000F relu : détection d'un redémarrage du variateur
+            "id": 5,
+            "offset": 15
+        },
+        {
+            // [actualSpeed] 0x1047 : vitesse de retour (mot bas de 0x1046/0x1047), tr/min signés - diagnostic
+            "id": 6,
+            "offset": 4167
+        }
+    ],
+
+    "ModbusWriteHoldingRegister":
+    [
+        {
+            // [prMode] Pr9.00 0x6200 : mode du trajet PR0 (0x0001 = positionnement absolu)
+            "id": 1,
+            "offset": 25088
+        },
+        {
+            // [moveSpeed] Pr9.03 0x6203 : vitesse du trajet PR0, tr/min
+            "id": 2,
+            "offset": 25091
+        },
+        {
+            // [accelTime] Pr9.04 0x6204 : accélération du trajet PR0, ms pour 0 -> 1000 tr/min
+            "id": 3,
+            "offset": 25092
+        },
+        {
+            // [decelTime] Pr9.05 0x6205 : décélération du trajet PR0, ms pour 1000 -> 0 tr/min
+            "id": 4,
+            "offset": 25093
+        },
+        {
+            // [trigger] Pr8.02 0x6002 : 0x10 départ PR0, 0x20 prise d'origine, 0x21 position = 0, 0x40 arrêt rapide
+            "id": 5,
+            "offset": 24578
+        },
+        {
+            // [controlWord] 0x1801 : mot de commande (0x1111 acquittement de l'alarme courante)
+            "id": 6,
+            "offset": 6145
+        },
+        {
+            // [softwareEnable] Pr0.07 0x000F : 1 = moteur alimenté quel que soit l'état de l'entrée d'activation
+            "id": 7,
+            "offset": 15
+        },
+        {
+            // [quickStopTime] Pr8.23 0x6017 : décélération de l'arrêt rapide, ms
+            "id": 8,
+            "offset": 24599
+        },
+        {
+            // [peakCurrent] Pr5.00 0x0191 : courant crête, 0,1 A (setMaxTorque, en RAM)
+            "id": 9,
+            "offset": 401
+        }
+    ],
+
+    "ModbusReadDobbleHoldingRegister":
+    [
+        {
+            // [position] Pr8.42/Pr8.43 0x602A/0x602B : position commande, pas (poids fort d'abord, remise à 0 par la prise d'origine)
+            "id": 1,
+            "offset": 24618
+        },
+        {
+            // [feedbackPosition] Pr8.44/Pr8.45 0x602C/0x602D : position réelle (codeur), diagnostic
+            "id": 2,
+            "offset": 24620
+        }
+    ],
+
+    "ModbusWriteDobbleHoldingRegister":
+    [
+        {
+            // [targetPosition] Pr9.01/Pr9.02 0x6201/0x6202 : position du trajet PR0, pas (poids fort d'abord, FC 0x10)
+            "id": 1,
+            "offset": 25089
+        }
+    ]
+}

@@ -212,3 +212,62 @@ export function robotCellProject() {
   };
   return p;
 }
+
+// Îlot robotisé : KC868-A16v3, robots AUBO et FAIRINO (Modbus TCP), deux axes pas-à-pas
+// StepperOnline (DM882RS en RTU, CL57RS derrière une passerelle Modbus TCP).
+export function robotIslandProject() {
+  const p = newProject('IlotRobots');
+  p.wifi = [{ name: 'Atelier', ssid: 'atelier', pwd: 'secret123', dhcp: true }];
+  p.ethernet = { enabled: true, dhcp: true, ip: '', gateway: '', mask: '255.255.255.0', dns: '' };
+  const plc = addEquipment(p, 'Kincony_KC868_A16v3');
+  const aubo = addEquipment(p, 'Robot_Aubo', 'Aubo');
+  aubo.options.ip = '192.168.10.51';
+  const fr = addEquipment(p, 'Robot_Fairino', 'Fairino');
+  const conv = addEquipment(p, 'StepperOnlineDM_RS', 'Convoyeur');
+  Object.assign(conv.options, { model: 'DM882RS', accelTime: 500, torqueRefCurrent: 60 });
+  conv.address = 5;
+  const lift = addEquipment(p, 'StepperOnlineCL_RS', 'Ascenseur');
+  Object.assign(lift.options, { transport: 'tcp', ip: '192.168.10.70', model: 'CL86RS', maxRange: 50000 });
+  lift.address = 2;
+  add(p, { label: 'AU OK', symbol: 'AU_OK', kind: 'input', dataType: 'bool', binding: { eq: plc.uid, group: 'di', channel: 1 } });
+  add(p, { label: 'Départ cycle', symbol: 'Depart', kind: 'input', dataType: 'bool', binding: { eq: plc.uid, group: 'di', channel: 2 } });
+  add(p, { label: 'Acquitter', symbol: 'Acquit', kind: 'command', dataType: 'bool' });
+  add(p, { label: 'Aubo prêt', symbol: 'Aubo_pret', kind: 'input', dataType: 'int', binding: { eq: aubo.uid, group: 'sts', channel: 1 } });
+  add(p, { label: 'Aubo fini', symbol: 'Aubo_fini', kind: 'input', dataType: 'int', binding: { eq: aubo.uid, group: 'sts', channel: 3 } });
+  add(p, { label: 'Aubo X', symbol: 'Aubo_X', kind: 'input', dataType: 'int', binding: { eq: aubo.uid, group: 'pos', channel: 11 } });
+  add(p, { label: 'Aubo programme', symbol: 'Aubo_prog', kind: 'output', dataType: 'int', binding: { eq: aubo.uid, group: 'cmd', channel: 1 }, fallback: 'off' });
+  add(p, { label: 'Aubo départ', symbol: 'Aubo_depart', kind: 'output', dataType: 'int', binding: { eq: aubo.uid, group: 'cmd', channel: 2 }, fallback: 'off' });
+  add(p, { label: 'Fairino départ', symbol: 'Fr_start', kind: 'output', dataType: 'bool', binding: { eq: fr.uid, group: 'start', channel: 1 }, fallback: 'off' });
+  add(p, { label: 'Fairino demande', symbol: 'Fr_demande', kind: 'output', dataType: 'bool', binding: { eq: fr.uid, group: 'cmd', channel: 0 }, fallback: 'off' });
+  add(p, { label: 'Fairino en cours', symbol: 'Fr_en_cours', kind: 'input', dataType: 'bool', binding: { eq: fr.uid, group: 'sts', channel: 1 } });
+  add(p, { label: 'Fairino fini', symbol: 'Fr_fini', kind: 'input', dataType: 'bool', binding: { eq: fr.uid, group: 'sts', channel: 2 } });
+  add(p, { label: 'Fairino programme', symbol: 'Fr_prog', kind: 'output', dataType: 'int', binding: { eq: fr.uid, group: 'w', channel: 1 }, fallback: 'hold' });
+  add(p, { label: 'Fairino Z', symbol: 'Fr_Z', kind: 'input', dataType: 'int', binding: { eq: fr.uid, group: 'pos', channel: 8 } });
+  add(p, { label: 'Hauteur', symbol: 'Hauteur', kind: 'parameter', dataType: 'int', initial: 20000 });
+  p.logic = {
+    steps: [
+      { id: 's0', num: 0, label: 'Attente', initial: true, actions: [] },
+      {
+        id: 's1',
+        num: 1,
+        label: 'Robots',
+        actions: [
+          { type: 'SET', target: 'Aubo_prog', value: '2' },
+          { type: 'SET', target: 'Aubo_depart', value: '1' },
+          { type: 'SET', target: 'Fr_prog', value: '4' },
+          { type: 'N', target: 'Fr_start' },
+          { type: 'N', target: 'Fr_demande' },
+          { type: 'SERVO_MOVE', axis: lift.uid, position: 'Hauteur', speed: '300' },
+        ],
+      },
+      { id: 's2', num: 2, label: 'Convoyeur', actions: [{ type: 'SET', target: 'Aubo_depart', value: '0' }, { type: 'SERVO_MOVE', axis: conv.uid, position: '40000', speed: '600' }] },
+    ],
+    transitions: [
+      { id: 't0', num: 0, from: ['s0'], to: ['s1'], condition: 'FM(Depart) ET Aubo_pret = 1 ET Aubo_X > -500' },
+      { id: 't1', num: 1, from: ['s1'], to: ['s2'], condition: 'Aubo_fini = 1 ET Fr_fini ET Ascenseur.enPosition ET Fr_Z < 0' },
+      { id: 't2', num: 2, from: ['s2'], to: ['s0'], condition: 'Convoyeur.enPosition' },
+    ],
+    blocks: { emergency: { condition: 'NON AU_OK', reset: 'Acquit' }, run: { start: '', stop: '' } },
+  };
+  return p;
+}

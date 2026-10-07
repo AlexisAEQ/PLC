@@ -62,6 +62,9 @@ function variableAccess(project, layout) {
     acc.members.push(`${node.cppClass}* ${ptr} = nullptr;`);
     acc.hashName = v.symbol;
     acc.init.push(`initNodePtr(${ptr}, ${project.name}Nodes::H_${v.symbol}, context);`);
+    // Sortie Modbus : la valeur de repos est écrite au démarrage (sinon l'équipement garde
+    // l'état d'avant le redémarrage de l'automate, ex. un départ robot resté à 1).
+    if (String(node.sectionType).startsWith('ModbusWrite')) acc.init.push(`if (${ptr}) ${ptr}->forceIsChanged();`);
     switch (node.cppClass) {
       case 'BooleanInputNode':
         acc.get = `${ptr}->getValue()`;
@@ -75,7 +78,8 @@ function variableAccess(project, layout) {
         acc.set = (x) => `${ptr}->setValue(${x});`;
         break;
       case 'Uint16InputNode':
-        acc.get = `(int32_t)${ptr}->getValue()`;
+        // Registre signé (positions d'un robot…) : -32768 à 32767.
+        acc.get = node.signed ? `(int32_t)(int16_t)${ptr}->getValue()` : `(int32_t)${ptr}->getValue()`;
         break;
       case 'Uint16OutputNode':
         // Registre Modbus écrit (0 à 65535) : écrit seulement quand la valeur change.
@@ -143,6 +147,12 @@ function axisSignalAssign(a, v) {
   return [`    ${target} = n_${v.symbol};`];
 }
 
+// Nœuds d'affichage d'un axe (display: 'position') : position calculée par le drive
+// (ex. mots 32 bits remis dans l'ordre), recopiée à chaque cycle.
+function axisDisplayNodes(a, layout) {
+  return [...layout.nodes].filter(([ref, n]) => ref.startsWith(`axis:${a.uid}:`) && n.display === 'position').map(([, n]) => n);
+}
+
 function axisCreate(a, N) {
   const o = a.eq.options || {};
   const s = a.symbol;
@@ -171,6 +181,19 @@ function axisCreate(a, N) {
         `    axDrive_${s}.reset(new LichuanServo(LichuanFamily::${a.def.family === 'A5' ? 'A5' : 'A6'}, axNodes_${s}, ${cstr(a.label)}));`
       );
       if (accel) lines.push(`    axDrive_${s}->setAccelTime(${accel});`);
+      break;
+    }
+    case 'stepperonline-rs': {
+      const models = a.def.models || ['DM556RS'];
+      const model = models.includes(o.model) ? o.model : models[0];
+      const accel = Math.max(0, Math.min(10000, Math.round(Number(o.accelTime ?? 300) || 0)));
+      const ref = Math.max(0, Math.min(82, Math.round(Number(o.torqueRefCurrent) || 0)));
+      lines.push(
+        `    if (!axNodes_${s}.validateRequired()) { ${broken(`nœuds obligatoires de l'axe « ${a.label} » manquants`)} return false; }`,
+        `    axDrive_${s}.reset(new StepperOnlineRS(StepperOnlineRSModel::${model}, axNodes_${s}, ${cstr(a.label)}));`
+      );
+      if (accel !== 300) lines.push(`    axDrive_${s}->setAccelTime(${accel});`);
+      if (ref) lines.push(`    axDrive_${s}->setTorqueReferenceCurrent(${ref});`);
       break;
     }
     case 'stepper': {
@@ -353,6 +376,7 @@ export function generateCpp(project, layout, ir) {
       ``,
       `    // ---- Axe « ${comment(a.label)} » (${comment(a.entry.label)}${a.entry.modbus ? `, adresse Modbus ${Number(a.eq.address)}` : ''})`,
       `    ${a.def.nodesStruct} axNodes_${a.symbol};`,
+      ...axisDisplayNodes(a, layout).map((n) => `    Uint32OutputNode* axDisp_${a.symbol}_${ident(n.field)} = nullptr;  // ${comment(n.label)} (écrit par la classe)`),
       `    std::unique_ptr<${a.def.cppClass}> axDrive_${a.symbol};`,
       `    static AxisController::Config axConfig_${a.symbol}() {`,
       `        AxisController::Config c;`,
@@ -455,7 +479,10 @@ export function generateCpp(project, layout, ir) {
   // initializePointers
   L(`bool ${N}::initializePointers(const char* context) {`);
   for (const acc of access.values()) for (const line of acc.init) L(`    ${line}`);
-  for (const b of banks.values()) L(`    initNodePtr(${b.name}, ${N}Nodes::H_${b.hashName}, context);`);
+  for (const b of banks.values()) {
+    L(`    initNodePtr(${b.name}, ${N}Nodes::H_${b.hashName}, context);`);
+    if (b.cls === 'ModbusWriteMultipleCoilslNode') L(`    if (${b.name}) ${b.name}->forceIsChanged();  // état de repos écrit au démarrage`);
+  }
   for (const m of mirrors) L(`    initNodePtr(mirror_${m.variable.symbol}, ${N}Nodes::H_MIRROR_${m.variable.symbol}, context);`);
   if (stateNode) L(`    initNodePtr(sysStateNode, ${N}Nodes::H_SYS_STATE, context);`);
   if (clockNode) L(`    initNodePtr(sysClockNode, ${N}Nodes::H_SYS_CLOCK, context);`, `    ClockDisplay::attach(sysClockNode);`);
@@ -469,7 +496,8 @@ export function generateCpp(project, layout, ir) {
       L(`    // Axe « ${comment(a.label)} »`);
       for (const [ref, node] of layout.nodes) {
         if (!ref.startsWith(`axis:${a.uid}:`)) continue;
-        L(`    initNodePtr(axNodes_${a.symbol}.${node.field}, ${N}Nodes::H_AX_${a.symbol}_${ident(node.field)}, context);`);
+        const target = node.display ? `axDisp_${a.symbol}_${ident(node.field)}` : `axNodes_${a.symbol}.${node.field}`;
+        L(`    initNodePtr(${target}, ${N}Nodes::H_AX_${a.symbol}_${ident(node.field)}, context);`);
       }
       // Signaux câblés (les signaux facultatifs non câblés restent à nullptr).
       for (const v of project.variables.filter((x) => x.system?.eq === a.uid && layout.nodes.has(`var:${x.uid}`))) {
@@ -501,6 +529,12 @@ export function generateCpp(project, layout, ir) {
     `bool ${N}::doBusinessLogic() {`,
     `    now = millis();`,
     ...axes.map((a) => `    ${ax(a)}.process();`),
+    ...axes.flatMap((a) =>
+      axisDisplayNodes(a, layout).map((n) => {
+        const d = `axDisp_${a.symbol}_${ident(n.field)}`;
+        return `    if (${d}) { int32_t _p = ${ax(a)}.position(); if (${d}->getValueAsInt32() != _p) ${d}->setValueFromInt32(_p); }`;
+      })
+    ),
     `    if (BorneUniverselle::getInstance()->isPlcBroken()) return false;`,
     `    captureEdges();`,
     ``,
