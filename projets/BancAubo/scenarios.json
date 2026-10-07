@@ -1,0 +1,272 @@
+[
+  {
+    "name": "Sélecteur START : départ, programme en cours, fin sans relance",
+    "steps": [
+      {
+        "set": {
+          "Rob_operable": true,
+          "Rob_sans_defaut": true
+        }
+      },
+      {
+        "until": {
+          "mode": "REPOS"
+        },
+        "timeout": "5s"
+      },
+      {
+        "set": {
+          "Sel_start": true
+        }
+      },
+      {
+        "until": "Cmd_start",
+        "timeout": "500ms"
+      },
+      {
+        "set": {
+          "Rob_marche": true
+        }
+      },
+      {
+        "until": {
+          "steps": [
+            2
+          ]
+        },
+        "timeout": "500ms"
+      },
+      {
+        "expect": {
+          "Cmd_start": false,
+          "Etat_programme": "En cours"
+        }
+      },
+      {
+        "set": {
+          "Rob_marche": false
+        }
+      },
+      {
+        "until": {
+          "steps": [
+            4
+          ]
+        },
+        "timeout": "500ms"
+      },
+      {
+        "wait": "2s"
+      },
+      {
+        "expect": {
+          "Cmd_start": false,
+          "steps": [
+            4
+          ]
+        }
+      },
+      {
+        "set": {
+          "Sel_start": false
+        }
+      },
+      {
+        "until": {
+          "steps": [
+            0
+          ]
+        },
+        "timeout": "500ms"
+      }
+    ]
+  },
+  {
+    "name": "Sélecteur STOP : arrêt du programme en cours",
+    "steps": [
+      {
+        "set": {
+          "Rob_operable": true,
+          "Rob_sans_defaut": true
+        }
+      },
+      {
+        "until": {
+          "mode": "REPOS"
+        },
+        "timeout": "5s"
+      },
+      {
+        "set": {
+          "Sel_start": true
+        }
+      },
+      {
+        "until": "Cmd_start",
+        "timeout": "500ms"
+      },
+      {
+        "set": {
+          "Rob_marche": true
+        }
+      },
+      {
+        "until": {
+          "steps": [
+            2
+          ]
+        },
+        "timeout": "500ms"
+      },
+      {
+        "set": {
+          "Sel_start": false,
+          "Sel_stop": true
+        }
+      },
+      {
+        "until": "Cmd_stop",
+        "timeout": "500ms"
+      },
+      {
+        "set": {
+          "Rob_marche": false
+        }
+      },
+      {
+        "until": {
+          "steps": [
+            0
+          ]
+        },
+        "timeout": "500ms"
+      },
+      {
+        "expect": {
+          "Cmd_stop": false,
+          "Cmd_start": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "Pas de départ si le robot n'est pas opérationnel ou en défaut",
+    "steps": [
+      {
+        "set": {
+          "Rob_operable": false,
+          "Rob_sans_defaut": true,
+          "Sel_start": true
+        }
+      },
+      {
+        "wait": "1s"
+      },
+      {
+        "expect": {
+          "Cmd_start": false,
+          "steps": [
+            0
+          ]
+        }
+      },
+      {
+        "set": {
+          "Rob_operable": true,
+          "Rob_sans_defaut": false
+        }
+      },
+      {
+        "wait": "1s"
+      },
+      {
+        "expect": {
+          "Cmd_start": false,
+          "steps": [
+            0
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "Robot qui ne démarre pas : défaut affiché, reprise au retour du sélecteur (choix : délai 5 s)",
+    "steps": [
+      {
+        "set": {
+          "Rob_operable": true,
+          "Rob_sans_defaut": true,
+          "Sel_start": true
+        }
+      },
+      {
+        "until": "Cmd_start",
+        "timeout": "1s"
+      },
+      {
+        "until": {
+          "steps": [
+            5
+          ]
+        },
+        "timeout": "7s"
+      },
+      {
+        "expect": {
+          "Cmd_start": false,
+          "Defaut_cmd": true
+        }
+      },
+      {
+        "message": "Robot ne répond pas"
+      },
+      {
+        "set": {
+          "Sel_start": false
+        }
+      },
+      {
+        "until": {
+          "steps": [
+            0
+          ]
+        },
+        "timeout": "500ms"
+      }
+    ]
+  },
+  {
+    "name": "Programme lancé depuis le robot : suivi et arrêt par STOP",
+    "steps": [
+      {
+        "set": {
+          "Rob_operable": true,
+          "Rob_sans_defaut": true,
+          "Rob_marche": true
+        }
+      },
+      {
+        "until": {
+          "steps": [
+            2
+          ]
+        },
+        "timeout": "5s"
+      },
+      {
+        "expect": {
+          "Cmd_start": false
+        }
+      },
+      {
+        "set": {
+          "Sel_stop": true
+        }
+      },
+      {
+        "until": "Cmd_stop",
+        "timeout": "500ms"
+      }
+    ]
+  }
+]

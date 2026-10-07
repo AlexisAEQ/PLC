@@ -1,0 +1,785 @@
+{
+  "format": "plc-studio-project",
+  "version": 1,
+  "name": "BancAubo",
+  "hostname": "bancaubo",
+  "description": "Banc de test AUBO : départ / arrêt du programme robot par un sélecteur maintenu (E/S câblées), états du robot et du programme affichés (E/S + Modbus TCP).",
+  "execution": {
+    "mode": "hmi"
+  },
+  "options": {
+    "logDiagnostic": true,
+    "deleteDiagnosticAtStartup": false,
+    "showSuccessMessages": false,
+    "showInfoMessages": true,
+    "logHistory": false,
+    "stateDisplay": true,
+    "clockDisplay": false
+  },
+  "wifi": [
+    {
+      "name": "Point d'accès",
+      "mode": "access_point",
+      "ap_name": "bancaubo",
+      "ap_password": "ChangeMoi123",
+      "ap_ip": "192.168.4.1",
+      "ap_channel": 6
+    }
+  ],
+  "ethernet": {
+    "enabled": true,
+    "dhcp": false,
+    "ip": "192.168.10.20",
+    "gateway": "192.168.10.1",
+    "mask": "255.255.255.0",
+    "dns": ""
+  },
+  "otaUrl": "",
+  "editorPassword": "",
+  "equipment": [
+    {
+      "uid": "eq_plc",
+      "type": "Waveshare_ESP32S3_POE_8DI8DO",
+      "label": "Automate",
+      "options": {
+        "rtc": true,
+        "rs485Speed": "",
+        "rs485Config": ""
+      }
+    },
+    {
+      "uid": "eq_robot",
+      "type": "Robot_Aubo",
+      "label": "Robot",
+      "options": {
+        "transport": "tcp",
+        "ip": "192.168.10.50",
+        "port": 502
+      },
+      "address": 1
+    }
+  ],
+  "variables": [
+    {
+      "uid": "var_Sel_start",
+      "symbol": "Sel_start",
+      "label": "Sélecteur START",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "Contact NO, sélecteur maintenu",
+      "binding": {
+        "eq": "eq_plc",
+        "group": "di",
+        "channel": 1
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Sel_stop",
+      "symbol": "Sel_stop",
+      "label": "Sélecteur STOP",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "Contact NO, sélecteur maintenu",
+      "binding": {
+        "eq": "eq_plc",
+        "group": "di",
+        "channel": 2
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Rob_marche",
+      "symbol": "Rob_marche",
+      "label": "Programme robot en marche",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "Sortie robot RunningHigh",
+      "binding": {
+        "eq": "eq_plc",
+        "group": "di",
+        "channel": 3
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Rob_pause",
+      "symbol": "Rob_pause",
+      "label": "Robot en pause",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "Sortie robot PausedHigh",
+      "binding": {
+        "eq": "eq_plc",
+        "group": "di",
+        "channel": 4
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Rob_sans_defaut",
+      "symbol": "Rob_sans_defaut",
+      "label": "Robot sans défaut",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "Sortie robot NotSystemError",
+      "binding": {
+        "eq": "eq_plc",
+        "group": "di",
+        "channel": 5
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Rob_operable",
+      "symbol": "Rob_operable",
+      "label": "Robot opérationnel",
+      "kind": "input",
+      "dataType": "bool",
+      "comment": "Sortie robot RobotOperable",
+      "binding": {
+        "eq": "eq_plc",
+        "group": "di",
+        "channel": 6
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Cmd_start",
+      "symbol": "Cmd_start",
+      "label": "Départ programme robot",
+      "kind": "output",
+      "dataType": "bool",
+      "comment": "Entrée robot StartProgram",
+      "binding": {
+        "eq": "eq_plc",
+        "group": "do",
+        "channel": 1
+      },
+      "fallback": "off",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Cmd_stop",
+      "symbol": "Cmd_stop",
+      "label": "Arrêt programme robot",
+      "kind": "output",
+      "dataType": "bool",
+      "comment": "Entrée robot StopProgram",
+      "binding": {
+        "eq": "eq_plc",
+        "group": "do",
+        "channel": 2
+      },
+      "fallback": "off",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Mb_pret",
+      "symbol": "Mb_pret",
+      "label": "Prog. maître prêt",
+      "kind": "input",
+      "dataType": "int",
+      "comment": "",
+      "binding": {
+        "eq": "eq_robot",
+        "group": "sts",
+        "channel": 1
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Mb_en_cours",
+      "symbol": "Mb_en_cours",
+      "label": "Tâche en cours",
+      "kind": "input",
+      "dataType": "int",
+      "comment": "",
+      "binding": {
+        "eq": "eq_robot",
+        "group": "sts",
+        "channel": 2
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Mb_fini",
+      "symbol": "Mb_fini",
+      "label": "Tâche finie",
+      "kind": "input",
+      "dataType": "int",
+      "comment": "",
+      "binding": {
+        "eq": "eq_robot",
+        "group": "sts",
+        "channel": 3
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Mb_defaut",
+      "symbol": "Mb_defaut",
+      "label": "Code défaut programme",
+      "kind": "input",
+      "dataType": "int",
+      "comment": "",
+      "binding": {
+        "eq": "eq_robot",
+        "group": "sts",
+        "channel": 4
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Mb_echo_prog",
+      "symbol": "Mb_echo_prog",
+      "label": "N° tâche en cours",
+      "kind": "input",
+      "dataType": "int",
+      "comment": "",
+      "binding": {
+        "eq": "eq_robot",
+        "group": "sts",
+        "channel": 5
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Mb_vie",
+      "symbol": "Mb_vie",
+      "label": "Vie robot",
+      "kind": "input",
+      "dataType": "int",
+      "comment": "",
+      "binding": {
+        "eq": "eq_robot",
+        "group": "sts",
+        "channel": 6
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Pos_X",
+      "symbol": "Pos_X",
+      "label": "TCP X (0,1 mm)",
+      "kind": "input",
+      "dataType": "int",
+      "comment": "",
+      "binding": {
+        "eq": "eq_robot",
+        "group": "pos",
+        "channel": 11
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Pos_Y",
+      "symbol": "Pos_Y",
+      "label": "TCP Y (0,1 mm)",
+      "kind": "input",
+      "dataType": "int",
+      "comment": "",
+      "binding": {
+        "eq": "eq_robot",
+        "group": "pos",
+        "channel": 12
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Pos_Z",
+      "symbol": "Pos_Z",
+      "label": "TCP Z (0,1 mm)",
+      "kind": "input",
+      "dataType": "int",
+      "comment": "",
+      "binding": {
+        "eq": "eq_robot",
+        "group": "pos",
+        "channel": 13
+      },
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Tempo_reponse",
+      "symbol": "Tempo_reponse",
+      "label": "Délai réponse robot (ms)",
+      "kind": "parameter",
+      "dataType": "int",
+      "comment": "",
+      "initial": 5000,
+      "hmi": {
+        "show": true
+      },
+      "min": 500,
+      "max": 30000
+    },
+    {
+      "uid": "var_Etat_programme",
+      "symbol": "Etat_programme",
+      "label": "État programme",
+      "kind": "indicator",
+      "dataType": "text",
+      "comment": "",
+      "hmi": {
+        "show": true
+      }
+    },
+    {
+      "uid": "var_Defaut_cmd",
+      "symbol": "Defaut_cmd",
+      "label": "Robot ne répond pas",
+      "kind": "indicator",
+      "dataType": "bool",
+      "comment": "",
+      "hmi": {
+        "show": true
+      }
+    }
+  ],
+  "hmi": {
+    "auto": false,
+    "pages": [
+      {
+        "id": "page_1",
+        "name": "Banc",
+        "sections": [
+          {
+            "id": "sec_1_1",
+            "name": "Commande",
+            "orientation": "horizontal",
+            "items": [
+              {
+                "ref": "sys:state",
+                "label": "État machine",
+                "widget": "rx-label"
+              },
+              {
+                "ref": "var:var_Etat_programme",
+                "label": "État programme",
+                "widget": "rx-label"
+              },
+              {
+                "ref": "var:var_Sel_start",
+                "label": "Sélecteur START",
+                "widget": "rx-indicator"
+              },
+              {
+                "ref": "var:var_Sel_stop",
+                "label": "Sélecteur STOP",
+                "widget": "rx-indicator"
+              },
+              {
+                "ref": "var:var_Cmd_start",
+                "label": "Départ programme robot",
+                "widget": "rx-indicator"
+              },
+              {
+                "ref": "var:var_Cmd_stop",
+                "label": "Arrêt programme robot",
+                "widget": "rx-indicator"
+              },
+              {
+                "ref": "var:var_Defaut_cmd",
+                "label": "Robot ne répond pas",
+                "widget": "rx-indicator"
+              }
+            ]
+          },
+          {
+            "id": "sec_1_2",
+            "name": "Robot (E/S)",
+            "orientation": "horizontal",
+            "items": [
+              {
+                "ref": "var:var_Rob_marche",
+                "label": "Programme robot en marche",
+                "widget": "rx-indicator"
+              },
+              {
+                "ref": "var:var_Rob_pause",
+                "label": "Robot en pause",
+                "widget": "rx-indicator"
+              },
+              {
+                "ref": "var:var_Rob_sans_defaut",
+                "label": "Robot sans défaut",
+                "widget": "rx-indicator"
+              },
+              {
+                "ref": "var:var_Rob_operable",
+                "label": "Robot opérationnel",
+                "widget": "rx-indicator"
+              }
+            ]
+          },
+          {
+            "id": "sec_1_3",
+            "name": "Robot (Modbus)",
+            "orientation": "horizontal",
+            "items": [
+              {
+                "ref": "var:var_Mb_pret",
+                "label": "Prog. maître prêt",
+                "widget": "rx-numeric"
+              },
+              {
+                "ref": "var:var_Mb_en_cours",
+                "label": "Tâche en cours",
+                "widget": "rx-numeric"
+              },
+              {
+                "ref": "var:var_Mb_fini",
+                "label": "Tâche finie",
+                "widget": "rx-numeric"
+              },
+              {
+                "ref": "var:var_Mb_defaut",
+                "label": "Code défaut programme",
+                "widget": "rx-numeric"
+              },
+              {
+                "ref": "var:var_Mb_echo_prog",
+                "label": "N° tâche en cours",
+                "widget": "rx-numeric"
+              },
+              {
+                "ref": "var:var_Mb_vie",
+                "label": "Vie robot",
+                "widget": "rx-numeric"
+              }
+            ]
+          },
+          {
+            "id": "sec_1_4",
+            "name": "Position outil",
+            "orientation": "horizontal",
+            "items": [
+              {
+                "ref": "var:var_Pos_X",
+                "label": "TCP X (0,1 mm)",
+                "widget": "rx-numeric"
+              },
+              {
+                "ref": "var:var_Pos_Y",
+                "label": "TCP Y (0,1 mm)",
+                "widget": "rx-numeric"
+              },
+              {
+                "ref": "var:var_Pos_Z",
+                "label": "TCP Z (0,1 mm)",
+                "widget": "rx-numeric"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "page_2",
+        "name": "Réglages",
+        "sections": [
+          {
+            "id": "sec_2_1",
+            "name": "Surveillance",
+            "orientation": "horizontal",
+            "items": [
+              {
+                "ref": "var:var_Tempo_reponse",
+                "label": "Délai réponse robot (ms)",
+                "widget": "tx-numeric"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logic": {
+    "steps": [
+      {
+        "id": "s0",
+        "num": 0,
+        "label": "Programme arrêté",
+        "initial": true,
+        "actions": [
+          {
+            "type": "SET",
+            "target": "Etat_programme",
+            "value": "\"Arrêté\""
+          }
+        ],
+        "x": 240,
+        "y": 60
+      },
+      {
+        "id": "s1",
+        "num": 1,
+        "label": "Départ programme",
+        "actions": [
+          {
+            "type": "N",
+            "target": "Cmd_start"
+          },
+          {
+            "type": "SET",
+            "target": "Etat_programme",
+            "value": "\"Démarrage\""
+          }
+        ],
+        "x": 240,
+        "y": 240
+      },
+      {
+        "id": "s2",
+        "num": 2,
+        "label": "Programme en cours",
+        "actions": [
+          {
+            "type": "SET",
+            "target": "Etat_programme",
+            "value": "\"En cours\""
+          }
+        ],
+        "x": 940,
+        "y": 420
+      },
+      {
+        "id": "s3",
+        "num": 3,
+        "label": "Arrêt programme",
+        "actions": [
+          {
+            "type": "N",
+            "target": "Cmd_stop"
+          },
+          {
+            "type": "SET",
+            "target": "Etat_programme",
+            "value": "\"Arrêt demandé\""
+          }
+        ],
+        "x": 940,
+        "y": 600
+      },
+      {
+        "id": "s4",
+        "num": 4,
+        "label": "Attente sélecteur",
+        "actions": [
+          {
+            "type": "SET",
+            "target": "Etat_programme",
+            "value": "\"Terminé\""
+          },
+          {
+            "type": "MSG",
+            "level": "info",
+            "text": "Programme robot terminé"
+          }
+        ],
+        "x": 1780,
+        "y": 780
+      },
+      {
+        "id": "s5",
+        "num": 5,
+        "label": "Robot muet",
+        "actions": [
+          {
+            "type": "N",
+            "target": "Defaut_cmd"
+          },
+          {
+            "type": "SET",
+            "target": "Etat_programme",
+            "value": "\"Défaut\""
+          },
+          {
+            "type": "MSG",
+            "level": "error",
+            "text": "Robot ne répond pas"
+          }
+        ],
+        "x": 1320,
+        "y": 780
+      }
+    ],
+    "transitions": [
+      {
+        "id": "t0",
+        "num": 0,
+        "from": [
+          "s0"
+        ],
+        "to": [
+          "s1"
+        ],
+        "condition": "Sel_start ET NON Sel_stop ET NON Rob_marche ET Rob_operable ET Rob_sans_defaut",
+        "x": 240,
+        "y": 150
+      },
+      {
+        "id": "t1",
+        "num": 1,
+        "from": [
+          "s0"
+        ],
+        "to": [
+          "s2"
+        ],
+        "condition": "Rob_marche",
+        "x": 940,
+        "y": 150
+      },
+      {
+        "id": "t2",
+        "num": 2,
+        "from": [
+          "s1"
+        ],
+        "to": [
+          "s2"
+        ],
+        "condition": "Rob_marche",
+        "x": 240,
+        "y": 330
+      },
+      {
+        "id": "t3",
+        "num": 3,
+        "from": [
+          "s1"
+        ],
+        "to": [
+          "s5"
+        ],
+        "condition": "NON Rob_marche ET X1.t >= Tempo_reponse",
+        "x": 1320,
+        "y": 330
+      },
+      {
+        "id": "t4",
+        "num": 4,
+        "from": [
+          "s2"
+        ],
+        "to": [
+          "s3"
+        ],
+        "condition": "Sel_stop",
+        "x": 940,
+        "y": 510
+      },
+      {
+        "id": "t5",
+        "num": 5,
+        "from": [
+          "s2"
+        ],
+        "to": [
+          "s4"
+        ],
+        "condition": "NON Rob_marche ET NON Sel_stop",
+        "x": 1780,
+        "y": 510
+      },
+      {
+        "id": "t6",
+        "num": 6,
+        "from": [
+          "s3"
+        ],
+        "to": [
+          "s4"
+        ],
+        "condition": "NON Rob_marche",
+        "x": 940,
+        "y": 690
+      },
+      {
+        "id": "t7",
+        "num": 7,
+        "from": [
+          "s3"
+        ],
+        "to": [
+          "s5"
+        ],
+        "condition": "Rob_marche ET X3.t >= Tempo_reponse",
+        "x": 2200,
+        "y": 690
+      },
+      {
+        "id": "t8",
+        "num": 8,
+        "from": [
+          "s4"
+        ],
+        "to": [
+          "s0"
+        ],
+        "condition": "NON Sel_start",
+        "x": 1780,
+        "y": 890
+      },
+      {
+        "id": "t9",
+        "num": 9,
+        "from": [
+          "s5"
+        ],
+        "to": [
+          "s0"
+        ],
+        "condition": "NON Sel_start",
+        "x": 1320,
+        "y": 870
+      }
+    ],
+    "blocks": {
+      "emergency": {
+        "condition": "",
+        "reset": ""
+      },
+      "run": {
+        "start": "",
+        "stop": ""
+      },
+      "axes": {}
+    }
+  }
+}
