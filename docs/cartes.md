@@ -16,8 +16,12 @@ l'environnement PlatformIO à compiler.
 | M5Stack StamPLC (ESP32-S3) | `M5Stack_StamPLC` | `m5stack_stamplc` | 8 entrées, 4 relais (AW9523), GPIO Grove 4/5/1/2, buzzer GPIO44 | RX8130 |
 | Homemaster MiniPLC (ESP32) | `Homemaster_MiniPLC` | `quatre_mb_huge` | 4 entrées 24 V, 4 boutons, 6 relais, 2 LED (PCF8574), GPIO 5/4, buzzer GPIO2 | PCF8563 |
 
-Le réseau est en WiFi seulement : l'Ethernet (W5500, LAN8720) des cartes qui en ont n'est
-pas utilisé.
+Réseau : WiFi (client et/ou point d'accès) sur toutes les cartes, plus l'Ethernet filaire
+sur les cartes qui en ont (bloc `ETH` du fichier matériel, voir plus bas) : Waveshare
+ESP32-S3-POE-ETH-8DI-8DO, KC868-A16v3 et KC868-A8v3 (W5500), KC868-A16 et Homemaster
+MiniPLC (LAN8720). L'Ethernet s'active à l'étape Projet de PLC Studio (DHCP ou adresse
+fixe) et fonctionne en même temps que le WiFi ; il demande Arduino-ESP32 3.x (environnements
+`esp32s3_n16r8` et `quatre_mb_huge`). Voir `docs/modbus-tcp.md`.
 
 Remarques par carte :
 
@@ -56,6 +60,11 @@ Remarques par carte :
     "RS485": { "rx": 18, "tx": 17, "de": 21, "speed": 115200, "config": "SERIAL_8E1" },
     "Modbus": { "modbusRTU": true, "timeout": 101 },
 
+    // Ethernet (facultatif). W5500 en SPI :
+    "ETH": { "phy": "W5500", "cs": 16, "irq": 12, "rst": 39, "sck": 15, "miso": 14, "mosi": 13 },
+    // ou LAN8720 en RMII (ESP32 seulement) : "clk" = GPIO0_IN, GPIO0_OUT, GPIO16_OUT, GPIO17_OUT
+    // "ETH": { "phy": "LAN8720", "addr": 0, "mdc": 23, "mdio": 18, "power": -1, "clk": "GPIO17_OUT" },
+
     // GPIO de l'ESP32 : "activeLow" (vrai au niveau bas), "pull" : "up" (défaut), "down", "none".
     "rx-bool": [ { "id": 1, "pin": 4, "activeLow": true, "pull": "up" } ],
     "tx-bool": [ { "id": 1, "pin": 40 } ],
@@ -84,7 +93,8 @@ le format RS485 est changé dans les options de l'automate.
 2. Ajouter l'entrée de la carte dans `tools/plc-studio/shared/catalog.js` (rôle
    `controller`, `pioEnv`, groupes de voies dont `type` = nom de la section du fichier
    matériel et `ids` = ses identifiants ; `names` pour nommer les GPIO, `gpio: true` pour
-   les sorties directes utilisables en STEP/DIR).
+   les sorties directes utilisables en STEP/DIR, `ethernet: true` si le fichier a un bloc
+   `ETH`).
 3. Si la carte demande un autre microcontrôleur ou une autre taille de flash, ajouter un
    environnement dans `platformio.ini`.
 4. `npm test` dans `tools/plc-studio` vérifie que chaque identifiant généré existe dans le

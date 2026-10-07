@@ -9,6 +9,7 @@
 #include <HTTPClient.h>
 #include <HTTPUpdate.h>
 #include "BorneUniverselle/borneUniverselle.h"
+#include "EthernetManager/EthernetManager.h"
 #include "WifiManagement/wifimanagment.h"
 #include "RessortRoyal2/RessortRoyal2.h"
 
@@ -124,6 +125,24 @@ void turnOffBuzzer(){
     digitalWrite(pin, bu->isBuzzerActiveLow() ? HIGH : LOW);
 }
 
+// Adresse obtenue sur l'Ethernet : mDNS et serveur web comme pour le WiFi.
+void processEthernetGotIP() {
+    EthernetManager& eth = EthernetManager::getInstance();
+    Serial.printf("🌐 Ethernet : adresse %s\n", eth.localIP().toString().c_str());
+    if (!mdnsInitialized) {
+        if (MDNS.begin(bu->getName())) {
+            MDNS.addService("http", "tcp", 80);
+            Serial.printf("MDNS responder started with name %s\n", bu->getName());
+            mdnsInitialized = true;
+        }
+    }
+    if (!serverStarted) {
+        server.begin();
+        Serial.println("Web server started (Ethernet) !");
+        serverStarted = true;
+    }
+}
+
 void processWifiGotIP() {
     turnOffBuzzer();
     bu->setWifiConnected(true);
@@ -201,8 +220,11 @@ void WiFiStationDisconnected(){
     // NE JAMAIS bloquer ici — on est dans le contexte du task lwIP
     bu->setWifiConnected(false);
     Serial.println(F("🔴 WiFi déconnecté"));
-    MDNS.end();
-    mdnsInitialized = false;  // permettre réinit au prochain GotIP
+    // Le mDNS reste actif tant que l'Ethernet a une adresse.
+    if (!EthernetManager::getInstance().hasIP()) {
+        MDNS.end();
+        mdnsInitialized = false;  // permettre réinit au prochain GotIP
+    }
 
     static uint32_t lastDisconnectTime = 0;
     static uint8_t failureCount = 0;
@@ -1080,6 +1102,11 @@ void setup() {
     }
 
     // ========================================
+    // ETHERNET (cartes qui en ont, si le projet l'active)
+    // ========================================
+    EthernetManager::getInstance().begin(bu->getName());
+
+    // ========================================
     // DÉMARRAGE SERVEUR WEB
     // ========================================
     setupServer();
@@ -1109,6 +1136,10 @@ void loop() {
   if (pendingWifiGotIP) {
       pendingWifiGotIP = false;
       processWifiGotIP();
+  }
+
+  if (EthernetManager::getInstance().takeGotIP()) {
+      processEthernetGotIP();
   }
 
   // Reconnexion WiFi non-bloquante (planifiée par WiFiStationDisconnected)

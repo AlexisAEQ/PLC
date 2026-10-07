@@ -64,7 +64,7 @@ void MyModbus::resetTimeout() {
 // Gestion du bus
 // =============================================================================
 
-bool MyModbus::requestTransaction(uint8_t slaveAddress) {
+bool MyModbus::requestTransaction(uint16_t slaveAddress) {
     if (suspended) return false;
 
     // Enregistrer l adresse pour les stats de la transaction a venir
@@ -88,8 +88,10 @@ bool MyModbus::requestTransaction(uint8_t slaveAddress) {
                     slaveAddress, slot->recoveryAttemptsLeft, (unsigned long)slot->consecutiveErrors);
             } else {
                 // Fenetre epuisee : bloquer
-                char throttleMsg[80];
-                snprintf(throttleMsg, sizeof(throttleMsg), MSG_FMT_PERIPHERIQUE_INJOIGNABLE, slaveAddress);
+                char who[48];
+                describeAddress(slaveAddress, who, sizeof(who));
+                char throttleMsg[128];
+                snprintf(throttleMsg, sizeof(throttleMsg), MSG_FMT_PERIPHERIQUE_INJOIGNABLE, who);
                 PLC_Tools::sendPeriodicMessage(true, WARNING, throttleMsg);
                 currentTransactionAddress = slaveAddress;
                 lastEvent = Modbus::EX_TIMEOUT;
@@ -98,6 +100,16 @@ bool MyModbus::requestTransaction(uint8_t slaveAddress) {
                 return false;  // <-- transaction interdite
             }
         }
+    }
+
+    // ===== Modbus TCP : pas de bus partagé, seulement la connexion à établir =====
+    if (isTcpAddress(slaveAddress)) {
+        currentTcpTransaction = 0;
+        return tcpPrepare(slaveAddress);
+    }
+    if (modbus == nullptr) {
+        lastEvent = Modbus::EX_GENERAL_FAILURE;
+        return false;
     }
 
     // ===== Variante 2 : refus rapide si le bus est connu bloqué =====
@@ -178,6 +190,12 @@ bool MyModbus::requestTransaction(uint8_t slaveAddress) {
 
 bool MyModbus::waitEndTransaction() {
     if (suspended) {
+        return false;
+    }
+    if (isTcpAddress(currentTransactionAddress)) {
+        return waitEndTcpTransaction();
+    }
+    if (modbus == nullptr) {
         return false;
     }
 
@@ -283,7 +301,12 @@ bool MyModbus::isModbusFree() {
 void MyModbus::waitUntilFree(uint32_t timeoutMs) {
     uint32_t deadline = millis() + timeoutMs;
     while (millis() < deadline) {
-        if (modbus->slave() == 0) return;  // bus libre
+        if (tcp != nullptr && currentTcpTransaction != 0 && tcp->isTransaction(currentTcpTransaction)) {
+            tcp->task();
+            vTaskDelay(pdMS_TO_TICKS(1));
+            continue;
+        }
+        if (modbus == nullptr || modbus->slave() == 0) return;  // bus libre
         modbus->task();
         vTaskDelay(pdMS_TO_TICKS(1));
     }
@@ -344,6 +367,8 @@ void MyModbus::getErrorReport(char* buffer, size_t size) {
 bool MyModbus::cbRead(Modbus::ResultCode event, uint16_t transactionId, void* data) {
     MyModbus& instance = getInstance();
     if (instance.suspended) return false;
+    // Réponse TCP tardive d'une requête déjà abandonnée (le RTU passe toujours 0) : ignorée.
+    if (transactionId != 0 && transactionId != instance.currentTcpTransaction) return false;
 
     instance.lastTransaction = millis();
 
@@ -355,6 +380,7 @@ bool MyModbus::cbRead(Modbus::ResultCode event, uint16_t transactionId, void* da
 bool MyModbus::cbWrite(Modbus::ResultCode event, uint16_t transactionId, void* data) {
     MyModbus& instance = getInstance();
     if (instance.suspended) return false;
+    if (transactionId != 0 && transactionId != instance.currentTcpTransaction) return false;
 
     instance.lastTransaction = millis();
     SlaveStats* slot = instance.findOrCreateSlaveSlot(instance.currentTransactionAddress);
@@ -374,7 +400,10 @@ bool MyModbus::cbWrite(Modbus::ResultCode event, uint16_t transactionId, void* d
 void MyModbus::processEvent(Modbus::ResultCode event) {
     lastEvent = event;
     stats.totalTransactions++;
-    transactionsThisRefresh++;
+    // La détection « bus RS485 mort » ne compte que le RTU : un équipement TCP injoignable
+    // (robot éteint, réseau coupé) est suivi par ses propres statistiques d'adresse.
+    const bool rtu = !isTcpAddress(currentTransactionAddress);
+    if (rtu) transactionsThisRefresh++;
 
     if (event == Modbus::EX_SUCCESS) {
         stats.successfulTransactions++;
@@ -386,7 +415,7 @@ void MyModbus::processEvent(Modbus::ResultCode event) {
     }
 
     // Erreur
-    transactionErrorsThisRefresh++;
+    if (rtu) transactionErrorsThisRefresh++;
 
     // Mise à jour stats par adresse (erreur)
     updateSlaveStats(currentTransactionAddress, event);
@@ -618,7 +647,7 @@ void MyModbus::forceModbusDead() {
 // Statistiques par adresse esclave (Étape 1)
 // =============================================================================
 
-MyModbus::SlaveStats* MyModbus::findOrCreateSlaveSlot(uint8_t address) {
+MyModbus::SlaveStats* MyModbus::findOrCreateSlaveSlot(uint16_t address) {
     if (address == 0) return nullptr;
 
     for (uint8_t i = 0; i < MAX_SLAVES; i++) {
@@ -639,7 +668,7 @@ MyModbus::SlaveStats* MyModbus::findOrCreateSlaveSlot(uint8_t address) {
     return nullptr;
 }
 
-void MyModbus::updateSlaveStats(uint8_t address, Modbus::ResultCode event) {
+void MyModbus::updateSlaveStats(uint16_t address, Modbus::ResultCode event) {
     SlaveStats* slot = findOrCreateSlaveSlot(address);
     if (slot == nullptr) return;
 
@@ -648,8 +677,10 @@ void MyModbus::updateSlaveStats(uint8_t address, Modbus::ResultCode event) {
     if (event == Modbus::EX_SUCCESS) {
         // Si l'adresse etait morte : eteindre son message periodique
         if (slot->consecutiveErrors >= ERROR_THRESHOLD_PER_SLAVE) {
-            char offMsg[80];
-            snprintf(offMsg, sizeof(offMsg), MSG_FMT_PERIPHERIQUE_INJOIGNABLE, (unsigned)slot->address);
+            char who[48];
+            describeAddress(slot->address, who, sizeof(who));
+            char offMsg[128];
+            snprintf(offMsg, sizeof(offMsg), MSG_FMT_PERIPHERIQUE_INJOIGNABLE, who);
             PLC_Tools::sendPeriodicMessage(false, WARNING, offMsg);
 
             char recovMsg[80];
@@ -696,14 +727,16 @@ void MyModbus::updateSlaveStats(uint8_t address, Modbus::ResultCode event) {
             if (slot->consecutiveErrors == ERROR_THRESHOLD_PER_SLAVE) {
                 PLC_Tools::clearPeriodicMessages();
             }
-            char periodicMsg[80];
-            snprintf(periodicMsg, sizeof(periodicMsg), MSG_FMT_PERIPHERIQUE_INJOIGNABLE, (unsigned)slot->address);
+            char who[48];
+            describeAddress(slot->address, who, sizeof(who));
+            char periodicMsg[128];
+            snprintf(periodicMsg, sizeof(periodicMsg), MSG_FMT_PERIPHERIQUE_INJOIGNABLE, who);
             PLC_Tools::sendPeriodicMessage(true, WARNING, periodicMsg);
         }
     }
 }
 
-const MyModbus::SlaveStats* MyModbus::getSlaveStats(uint8_t address) const {
+const MyModbus::SlaveStats* MyModbus::getSlaveStats(uint16_t address) const {
     for (uint8_t i = 0; i < MAX_SLAVES; i++) {
         if (stats.slaveStats[i].address == address) {
             return &stats.slaveStats[i];
@@ -712,7 +745,7 @@ const MyModbus::SlaveStats* MyModbus::getSlaveStats(uint8_t address) const {
     return nullptr;
 }
 
-void MyModbus::getSlaveReport(uint8_t address, char* buffer, size_t size) const {
+void MyModbus::getSlaveReport(uint16_t address, char* buffer, size_t size) const {
     const SlaveStats* s = getSlaveStats(address);
     if (s == nullptr) {
         snprintf(buffer, size, "Addr %u: aucune statistique disponible", address);
@@ -745,7 +778,7 @@ bool MyModbus::anySlaveRecovered() const {
 }
 
 // Retourne vrai si l adresse a consecutiveErrors >= seuil
-bool MyModbus::isSlaveConsideredDead(uint8_t address) const {
+bool MyModbus::isSlaveConsideredDead(uint16_t address) const {
     const SlaveStats* s = getSlaveStats(address);
     if (s == nullptr) return false;
     return s->consecutiveErrors >= ERROR_THRESHOLD_PER_SLAVE;
@@ -766,7 +799,7 @@ bool MyModbus::allActiveSlavesDead() const {
     return anyKnown;  // true seulement si au moins une adresse connue et toutes mortes
 }
 
-bool MyModbus::executeWithRetry(std::function<bool()> refreshFn, uint8_t mbAddr, const char* nodeName) {
+bool MyModbus::executeWithRetry(std::function<bool()> refreshFn, uint16_t mbAddr, const char* nodeName) {
     bool success = refreshFn();
     if (success) return true;
 
@@ -794,3 +827,184 @@ bool MyModbus::executeWithRetry(std::function<bool()> refreshFn, uint8_t mbAddr,
 
     return success;
 }
+
+// =============================================================================
+// Modbus TCP (client)
+// =============================================================================
+
+uint16_t MyModbus::registerTcpDevice(IPAddress ip, uint16_t port, uint8_t unitId) {
+    if (port == 0) port = MODBUSTCP_PORT;
+    for (uint8_t i = 0; i < MAX_TCP_DEVICES; i++) {
+        TcpDevice& d = tcpDevices[i];
+        if (d.used && d.ip == ip && d.port == port && d.unit == unitId) {
+            return TCP_ADDRESS_BASE + i;
+        }
+    }
+    for (uint8_t i = 0; i < MAX_TCP_DEVICES; i++) {
+        TcpDevice& d = tcpDevices[i];
+        if (d.used) continue;
+        if (tcp == nullptr) {
+            tcp = new ModbusTCP();
+            tcp->client();
+            Serial.println("Modbus TCP : client initialise");
+        }
+        d.used = true;
+        d.ip = ip;
+        d.port = port;
+        d.unit = unitId;
+        d.lastConnectAttempt = 0;
+        Serial.printf("Modbus TCP : equipement %s:%u unite %u -> adresse interne %u\r\n",
+                      ip.toString().c_str(), port, unitId, (unsigned)(TCP_ADDRESS_BASE + i));
+        return TCP_ADDRESS_BASE + i;
+    }
+    Serial.printf("Modbus TCP : table pleine (%u equipements)\r\n", MAX_TCP_DEVICES);
+    return 0;
+}
+
+MyModbus::TcpDevice* MyModbus::tcpDevice(uint16_t address) {
+    if (!isTcpAddress(address)) return nullptr;
+    uint16_t i = address - TCP_ADDRESS_BASE;
+    if (i >= MAX_TCP_DEVICES || !tcpDevices[i].used) return nullptr;
+    return &tcpDevices[i];
+}
+
+void MyModbus::describeAddress(uint16_t address, char* buffer, size_t size) const {
+    if (isTcpAddress(address)) {
+        uint16_t i = address - TCP_ADDRESS_BASE;
+        if (i < MAX_TCP_DEVICES && tcpDevices[i].used) {
+            const TcpDevice& d = tcpDevices[i];
+            snprintf(buffer, size, "TCP %u.%u.%u.%u:%u unite %u", d.ip[0], d.ip[1], d.ip[2], d.ip[3], d.port, d.unit);
+            return;
+        }
+    }
+    snprintf(buffer, size, "addr %u", (unsigned)address);
+}
+
+// Connexion à l'équipement : une tentative au plus toutes les TCP_RECONNECT_MS
+// (la connexion bloque jusqu'à MODBUSIP_CONNECT_TIMEOUT si l'équipement ne répond pas).
+bool MyModbus::tcpPrepare(uint16_t address) {
+    TcpDevice* d = tcpDevice(address);
+    if (tcp == nullptr || d == nullptr) {
+        lastEvent = Modbus::EX_GENERAL_FAILURE;
+        return false;
+    }
+    if (tcp->isConnected(d->ip)) {
+        return true;
+    }
+    uint32_t now = millis();
+    bool attempt = (d->lastConnectAttempt == 0) || (now - d->lastConnectAttempt >= TCP_RECONNECT_MS);
+    if (attempt) {
+        d->lastConnectAttempt = now;
+        if (tcp->connect(d->ip, d->port)) {
+            Serial.printf("Modbus TCP : connecte a %s:%u\r\n", d->ip.toString().c_str(), d->port);
+            return true;
+        }
+    }
+    // Non connecté : compté comme une erreur de l'équipement (message périodique au-delà du seuil).
+    lastEvent = Modbus::EX_CONNECTION_LOST;
+    if (attempt) {
+        stats.totalTransactions++;
+        updateSlaveStats(address, Modbus::EX_CONNECTION_LOST);
+        handleError(Modbus::EX_CONNECTION_LOST);
+    }
+    return false;
+}
+
+void MyModbus::startTcpTransaction(uint16_t transactionId) {
+    currentTcpTransaction = transactionId;
+    if (transactionId == 0) {
+        // Requête refusée par la bibliothèque (connexion perdue entre-temps, file pleine)
+        lastEvent = Modbus::EX_CONNECTION_LOST;
+    }
+}
+
+bool MyModbus::waitEndTcpTransaction() {
+    if (tcp == nullptr || currentTcpTransaction == 0) {
+        return false;
+    }
+    uint32_t start = millis();
+    while (tcp->isTransaction(currentTcpTransaction) && millis() - start < tcpTimeout) {
+        tcp->task();
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    if (tcp->isTransaction(currentTcpTransaction)) {
+        // Pas de réponse dans le délai : la bibliothèque appellera le callback (timeout)
+        // plus tard ; on rend la main avec une erreur sans attendre.
+        lastEvent = Modbus::EX_TIMEOUT;
+        stats.totalTransactions++;
+        updateSlaveStats(currentTransactionAddress, Modbus::EX_TIMEOUT);
+        handleError(Modbus::EX_TIMEOUT);
+        lastTransaction = millis();
+        currentTcpTransaction = 0;
+        return false;
+    }
+    currentTcpTransaction = 0;
+    stats.lastTransactionTime = millis() - start;
+    if (lastEvent == Modbus::EX_SUCCESS) {
+        stats.lastSuccessTime = millis();
+        if (stats.lastTransactionTime > stats.maxTransactionTime) {
+            stats.maxTransactionTime = stats.lastTransactionTime;
+        }
+        return true;
+    }
+    return false;
+}
+
+void MyModbus::task() {
+    if (modbus != nullptr) modbus->task();
+    if (tcp != nullptr) tcp->task();
+}
+
+// Aiguillage des requêtes : RTU (adresse = n° d'esclave) ou TCP (adresse interne).
+#define MYMODBUS_DISPATCH(rtuCall, tcpCall)                                   \
+    if (isTcpAddress(address)) {                                              \
+        TcpDevice* d = tcpDevice(address);                                    \
+        if (tcp == nullptr || d == nullptr) { lastEvent = Modbus::EX_GENERAL_FAILURE; return 0; } \
+        uint16_t id = tcpCall;                                                \
+        startTcpTransaction(id);                                              \
+        return id;                                                            \
+    }                                                                         \
+    if (modbus == nullptr) { lastEvent = Modbus::EX_GENERAL_FAILURE; return 0; } \
+    return rtuCall;
+
+uint16_t MyModbus::readCoil(uint16_t address, uint16_t offset, bool* value, uint16_t count, cbTransaction cb) {
+    MYMODBUS_DISPATCH(modbus->readCoil((uint8_t)address, offset, value, count, cb),
+                      tcp->readCoil(d->ip, offset, value, count, cb, d->unit))
+}
+
+uint16_t MyModbus::readIsts(uint16_t address, uint16_t offset, bool* value, uint16_t count, cbTransaction cb) {
+    MYMODBUS_DISPATCH(modbus->readIsts((uint8_t)address, offset, value, count, cb),
+                      tcp->readIsts(d->ip, offset, value, count, cb, d->unit))
+}
+
+uint16_t MyModbus::readHreg(uint16_t address, uint16_t offset, uint16_t* value, uint16_t count, cbTransaction cb) {
+    MYMODBUS_DISPATCH(modbus->readHreg((uint8_t)address, offset, value, count, cb),
+                      tcp->readHreg(d->ip, offset, value, count, cb, d->unit))
+}
+
+uint16_t MyModbus::readIreg(uint16_t address, uint16_t offset, uint16_t* value, uint16_t count, cbTransaction cb) {
+    MYMODBUS_DISPATCH(modbus->readIreg((uint8_t)address, offset, value, count, cb),
+                      tcp->readIreg(d->ip, offset, value, count, cb, d->unit))
+}
+
+uint16_t MyModbus::writeCoil(uint16_t address, uint16_t offset, bool value, cbTransaction cb) {
+    MYMODBUS_DISPATCH(modbus->writeCoil((uint8_t)address, offset, value, cb),
+                      tcp->writeCoil(d->ip, offset, value, cb, d->unit))
+}
+
+uint16_t MyModbus::writeCoil(uint16_t address, uint16_t offset, bool* values, uint16_t count, cbTransaction cb) {
+    MYMODBUS_DISPATCH(modbus->writeCoil((uint8_t)address, offset, values, count, cb),
+                      tcp->writeCoil(d->ip, offset, values, count, cb, d->unit))
+}
+
+uint16_t MyModbus::writeHreg(uint16_t address, uint16_t offset, uint16_t value, cbTransaction cb) {
+    MYMODBUS_DISPATCH(modbus->writeHreg((uint8_t)address, offset, value, cb),
+                      tcp->writeHreg(d->ip, offset, value, cb, d->unit))
+}
+
+uint16_t MyModbus::writeHreg(uint16_t address, uint16_t offset, uint16_t* values, uint16_t count, cbTransaction cb) {
+    MYMODBUS_DISPATCH(modbus->writeHreg((uint8_t)address, offset, values, count, cb),
+                      tcp->writeHreg(d->ip, offset, values, count, cb, d->unit))
+}
+
+#undef MYMODBUS_DISPATCH

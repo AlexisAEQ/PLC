@@ -187,7 +187,7 @@ bool Node::refresh(){
     uint32_t startTime = millis();
 
     bool isModbusNode = (classType() >= FIRST_MODBUS_CLASS && classType() <= LAST_MODBUS_CLASS);
-    uint8_t mbAddr = getModbusAddress();  // 0 si non-Modbus (via virtuelle dans Node)
+    uint16_t mbAddr = getModbusAddress();  // 0 si non-Modbus (via virtuelle dans Node)
 
     if (tempDisabled) {
         if (millis() - disabledTime >= disableDuration) {
@@ -804,9 +804,9 @@ bool ModbusReadCoilNode::getNewValue(bool &value){
     // Tenter l'envoi - réessayer si bus occupé (transId=0)
     uint16_t transId = 0;
     for (int retry = 0; retry < 10 && transId == 0; retry++) {
-        transId = myModbus.getModbus()->readCoil(address, offset, &value, 1, MyModbus::cbRead);
+        transId = myModbus.readCoil(address, offset, &value, 1, MyModbus::cbRead);
         if (transId == 0) {
-            myModbus.getModbus()->task();
+            myModbus.task();
             vTaskDelay(pdMS_TO_TICKS(100));
         }
     }
@@ -844,7 +844,7 @@ bool ModbusReadHoldingRegister::getNewValue(uint16_t& value){
 
     sprintf(text, "ModbusReadHoldingRegister::getNewValues, sart transaction for hash: %lu, name: %s, address: %u, offset: %u", (long unsigned int)getHash(), getName(), address, offset);
     showMessage(text);
-    myModbus.getModbus()->readHreg(address, offset, &value, 1, MyModbus::cbRead);
+    myModbus.readHreg(address, offset, &value, 1, MyModbus::cbRead);
     myModbus.waitEndTransaction();
 
     if (myModbus.getLastEvent() != Modbus::EX_SUCCESS) {
@@ -874,7 +874,7 @@ bool ModbusReadDoubleHoldingRegisters::getNewValue(uint32_t& uint32Value){
     }
     sprintf(text, "%lu:: Start transaction for hash: %lu, name: %s, address: %u, offset: %u\r\n", millis(), (long unsigned int)getHash(), getName(), address, offset);
     showMessage(text);
-    myModbus.getModbus()->readHreg(address, offset, value, 2, MyModbus::cbRead);
+    myModbus.readHreg(address, offset, value, 2, MyModbus::cbRead);
     myModbus.waitEndTransaction();
     
     if (myModbus.getLastEvent() != Modbus::EX_SUCCESS) {
@@ -906,7 +906,7 @@ bool ModbusReadDobbleInputRegisters::getNewValue(uint32_t& uint32Value){
     if (!myModbus.requestTransaction(address)) return false;  // remplace l'ancien appel
     sprintf(text, "%lu:: Start transaction for hash: %lu, name: %s, address: %u, offset: %u\r\n", millis(), (long unsigned int)getHash(), getName(), address, offset);
     showMessage(text);
-    myModbus.getModbus()->readIreg(address, offset, value, 2, MyModbus::cbRead);
+    myModbus.readIreg(address, offset, value, 2, MyModbus::cbRead);
     myModbus.waitEndTransaction();
     
     if (myModbus.getLastEvent() != Modbus::EX_SUCCESS) {
@@ -939,7 +939,7 @@ bool ModbusReadInputRegister::getNewValue(uint16_t& value){
 
     sprintf(text, "%lu:: ModbusReadInputRegister::getNewValue, start transaction for hash: %lu, name: %s, address: %u, offset: %u", millis(), (long unsigned int)getHash(), getName(), address, offset);
     showMessage(text);
-    myModbus.getModbus()->readIreg(address, offset, &value, 1, myModbus.cbRead);
+    myModbus.readIreg(address, offset, &value, 1, MyModbus::cbRead);
     myModbus.waitEndTransaction();
 
     if (myModbus.getLastEvent() != Modbus::EX_SUCCESS) {
@@ -1051,7 +1051,7 @@ bool ModbusWriteCoilNode::setNewValue(bool newValue){
         return false;  
     }
 
-    myModbus.getModbus()->writeCoil(address, offset, newValue, MyModbus::cbWrite);
+    myModbus.writeCoil(address, offset, newValue, MyModbus::cbWrite);
     myModbus.waitEndTransaction();
 
     if (myModbus.getLastEvent() != Modbus::EX_SUCCESS) {
@@ -1119,7 +1119,7 @@ bool ModbusWriteMultipleCoilslNode::setNewValues(){
         return false;  
     }
 
-    myModbus.getModbus()->writeCoil(address, offset, values, nbValues, myModbus.cbWrite);
+    myModbus.writeCoil(address, offset, values, nbValues, MyModbus::cbWrite);
     myModbus.waitEndTransaction();
 
      if (myModbus.getLastEvent() != Modbus::EX_SUCCESS) {
@@ -1210,7 +1210,7 @@ bool ModbusReadMultipleInputsRegistersNode::specificRefresh(){
     }
     
 
-    myModbus.getModbus()->readIsts(address, offset, values, nbValues, myModbus.cbRead);
+    myModbus.readIsts(address, offset, values, nbValues, MyModbus::cbRead);
  
     myModbus.waitEndTransaction();
     if (myModbus.getLastEvent() != Modbus::EX_SUCCESS) {
@@ -1248,7 +1248,7 @@ bool ModbusWriteHoldingRegister::setNewValue(uint16_t newValue){
     }
 
     //Serial.printf("%u:: Start transaction for hash: %u\r\n", millis(), getHash());
-    myModbus.getModbus()->writeHreg(address, offset, newValue, myModbus.cbWrite);
+    myModbus.writeHreg(address, offset, newValue, MyModbus::cbWrite);
     myModbus.waitEndTransaction();
     //Serial.printf("%u:: End transaction for hash: %u\r\n", millis(), getHash());
     if (myModbus.getLastEvent() != Modbus::EX_SUCCESS) {
@@ -1281,7 +1281,7 @@ bool ModbusWriteDoubleHoldingRegister::setNewValue(uint32_t newValue){
 
     sprintf(text, "Value 1: 0x%08X, value 0: 0x%08x\r\n", values[1], values[0]);
     showMessage(text);
-    myModbus.getModbus()->writeHreg(address, offset, values, 2, myModbus.cbWrite);
+    myModbus.writeHreg(address, offset, values, 2, MyModbus::cbWrite);
     myModbus.waitEndTransaction();
   
     if (myModbus.getLastEvent() != Modbus::EX_SUCCESS) {

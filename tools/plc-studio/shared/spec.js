@@ -314,6 +314,7 @@ export function buildFromSpec(spec, { previous = null } = {}) {
   if (spec.options) project.options = { ...project.options, ...spec.options };
   if (spec.wifi) project.wifi = spec.wifi;
   else project.wifi[0].ap_name = project.hostname;
+  if (spec.ethernet) project.ethernet = { ...project.ethernet, ...spec.ethernet };
   if (spec.otaUrl) project.otaUrl = spec.otaUrl;
   if (spec.editorPassword) project.editorPassword = spec.editorPassword;
 
@@ -688,6 +689,8 @@ export function specFromProject(input) {
       return e;
     }),
   };
+  const eth = project.ethernet;
+  if (eth && (eth.enabled || eth.ip || eth.gateway || eth.dns)) spec.ethernet = eth;
   if (project.otaUrl) spec.otaUrl = project.otaUrl;
   if (project.editorPassword) spec.editorPassword = project.editorPassword;
   const axes = axisList(project);

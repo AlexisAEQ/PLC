@@ -113,6 +113,8 @@ const char MODBUS_NOT_INITIALISED[] PROGMEM = "PLC want to create modbus node bu
 #define GATEWAY_        "gateway"
 #define MASK_           "mask"
 #define PARAMETERS      "parameters"
+#define ETHERNET        "Ethernet"          // config.json : { "enabled", "dhcp", "ip", "gateway", "mask", "dns" }
+#define ETHERNET_PINS   "ETH"               // fichier matériel de la carte : PHY et broches
 #define OTA_URL         "ota_url"
 #define STATUS          "status"
 #define TAG             "tag"
@@ -158,6 +160,9 @@ const char MODBUS_NOT_INITIALISED[] PROGMEM = "PLC want to create modbus node bu
 #define SPEED           "speed"
 #define MODBUS          "Modbus"
 #define MODBUS_RTU      "ModbusRTU"
+#define MODBUS_TCP      "tcp"               // section Modbus TCP : { "ip": "...", "port": 502 }
+#define MB_TCP_IP          "ip"
+#define MB_TCP_PORT        "port"
 #define TIMEOUT         "timeout"
 #define MODBUS_READ_COIL "ModbusReadCoil"
 #define MODBUS_WRITE_COIL "ModbusWriteCoil"

@@ -10,6 +10,7 @@
 
 import { CATALOG } from './catalog.js';
 import { nodeHash, utf8Length, truncateUtf8 } from './hash.js';
+import { toSymbol } from './model.js';
 
 // Classe C++ "pointeur" à utiliser pour chaque type de section.
 const CPP_CLASS = {
@@ -89,6 +90,42 @@ export function hardwareVariantFor(eq, entry) {
   return variant;
 }
 
+// Liaison d'un équipement Modbus : null (RS485 de l'automate) ou { ip, port } (Modbus TCP).
+export function modbusTcpOf(eq, entry = CATALOG[eq.type]) {
+  if (!entry?.modbus || eq.options?.transport !== 'tcp') return null;
+  const port = Number(eq.options?.port);
+  return { ip: String(eq.options?.ip || '').trim(), port: Number.isInteger(port) && port > 0 ? port : 502 };
+}
+
+// Équipement Modbus générique : fichier matériel propre à l'équipement, généré par l'outil.
+export function genericHardwareName(eq) {
+  return `Modbus_${toSymbol(eq.label).slice(0, 32)}`;
+}
+
+// Adresse de départ réglée dans les options, ramenée à l'adresse Modbus « protocole » (0 = premier).
+// Numérotation de documentation (oneBased) : 1 = premier ; 40001 / 30001 = premier registre
+// de maintien / d'entrée.
+export function genericStartAddress(eq, group) {
+  const optKey = { q: 'coilOutStart', i: 'coilInStart', w: 'regOutStart', r: 'regInStart', ir: 'inputRegStart' }[group.key];
+  let start = Math.trunc(Number(eq.options?.[optKey]) || 0);
+  if (eq.options?.oneBased) {
+    if ((group.key === 'w' || group.key === 'r') && start >= 40001 && start <= 49999) start -= 40000;
+    if (group.key === 'ir' && start >= 30001 && start <= 39999) start -= 30000;
+    // 0 (valeur par défaut, groupe non utilisé) est lu comme 1.
+    if (start > 0) start -= 1;
+  }
+  return start;
+}
+
+export function genericHardwareDoc(eq, entry = CATALOG[eq.type]) {
+  const doc = { hardware: genericHardwareName(eq), registersOffset: 0 };
+  for (const g of entry.groups) {
+    const start = genericStartAddress(eq, g);
+    doc[g.type] = g.ids.map((id) => ({ id, offset: start + id - 1 }));
+  }
+  return doc;
+}
+
 export function buildLayout(project) {
   const sections = [];
   const nodes = new Map(); // ref -> descripteur de nœud
@@ -130,6 +167,7 @@ export function buildLayout(project) {
   });
 
   const hardwareVariants = [];
+  const generatedHardware = []; // { name, doc } : fichiers matériels des équipements génériques
   const mirrorVars = []; // voies de bancs Waveshare : recopiées dans un nœud booléen pour l'écran
   for (const eq of ordered) {
     const entry = CATALOG[eq.type];
@@ -143,6 +181,17 @@ export function buildLayout(project) {
       hardware = variant.name;
       hardwareVariants.push(variant);
     }
+    if (entry.generic) {
+      const doc = genericHardwareDoc(eq, entry);
+      hardware = doc.hardware;
+      if (generatedHardware.some((h) => h.name === hardware)) {
+        errors.push({ step: 'equipment', ref: eq.uid, message: `Deux équipements génériques donnent le même fichier matériel ${hardware}.json : renommez-en un.` });
+      }
+      generatedHardware.push({ name: hardware, doc, eq: eq.uid });
+    }
+    const tcp = modbusTcpOf(eq, entry);
+    const modbusAddress = entry.modbus ? Number(eq.address) : undefined;
+    const withTransport = (section, isModbus) => (isModbus && tcp ? { ...section, tcp } : section);
 
     for (const g of entry.groups) {
       const sectionName = sectionNameFor(eq, g);
@@ -153,7 +202,7 @@ export function buildLayout(project) {
           if (v) bits.push({ bit, v });
         }
         if (!bits.length) continue;
-        const section = addSection({ name: sectionName, hardware, type: g.type, address: entry.modbus ? Number(eq.address) : undefined, nodes: [], eq: eq.uid });
+        const section = addSection(withTransport({ name: sectionName, hardware, type: g.type, address: modbusAddress, nodes: [], eq: eq.uid }, entry.modbus));
         const inverse = g.dir === 'in' ? Array.from({ length: g.bank.bits }, (_, i) => !!bits.find((b) => b.bit === i)?.v.inverse) : undefined;
         const bank = addNode(section, {
           id: g.bank.nodeId,
@@ -175,7 +224,7 @@ export function buildLayout(project) {
         .map((id) => ({ id, v: varsByChannel.get(`${eq.uid}/${g.key}/${id}`) }))
         .filter((x) => x.v || declareAll);
       if (!used.length) continue;
-      const section = addSection({ name: sectionName, hardware, type: g.type, address: entry.modbus ? Number(eq.address) : undefined, nodes: [], eq: eq.uid });
+      const section = addSection(withTransport({ name: sectionName, hardware, type: g.type, address: modbusAddress, nodes: [], eq: eq.uid }, entry.modbus));
       for (const { id, v } of used) {
         const extra = {};
         if (g.supportsInverse && v?.inverse) extra.inverse = true;
@@ -186,14 +235,14 @@ export function buildLayout(project) {
     }
 
     for (const s of entry.sections || []) {
-      const section = addSection({
+      const section = addSection(withTransport({
         name: s.name || `${eq.label} ${s.suffix}`,
         hardware: s.virtual ? 'virtual' : hardware,
         type: s.type,
         address: s.modbus ? Number(eq.address) : undefined,
         nodes: [],
         eq: eq.uid,
-      });
+      }, s.modbus));
       for (const n of s.nodes) {
         const extra = {};
         if (n.refreshInterval) extra.refreshInterval = n.refreshInterval;
@@ -252,5 +301,5 @@ export function buildLayout(project) {
   const total = sections.reduce((acc, s) => acc + s.nodes.length, 0);
   if (total > 300) warnings.push({ step: 'variables', message: `${total} nœuds : l'envoi de l'état complet à l'écran risque de dépasser 20 000 octets.` });
 
-  return { sections, nodes, hardwareVariants, errors, warnings, nodeCount: total };
+  return { sections, nodes, hardwareVariants, generatedHardware, errors, warnings, nodeCount: total };
 }

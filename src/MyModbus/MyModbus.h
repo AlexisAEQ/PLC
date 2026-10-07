@@ -1,5 +1,6 @@
 #pragma once
 #include <ModbusRTU.h>
+#include <ModbusTCP.h>
 //#include "esp_task_wdt.h"
 #include "PLC_CommonTypes/PLC_CommonTypes.h"
 #include "PLC_Tools/PLC_Tools.h"
@@ -22,7 +23,7 @@
                             "Tentatives  automatiques et périodiques de récupération"
 
 #define MSG_FMT_PERIPHERIQUE_INJOIGNABLE \
-    "Peripherique Modbus addr %u injoignable - verifier alimentation et cablage"
+    "Peripherique Modbus %s injoignable - verifier alimentation et cablage"
 
 class MyModbus {
 public:
@@ -33,7 +34,7 @@ public:
     // Un slot est libre si address == 0
     // -------------------------------------------------------------------------
     struct SlaveStats {
-        uint8_t  address                 = 0;   // 0 = slot libre
+        uint16_t address                 = 0;   // 0 = slot libre (RTU 1-247, TCP >= TCP_ADDRESS_BASE)
         uint32_t consecutiveErrors       = 0;
         uint32_t lastErrorTime           = 0;
         uint32_t lastSuccessTime         = 0;
@@ -43,7 +44,17 @@ public:
         Modbus::ResultCode lastErrorCode = Modbus::EX_SUCCESS;
     };
 
-    static constexpr uint8_t MAX_SLAVES = 8;
+    static constexpr uint8_t MAX_SLAVES = 16;
+
+    // -------------------------------------------------------------------------
+    // Modbus TCP (client) : chaque équipement TCP (IP, port, n° d'unité) reçoit une
+    // adresse interne >= TCP_ADDRESS_BASE, utilisée par les nœuds comme une adresse
+    // d'esclave RTU. Les requêtes passent alors par le client TCP (WiFi ou Ethernet).
+    // -------------------------------------------------------------------------
+    static constexpr uint16_t TCP_ADDRESS_BASE   = 1000;
+    static constexpr uint8_t  MAX_TCP_DEVICES    = 16;
+    static constexpr uint32_t TCP_RECONNECT_MS   = 3000;   // délai entre deux tentatives de connexion
+    static constexpr uint32_t DEFAULT_TCP_TIMEOUT = 500;   // ms, réponse d'une requête TCP
 
     // -------------------------------------------------------------------------
     // Statistiques globales du bus Modbus
@@ -64,7 +75,7 @@ public:
         uint32_t lastErrorNotificationTime  = 0;   // timestamp dernière notification
         uint32_t errorsSinceLastNotification = 0;  // erreurs non encore notifiées
         // Statistiques par adresse esclave (Étape 1)
-        SlaveStats slaveStats[8];
+        SlaveStats slaveStats[MAX_SLAVES];
     };
 
     static constexpr uint8_t  ERROR_THRESHOLD_PER_SLAVE    = 10;   // seuil alerte par adresse
@@ -95,7 +106,7 @@ public:
     // -------------------------------------------------------------------------
     // Gestion du bus Modbus
     // -------------------------------------------------------------------------
-    bool requestTransaction(uint8_t slaveAddress = 0);
+    bool requestTransaction(uint16_t slaveAddress = 0);
     bool waitEndTransaction();
     bool isModbusFree();
     void waitUntilFree(uint32_t timeoutMs = 100);
@@ -109,9 +120,30 @@ public:
     void getErrorReport(char* buffer, size_t size);
 
     // Statistiques par adresse esclave
-    const SlaveStats* getSlaveStats(uint8_t address) const;
-    void getSlaveReport(uint8_t address, char* buffer, size_t size) const;
-    bool isSlaveConsideredDead(uint8_t address) const;  // >= 10 erreurs consecutives
+    const SlaveStats* getSlaveStats(uint16_t address) const;
+    void getSlaveReport(uint16_t address, char* buffer, size_t size) const;
+    bool isSlaveConsideredDead(uint16_t address) const;  // >= 10 erreurs consecutives
+
+    // ---- Modbus TCP ----
+    // Déclare un équipement TCP ; retourne son adresse interne (0 si la table est pleine).
+    uint16_t registerTcpDevice(IPAddress ip, uint16_t port, uint8_t unitId);
+    static bool isTcpAddress(uint16_t address) { return address >= TCP_ADDRESS_BASE; }
+    bool hasTcpDevices() const { return tcp != nullptr; }
+    void setTcpTimeout(uint32_t ms) { tcpTimeout = ms; }
+    // Libellé lisible d'une adresse : « addr 3 » ou « TCP 192.168.1.50:502 unite 1 ».
+    void describeAddress(uint16_t address, char* buffer, size_t size) const;
+
+    // ---- Requêtes (RTU ou TCP selon l'adresse) ----
+    // Identifiant de transaction, 0 si la requête n'a pas pu être lancée (lastEvent renseigné).
+    uint16_t readCoil(uint16_t address, uint16_t offset, bool* value, uint16_t count, cbTransaction cb);
+    uint16_t readIsts(uint16_t address, uint16_t offset, bool* value, uint16_t count, cbTransaction cb);
+    uint16_t readHreg(uint16_t address, uint16_t offset, uint16_t* value, uint16_t count, cbTransaction cb);
+    uint16_t readIreg(uint16_t address, uint16_t offset, uint16_t* value, uint16_t count, cbTransaction cb);
+    uint16_t writeCoil(uint16_t address, uint16_t offset, bool value, cbTransaction cb);
+    uint16_t writeCoil(uint16_t address, uint16_t offset, bool* values, uint16_t count, cbTransaction cb);
+    uint16_t writeHreg(uint16_t address, uint16_t offset, uint16_t value, cbTransaction cb);
+    uint16_t writeHreg(uint16_t address, uint16_t offset, uint16_t* values, uint16_t count, cbTransaction cb);
+    void task();   // fait avancer les transactions RTU et TCP
     bool allActiveSlavesDead() const;                   // toutes les adresses mortes
 
     static bool cbRead(Modbus::ResultCode event, uint16_t transactionId, void* data);
@@ -204,9 +236,9 @@ public:
     void resetLastEvent() { lastEvent = Modbus::EX_SUCCESS; }
 
     uint32_t getLastTransactionTime() const { return lastTransaction; }
-    uint8_t  getLastTransactionAddress() const { return currentTransactionAddress; }
+    uint16_t getLastTransactionAddress() const { return currentTransactionAddress; }
 
-    bool executeWithRetry(std::function<bool()> refreshFn, uint8_t mbAddr, const char* nodeName); 
+    bool executeWithRetry(std::function<bool()> refreshFn, uint16_t mbAddr, const char* nodeName); 
 
 protected:
 
@@ -214,6 +246,24 @@ private:
     MyModbus(); // Constructeur privé - singleton
 
     ModbusRTU *modbus;
+
+    // ===== Modbus TCP =====
+    struct TcpDevice {
+        IPAddress ip;
+        uint16_t  port = 502;
+        uint8_t   unit = 1;
+        bool      used = false;
+        uint32_t  lastConnectAttempt = 0;
+    };
+    TcpDevice tcpDevices[MAX_TCP_DEVICES];
+    ModbusTCP* tcp = nullptr;
+    uint16_t currentTcpTransaction = 0;      // transaction TCP en cours (0 = aucune)
+    uint32_t tcpTimeout = DEFAULT_TCP_TIMEOUT;
+    TcpDevice* tcpDevice(uint16_t address);
+    bool tcpPrepare(uint16_t address);       // connexion (avec délai entre tentatives)
+    bool waitEndTcpTransaction();
+    void startTcpTransaction(uint16_t transactionId);
+
     uint32_t lastTransaction;
     Modbus::ResultCode lastEvent;
     uint32_t lastProblem;
@@ -246,7 +296,7 @@ private:
 
     uint32_t transactionsThisRefresh      = 0;
     uint32_t transactionErrorsThisRefresh = 0;
-    uint8_t currentTransactionAddress = 0;  // adresse de la transaction en cours
+    uint16_t currentTransactionAddress = 0; // adresse de la transaction en cours
     uint32_t transactionRequestStart  = 0;  // timestamp début requestTransaction
     uint32_t transactionWaitStart     = 0;  // timestamp début waitEndTransaction
     uint32_t currentTxStart           = 0;  // timestamp début transaction (request ou wait)
@@ -255,8 +305,8 @@ private:
     // -------------------------------------------------------------------------
     // Statistiques par adresse esclave (Étape 1)
     // -------------------------------------------------------------------------
-    void updateSlaveStats(uint8_t address, Modbus::ResultCode event);
-    SlaveStats* findOrCreateSlaveSlot(uint8_t address);
+    void updateSlaveStats(uint16_t address, Modbus::ResultCode event);
+    SlaveStats* findOrCreateSlaveSlot(uint16_t address);
     bool anySlaveRecovered() const;  // vrai si au moins un esclave a reussi depuis la mort
     static constexpr uint32_t ERROR_NOTIFICATION_INTERVAL  = 5000; // 5 secondes
 

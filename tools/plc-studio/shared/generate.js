@@ -45,6 +45,7 @@ export function generateConfig(project, layout, pages) {
   const children = layout.sections.map((s) => {
     const section = { name: s.name, hardware: s.hardware, type: s.type };
     if (s.address !== undefined) section.address = s.address;
+    if (s.tcp) section.tcp = { ip: s.tcp.ip, port: s.tcp.port };
     section.children = s.nodes.map((n) => ({ id: n.id, name: n.name, hash: n.hash, ...(n.extra || {}) }));
     return section;
   });
@@ -67,9 +68,21 @@ export function generateConfig(project, layout, pages) {
     default_editor_file: 'interface.json',
     with_plc_enable_interface: true,
     security: { passwords },
-    config: [{ Wifi: wifi }, { parameters: { ota_url: project.otaUrl || '' } }],
+    config: [{ Wifi: wifi }, ...ethernetConfig(project), { parameters: { ota_url: project.otaUrl || '' } }],
     children,
   };
+}
+
+// Élément { "Ethernet": {...} } de "config" (cartes à Ethernet, voir EthernetManager).
+export function ethernetConfig(project) {
+  const e = project.ethernet;
+  if (!e?.enabled) return [];
+  const out = { enabled: true, dhcp: e.dhcp !== false };
+  if (e.dhcp === false) {
+    for (const k of ['ip', 'gateway', 'mask']) out[k] = String(e[k] || '').trim();
+    if (e.dns) out.dns = String(e.dns).trim();
+  }
+  return [{ Ethernet: out }];
 }
 
 export function generateInterface(project, layout, pages) {
@@ -145,13 +158,17 @@ export function generateFiles(project, ctx = {}) {
     }
     files.push({ path: `data/hardware/${variant.name}.json`, content: json(generateHardwareVariant(variant, base)), kind: 'hardware' });
   }
+  for (const g of layout.generatedHardware || []) {
+    files.push({ path: `data/hardware/${g.name}.json`, content: json(g.doc), kind: 'hardware' });
+  }
 
   // Vérification croisée avec les fichiers matériels réels : chaque id doit exister.
   if (ctx.hardwareFiles) {
+    const generated = new Map((layout.generatedHardware || []).map((g) => [g.name, g.doc]));
     for (const s of layout.sections) {
       if (s.hardware === 'virtual') continue;
       const baseName = layout.hardwareVariants.find((v) => v.name === s.hardware)?.base || s.hardware;
-      const doc = ctx.hardwareFiles[baseName];
+      const doc = generated.get(baseName) || ctx.hardwareFiles[baseName];
       if (!doc) {
         issues.push({ level: 'error', step: 'equipment', message: `Fichier data/hardware/${baseName}.json introuvable.` });
         continue;

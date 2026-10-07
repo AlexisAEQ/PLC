@@ -307,7 +307,7 @@ void LichuanServo::updateStatus(uint32_t now) {
 // Surveillance : communication, redémarrage du variateur, front d'alarme
 void LichuanServo::supervise(uint32_t now) {
     // ---- Communication ----
-    uint8_t addr = getSlaveAddress();
+    uint16_t addr = getSlaveAddress();
     bool slaveDead = addr != 0 && MyModbus::getInstance().isSlaveConsideredDead(addr);
     uint32_t lastStatus = nodes.status->getLastRefresh();
     uint32_t baseInterval = fastPolling ? savedStatusInterval : nodes.status->getRefreshInterval();
@@ -601,7 +601,7 @@ bool LichuanServo::startInitialize() {
 
 void LichuanServo::processInitialize(uint32_t now) {
     // Attente du variateur : le budget de temps est gelé tant que l'esclave ne répond pas
-    uint8_t addr = getSlaveAddress();
+    uint16_t addr = getSlaveAddress();
     if (addr != 0 && MyModbus::getInstance().isSlaveConsideredDead(addr)) {
         initStartTime = now;
         if (waitModbusStartTime == 0) {
@@ -1743,7 +1743,7 @@ const char* LichuanServo::getAlarmDescription() const {
     return "";
 }
 
-uint8_t LichuanServo::getSlaveAddress() const {
+uint16_t LichuanServo::getSlaveAddress() const {
     return nodes.status ? nodes.status->getModbusAddress() : 0;
 }
 

@@ -89,7 +89,7 @@ class Node{
             //Serial.printf("Destroying node: %s\n", name);
         }
         virtual int classType() const { return CLASS_NODE; }
-        virtual uint8_t getModbusAddress() const { return 0; }
+        virtual uint16_t getModbusAddress() const { return 0; }
         char *getName();
         bool setName(const char *name, const char *parentName);
         bool refresh();
@@ -395,7 +395,7 @@ protected:
     MyModbus& myModbus;
 
 public:
-    uint8_t getModbusAddress() const { return (uint8_t)address; }
+    uint16_t getModbusAddress() const { return address; }
 };
 
 class ModbusReadCoilNode: public BooleanInputNode, public ModbusNode {
@@ -403,7 +403,7 @@ class ModbusReadCoilNode: public BooleanInputNode, public ModbusNode {
         ModbusReadCoilNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint16_t address, uint16_t _id, bool _inputInverted, uint16_t refreshInterval,  uint16_t webRefreshInterval);
         bool getNewValue(bool &value);
         virtual int classType() const { return CLASS_MODBUS_READ_COIL; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
 };
 
 class ModbusReadMultipleInputsRegistersNode: public InputNode, public ModbusNode  {
@@ -411,7 +411,7 @@ class ModbusReadMultipleInputsRegistersNode: public InputNode, public ModbusNode
     public:
         ModbusReadMultipleInputsRegistersNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint16_t address,  uint16_t offset, uint8_t nbValues, uint16_t refreshInterval,  uint16_t webRefreshInterval, bool *invertedBits = nullptr);
         virtual int classType() const { return CLASS_MODBUS_READ_MULTIPLE_INPUTS_STATUS; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
         bool specificRefresh();
 
         uint8_t getNbValues(){
@@ -499,7 +499,7 @@ class ModbusReadHoldingRegister: public Uint16InputNode, public ModbusNode {
     public:
         ModbusReadHoldingRegister(char *name, char *parentName, uint16_t id, uint32_t hash, uint16_t address, uint16_t _id, uint16_t refreshInterval,  uint16_t webRefreshInterval);
         virtual int classType() const { return CLASS_MODBUS_READHOLDINGREGISTER; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
         private:
             bool getNewValue(uint16_t &value);
 };
@@ -508,7 +508,7 @@ class ModbusReadDobbleInputRegisters: public Uint32InputNode, public ModbusNode 
     public:
         ModbusReadDobbleInputRegisters(char *name, char *parentName, uint16_t id, uint32_t hash, uint16_t address, uint16_t _id, uint16_t refreshInterval,  uint16_t webRefreshInterval);
         virtual int classType() const { return CLASS_MODBUS_READ_DOUBLE_INPUTREGISTER; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
         private:
             bool getNewValue(uint32_t& val);
 };
@@ -517,7 +517,7 @@ class ModbusReadDoubleHoldingRegisters: public Uint32InputNode, public ModbusNod
     public:
         ModbusReadDoubleHoldingRegisters(char *name, char *parentName, uint16_t id, uint32_t hash, uint16_t address, uint16_t _id, uint16_t refreshInterval, uint16_t webRefreshInterval);
         virtual int classType() const { return CLASS_MODBUS_READ_DOUBLE_HOLDING_REGISTER; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
         private:
             bool getNewValue(uint32_t &value);
 };
@@ -527,7 +527,7 @@ class ModbusWriteHoldingRegister: public Uint16OutputNode, public ModbusNode {
     public:
         ModbusWriteHoldingRegister(char *name, char *parentName, uint16_t id, uint32_t hash, uint16_t address, uint16_t _id, uint16_t webRefreshInterval);
         virtual int classType() const { return CLASS_MODBUS_WRITEHOLDINGREGISTER; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
     private:
         bool setNewValue(uint16_t newValue) override;  // ← setNewValue, pas setValue
 };
@@ -537,7 +537,7 @@ class ModbusWriteDoubleHoldingRegister: public Uint32OutputNode, public ModbusNo
     public:
         ModbusWriteDoubleHoldingRegister(char *name, char *parentName, uint16_t id, uint32_t hash, uint16_t address, uint16_t _id, uint16_t webRefreshInterval);
         virtual int classType() const { return CLASS_MODBUS_WRITE_DOUBLE_HOLDING_REGISTER; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
         bool setNewValue(uint32_t newValue);
     
         //    bool setNewValue(uint32_t newValue);
@@ -548,7 +548,7 @@ class ModbusReadInputRegister: public Uint16InputNode, public ModbusNode {
     public:
         ModbusReadInputRegister(char *name, char *parentName, uint16_t id, uint32_t hash, uint16_t address, uint16_t _id, uint16_t refreshInterval,  uint16_t webRefreshInterval);
         virtual int classType() const { return CLASS_MODBUS_READINPUTREGISTER; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
         private:
             bool getNewValue(uint16_t &value);
 };
@@ -607,7 +607,7 @@ class ModbusWriteCoilNode: public BooleanOutputNode, public ModbusNode {
     public:
         ModbusWriteCoilNode(char *name, char *parentName, uint16_t id, uint32_t hash, uint16_t address, uint16_t _id, uint16_t webRefreshInterval);
         virtual int classType() const { return CLASS_MODBUS_WRITE_COIL_NODE; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
         private:
             bool setNewValue(bool newValue);
             uint8_t pin;
@@ -619,7 +619,7 @@ class ModbusWriteMultipleCoilslNode: public OutputNode, public ModbusNode {
         virtual ~ModbusWriteMultipleCoilslNode();
 
         virtual int classType() const { return CLASS_MODBUS_WRITE_MULTIPLE_COILS; }
-        uint8_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
+        uint16_t getModbusAddress() const override { return ModbusNode::getModbusAddress(); }
 
         bool specificRefresh();
         uint8_t getNbValues();

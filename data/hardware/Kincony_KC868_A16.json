@@ -3,6 +3,8 @@
 
     "board": {"mcu": "ESP32", "buzzer": null},
 
+    "ETH": {"phy": "LAN8720", "addr": 0, "mdc": 23, "mdio": 18, "power": -1, "clk": "GPIO17_OUT"},
+
     "I2C": {"SDA": 4, "SCL": 5, "RTC": "none"},
 
     "RS485": {"rx": 16, "tx": 13, "speed": 115200, "config": "SERIAL_8E1"},

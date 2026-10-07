@@ -52,13 +52,16 @@ Vous pouvez revenir à n'importe quelle étape : tout est recalculé et revérif
 ## Étapes
 
 1. **Projet** : nom (classe C++ et fichier de paramètres), nom réseau, mode
-   d'exécution, réseaux WiFi, options du journal.
+   d'exécution, réseaux WiFi, Ethernet (cartes qui en ont), options du journal.
 2. **Équipements** : un automate parmi KinCony KC868-A8S, KC868-A16, KC868-A16v3,
    KC868-A8v3, Waveshare ESP32-S3-POE-ETH-8DI-8DO, Waveshare ESP32-S3-RS485-WLED,
    M5Stack StamPLC, Homemaster MiniPLC (chacun indique son environnement PlatformIO) ;
    modules Waveshare (8DIO, 16DO, 8AI) ; autant d'axes que nécessaire : SureServo 2,
-   Lichuan A6 / A5 (Modbus), moteurs pas-à-pas STEP/DIR. L'automate est toujours
-   déclaré en premier (il porte le bus RS485, sinon le firmware bloque au démarrage).
+   Lichuan A6 / A5 (Modbus), moteurs pas-à-pas STEP/DIR ; équipement Modbus générique
+   (robot, automate tiers…). Chaque équipement Modbus passe par le RS485 (RTU) ou par le
+   réseau (TCP : IP, port, n° d'unité ; voir `docs/modbus-tcp.md`). L'automate est
+   toujours déclaré en premier (il porte le bus RS485, sinon le firmware bloque au
+   démarrage).
 3. **Câblage et variables** : on tape ce qui est branché sur chaque voie ; on crée
    les variables internes (commandes, paramètres sauvegardés, indicateurs,
    mémoires). Les signaux des axes (servo ON, arrêt immédiat, reset alarmes ; STEP,
@@ -118,6 +121,7 @@ Les mots de passe de page et de section sont écrits dans `config.json`
 | `data/interface.json` | pages, sections et widgets de l'écran opérateur |
 | `data/<Nom>.json` | valeurs initiales des paramètres sauvegardés |
 | `data/hardware/Kincony_KC868_A8S_noRTC.json` | variante sans horloge, si l'option est décochée |
+| `data/hardware/Modbus_<Nom>.json` | adresses des voies d'un équipement Modbus générique |
 | `src/<Nom>/<Nom>.h` et `.cpp` | classe d'application dérivée de `BusinessLogic` (modes de marche + grafcet) |
 | `src/main.cpp` | bascule de la classe actuelle (ex. `RessortRoyal2`) vers `<Nom>` |
 
@@ -249,4 +253,7 @@ installation, compilez avec PlatformIO (`pio run -e quatre_mb_huge`).
   être importé dans PLC Studio.
 - Le buzzer de la carte (GPIO2 sur la KC868-A8S, voie `BUZZER` des autres cartes) est
   remis au repos par `main.cpp` à chaque connexion WiFi.
-- **Réseau** : WiFi seulement ; l'Ethernet des cartes qui en ont n'est pas utilisé.
+- **Réseau** : Modbus TCP et Ethernet sont vérifiés par les tests et `g++ -fsyntax-only`
+  seulement, pas encore sur un automate ; l'Ethernet demande Arduino-ESP32 3.x
+  (environnements `esp32s3_n16r8`, `quatre_mb_huge`). Registres 16 bits seulement
+  (pas de flottants) pour l'équipement générique.

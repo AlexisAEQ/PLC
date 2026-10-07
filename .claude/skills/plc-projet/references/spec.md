@@ -19,6 +19,7 @@ Sommaire : [Projet](#projet) · [Équipements](#équipements) · [E/S câblées]
 | `execution` | non | `"hmi"` (défaut : la logique tourne quand un navigateur est connecté — comportement actuel du firmware) ou `"headless"` (pas encore lu par le firmware, voir references/logique.md). |
 | `wifi` | non | Tableau de réseaux. Défaut : un point d'accès `{ "name": "Point d'accès", "mode": "access_point", "ap_name": <hostname>, "ap_password": "ChangeMoi123", "ap_ip": "192.168.4.1", "ap_channel": 6 }`. Client : `{ "name": "Atelier", "mode": "station", "ssid": "…", "pwd": "…", "dhcp": true }` (sinon `ip`, `gateway`, `mask`, `dns`). 10 réseaux max. |
 | `options` | non | `{ "stateDisplay": true, "clockDisplay": false, "logDiagnostic": true, "logHistory": false, "showInfoMessages": true, "showSuccessMessages": false, "deleteDiagnosticAtStartup": false }` (valeurs par défaut). `stateDisplay` affiche l'état machine à l'écran, `clockDisplay` l'horloge (nécessite l'horloge DS3231). |
+| `ethernet` | non | Port Ethernet de l'automate (cartes à Ethernet seulement, voir `docs/cartes.md`), en plus du WiFi : `{ "enabled": true, "dhcp": true }` ou `{ "enabled": true, "dhcp": false, "ip": "192.168.10.20", "gateway": "192.168.10.1", "mask": "255.255.255.0", "dns": "" }`. Défaut : désactivé. |
 | `otaUrl`, `editorPassword` | non | URL de mise à jour, mot de passe de l'éditeur de fichiers de l'interface web. |
 
 ## Équipements
@@ -55,8 +56,20 @@ Modbus et ses `signals` (voies de l'automate) :
   `Kincony_KC868_A8v3`, `Waveshare_ESP32S3_POE_8DI8DO`, `Waveshare_ESP32S3_RS485_WLED`,
   `M5Stack_StamPLC`, `Homemaster_MiniPLC` (voies : `plc.mjs catalog`, qui donne aussi
   l'environnement PlatformIO à compiler).
-- `address` : adresse Modbus 1 à 247, **unique** (défauts : 8DIO 1, 16DO 2, 8AI 3, SureServo
-  127, Lichuan 1).
+- `address` : adresse Modbus 1 à 247, **unique** sur le bus RS485 (défauts : 8DIO 1, 16DO 2,
+  8AI 3, SureServo 127, Lichuan 1).
+- Liaison de **tout équipement Modbus** : `options.transport` = `"rtu"` (défaut, bus RS485)
+  ou `"tcp"` (réseau WiFi/Ethernet) avec `options.ip` (ex. `"192.168.10.50"`) et
+  `options.port` (502). En TCP, `address` est le n° d'unité 0 à 255 (souvent 1 ; adresse de
+  l'esclave derrière une passerelle TCP → RTU), unique par IP/port. Au plus 8 IP, 16
+  équipements TCP, un seul port par IP. Voir `docs/modbus-tcp.md`.
+- `ModbusGeneric` (robot, automate tiers, passerelle ; TCP par défaut) : voies `Q1`…`Q16`
+  (bobines écrites), `I1`…`I16` (bobines lues), `W1`…`W16` (registres écrits, **sorties
+  entières** 0-65535), `R1`…`R16` (registres lus), `IR1`…`IR16` (registres d'entrée).
+  Options : `coilOutStart`, `coilInStart`, `regOutStart`, `regInStart`, `inputRegStart`
+  (adresse de la voie n°1) et `oneBased: true` si la documentation compte à partir de 1
+  (40001 accepté). Exemple :
+  `{ "id": "robot", "type": "ModbusGeneric", "label": "Robot", "address": 1, "options": { "ip": "192.168.10.50", "regOutStart": 100, "regInStart": 200 } }`.
 - Automate : `options.rtc: false` si l'horloge n'est pas montée ; `options.rs485Speed`
   (`"9600"` … `"115200"`) et `options.rs485Config` (`"SERIAL_8N1"`, `"SERIAL_8E1"`…) pour
   régler le bus sur les équipements (vide = valeur du fichier matériel).
@@ -88,15 +101,17 @@ Modbus et ses `signals` (voies de l'automate) :
   KinCony entrées `X1`…, sorties `Y1`…, GPIO libres `GPIO<n>` ; Waveshare et M5Stack
   `DI1`… / `DO1`… ; `BUZZER` (remis au repos à chaque connexion WiFi) ; KC868-A8S `GPIO2`
   (c'est le buzzer) ; modules Waveshare 8DIO `DI1`…`DI8` / `DO1`…`DO8` ; 16DO `DO1`…`DO16` ;
-  8AI `AI1`…`AI8` (entiers 16 bits).
-- Le sens (entrée/sortie) et le type (`bool`, `int` pour AI) viennent de la voie.
+  8AI `AI1`…`AI8` (entiers 16 bits) ; `ModbusGeneric` `Q1`, `I1`, `W1`, `R1`, `IR1`….
+- Le sens (entrée/sortie) et le type (`bool`, `int` pour AI et registres) viennent de la
+  voie. Une sortie entière (registre `W<n>`) s'écrit avec `SET` / `NSET`.
 - `symbol` : nom utilisé dans la logique — lettres, chiffres, `_`, 40 caractères max., pas
   de mot du langage (`ET`, `OU`, `NON`, `FM`, `FD`, `VRAI`, `FAUX`, `MIN`, `MAX`, `ABS`,
   `SERVO`…), pas de `X<nombre>`, pas de mot-clé C++. Défaut : dérivé du libellé.
 - `label` : texte affiché à l'écran (court : section + libellé < 77 octets).
 - `inverse: true` (entrées Kincony et Waveshare) : la valeur logique est inversée — pour un
   contact NF, `true` = actionné.
-- `fallback` (sorties) : état en arrêt d'urgence, `"off"` (défaut), `"on"` ou `"hold"`.
+- `fallback` (sorties) : état en arrêt d'urgence, `"off"` (défaut, 0 pour un registre),
+  `"on"` ou `"hold"` (valeur maintenue).
 - `show: false` : ne pas proposer à l'écran ; `widget` : widget par défaut (voir Écrans).
 - Sans `at`, donner `"kind": "input"|"output"` (et `dataType`) : la variable est créée non
   câblée (avertissement) et se câble ensuite dans PLC Studio.

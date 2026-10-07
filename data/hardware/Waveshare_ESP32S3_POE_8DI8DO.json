@@ -3,6 +3,8 @@
 
     "board": {"mcu": "ESP32-S3", "buzzer": {"pin": 46}},
 
+    "ETH": {"phy": "W5500", "cs": 16, "irq": 12, "rst": 39, "sck": 15, "miso": 14, "mosi": 13},
+
     "I2C": {"SDA": 42, "SCL": 41, "RTC": "PCF85063"},
 
     "RS485": {"rx": 18, "tx": 17, "de": 21, "speed": 115200, "config": "SERIAL_8E1"},

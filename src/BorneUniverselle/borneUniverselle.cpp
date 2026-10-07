@@ -1,5 +1,6 @@
 #include "BorneUniverselle/borneUniverselle.h"
 #include "IoExpander/IoExpander.h"
+#include "EthernetManager/EthernetManager.h"
 #include <typeinfo>
 
 void WebSocketMessageDeleter::operator()(WEB_SOCKET_MESSAGE* c) const {
@@ -331,7 +332,7 @@ void BorneUniverselle::refresh(){
         if (!e){
             bool shouldShowMessage = true;
             if (isModbusNode) {
-                uint8_t slaveAddr = node->getModbusAddress();
+                uint16_t slaveAddr = node->getModbusAddress();
                 if (slaveAddr == 0) slaveAddr = myModbus.getLastTransactionAddress();
                 shouldShowMessage = myModbus.isSlaveConsideredDead(slaveAddr);
             }
@@ -339,7 +340,7 @@ void BorneUniverselle::refresh(){
             if (shouldShowMessage) {
                 hash = node->getHash();
                 char mess[256];
-                uint8_t mbAddr = node->getModbusAddress();
+                uint16_t mbAddr = node->getModbusAddress();
                 if (mbAddr > 0) {
                     snprintf(mess, sizeof(mess), "Refresh error addr:%u node:%s hash:%lu",
                         mbAddr, node->getName(), (long unsigned)hash);
@@ -2690,6 +2691,11 @@ bool BorneUniverselle::parseWifisImpl(JsonDocument& doc, bool check) {
 }
                 }
             } // for
+        } else if (!item[ETHERNET].isNull()) {
+            // Réglages Ethernet du projet (DHCP ou IP fixe), appliqués au démarrage.
+            if (!check) {
+                EthernetManager::getInstance().configureNetwork(item[ETHERNET]);
+            }
         } else if (!item[PARAMETERS].isNull()) {
             // Votre code parameters existant...
             JsonObject params = item[PARAMETERS];    
@@ -3217,6 +3223,25 @@ bool BorneUniverselle::parseHardwares(JsonDocument& doc, bool check, float proje
                                 //if (children.containsKey(ADDRESS)){
                                 if (!children[ADDRESS].isNull()){
                                     uint16_t slaveAddress = children[ADDRESS].as<uint16_t>();
+                                    // Équipement Modbus TCP : "tcp": { "ip": "192.168.1.50", "port": 502 } ;
+                                    // "address" est alors le n° d'unité. Les nœuds reçoivent l'adresse
+                                    // interne attribuée par MyModbus (>= 1000), transparente pour eux.
+                                    if (!children[MODBUS_TCP].isNull()) {
+                                        IPAddress ip;
+                                        const char *ipText = children[MODBUS_TCP][MB_TCP_IP] | "";
+                                        if (!ip.fromString(ipText)) {
+                                            sprintf(buff, "parseHardwares:: section %s : adresse IP Modbus TCP invalide", sectionName);
+                                            setPlcBroken(buff);
+                                            return false;
+                                        }
+                                        uint16_t port = children[MODBUS_TCP][MB_TCP_PORT] | 502;
+                                        slaveAddress = myModbus.registerTcpDevice(ip, port, (uint8_t)slaveAddress);
+                                        if (slaveAddress == 0) {
+                                            sprintf(buff, "parseHardwares:: section %s : trop d'equipements Modbus TCP", sectionName);
+                                            setPlcBroken(buff);
+                                            return false;
+                                        }
+                                    }
                             
                                     //Serial.printf("Modbus slave address: %u\r\n", slaveAddress);
                                     if (!createModbusNode(nodeName, sectionName, addr, &hashLocal, slaveAddress, nodesDoc, hardSection, c, type, refreshInterval, webRefreshInterval, check)){
@@ -4087,6 +4112,10 @@ bool BorneUniverselle::getIsKinconyA8S(){
 }
 
 void BorneUniverselle::applyBoardSettings(JsonDocument& hardwareDoc, const char *fileName){
+    // Ethernet de la carte (W5500 / LAN8720), démarré dans setup() si le projet l'active.
+    if (!hardwareDoc[ETHERNET_PINS].isNull()) {
+        EthernetManager::getInstance().configureBoard(hardwareDoc[ETHERNET_PINS]);
+    }
     // Seuls les fichiers des cartes (pas ceux des équipements Modbus) décrivent le buzzer.
     if (!hardwareDoc[BOARD].isNull()) {
         JsonVariant buzzer = hardwareDoc[BOARD][BU_BUZZER];
@@ -5076,7 +5105,31 @@ bool BorneUniverselle::configNeedsRestart(JsonDocument& newConfig) {
         Serial.println(F("configNeedsRestart: Machine parameters changed"));
         return true;
     }
-    
+
+    // ========================================================================
+    // 4b. Ethernet et sections du projet (clé "children" de premier niveau) :
+    //     adresse, liaison Modbus TCP (ip/port) et nœuds ne sont lus qu'au démarrage
+    // ========================================================================
+    String currentEthStr, newEthStr;
+    for (JsonObject item : currentConfigArray) {
+        if (!item[ETHERNET].isNull()) { serializeJson(item[ETHERNET], currentEthStr); break; }
+    }
+    for (JsonObject item : newConfigArray) {
+        if (!item[ETHERNET].isNull()) { serializeJson(item[ETHERNET], newEthStr); break; }
+    }
+    if (currentEthStr != newEthStr) {
+        Serial.println(F("configNeedsRestart: Ethernet configuration changed"));
+        return true;
+    }
+
+    String currentSectionsStr, newSectionsStr;
+    serializeJson(currentConfig[CHILDREN], currentSectionsStr);
+    serializeJson(newConfig[CHILDREN], newSectionsStr);
+    if (currentSectionsStr != newSectionsStr) {
+        Serial.println(F("configNeedsRestart: Hardware sections changed"));
+        return true;
+    }
+
     // ========================================================================
     // 5. Si on arrive ici, seuls des paramètres mineurs ont changé
     // ========================================================================

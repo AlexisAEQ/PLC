@@ -162,3 +162,53 @@ export function multiAxisProject({ lichuan = false } = {}) {
   };
   return p;
 }
+
+// Cellule robot : Waveshare ESP32-S3-POE (Ethernet en adresse fixe), robot piloté en
+// Modbus TCP (équipement générique) et module ES derrière une passerelle Modbus TCP -> RTU.
+export function robotCellProject() {
+  const p = newProject('CelluleRobot');
+  p.wifi = [{ name: 'Atelier', ssid: 'atelier', pwd: 'secret123', dhcp: true }];
+  p.ethernet = { enabled: true, dhcp: false, ip: '192.168.10.20', gateway: '192.168.10.1', mask: '255.255.255.0', dns: '' };
+  const plc = addEquipment(p, 'Waveshare_ESP32S3_POE_8DI8DO');
+  const robot = addEquipment(p, 'ModbusGeneric', 'Robot');
+  Object.assign(robot.options, { ip: '192.168.10.50', port: 502, oneBased: true, coilOutStart: 1, coilInStart: 101, regOutStart: 40001, regInStart: 40101 });
+  const io = addEquipment(p, 'Waveshare_8DIO', 'ES distantes');
+  Object.assign(io.options, { transport: 'tcp', ip: '192.168.10.60', port: 502 });
+  io.address = 1;
+  add(p, { label: 'AU OK', symbol: 'AU_OK', kind: 'input', dataType: 'bool', binding: { eq: plc.uid, group: 'di', channel: 1 } });
+  add(p, { label: 'Départ cycle', symbol: 'Depart', kind: 'input', dataType: 'bool', binding: { eq: plc.uid, group: 'di', channel: 2 } });
+  add(p, { label: 'Robot prêt', symbol: 'Robot_pret', kind: 'input', dataType: 'bool', binding: { eq: robot.uid, group: 'i', channel: 1 } });
+  add(p, { label: 'Robot fini', symbol: 'Robot_fini', kind: 'input', dataType: 'bool', binding: { eq: robot.uid, group: 'i', channel: 2 } });
+  add(p, { label: 'État robot', symbol: 'Etat_robot', kind: 'input', dataType: 'int', binding: { eq: robot.uid, group: 'r', channel: 1 } });
+  add(p, { label: 'Départ robot', symbol: 'Depart_robot', kind: 'output', dataType: 'bool', binding: { eq: robot.uid, group: 'q', channel: 1 }, fallback: 'off' });
+  add(p, { label: 'Programme robot', symbol: 'Programme', kind: 'output', dataType: 'int', binding: { eq: robot.uid, group: 'w', channel: 1 }, fallback: 'off' });
+  add(p, { label: 'Vitesse robot', symbol: 'Vitesse_robot', kind: 'output', dataType: 'int', binding: { eq: robot.uid, group: 'w', channel: 2 }, fallback: 'hold' });
+  add(p, { label: 'Pièce présente', symbol: 'Piece', kind: 'input', dataType: 'bool', binding: { eq: io.uid, group: 'di', channel: 0 } });
+  add(p, { label: 'Voyant cycle', symbol: 'Voyant', kind: 'output', dataType: 'bool', binding: { eq: io.uid, group: 'do', channel: 0 }, fallback: 'off' });
+  add(p, { label: 'Acquitter', symbol: 'Acquit', kind: 'command', dataType: 'bool' });
+  add(p, { label: 'N° de programme', symbol: 'NumProg', kind: 'parameter', dataType: 'int', initial: 3, min: 1, max: 99 });
+  p.logic = {
+    steps: [
+      { id: 's0', num: 0, label: 'Attente', initial: true, actions: [{ type: 'SET', target: 'Programme', value: '0' }] },
+      {
+        id: 's1',
+        num: 1,
+        label: 'Programme robot',
+        actions: [
+          { type: 'SET', target: 'Programme', value: 'NumProg' },
+          { type: 'SET', target: 'Vitesse_robot', value: '80' },
+          { type: 'N', target: 'Depart_robot' },
+          { type: 'N', target: 'Voyant' },
+        ],
+      },
+      { id: 's2', num: 2, label: 'Fin', actions: [] },
+    ],
+    transitions: [
+      { id: 't0', num: 0, from: ['s0'], to: ['s1'], condition: 'FM(Depart) ET Robot_pret ET Piece ET Etat_robot = 0' },
+      { id: 't1', num: 1, from: ['s1'], to: ['s2'], condition: 'Robot_fini' },
+      { id: 't2', num: 2, from: ['s2'], to: ['s0'], condition: 'NON Robot_fini' },
+    ],
+    blocks: { emergency: { condition: 'NON AU_OK', reset: 'Acquit' }, run: { start: '', stop: '' } },
+  };
+  return p;
+}

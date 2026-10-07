@@ -3,7 +3,7 @@
 
 import { CATALOG, VARIABLE_KINDS, widgetsFor } from './catalog.js';
 import { utf8Length } from './hash.js';
-import { buildLayout } from './layout.js';
+import { buildLayout, modbusTcpOf, genericStartAddress } from './layout.js';
 import { compileLogic } from './grafcet.js';
 import { signalDef } from './model.js';
 import { axisList } from './axes.js';
@@ -70,10 +70,25 @@ export function validateProject(project, layout = buildLayout(project)) {
   });
   if (project.otaUrl && utf8Length(project.otaUrl) > 79) err('project', "L'URL OTA dépasse 79 octets.");
 
+  const eth = project.ethernet;
+  if (eth?.enabled) {
+    const controller = project.equipment.find((e) => CATALOG[e.type]?.role === 'controller');
+    if (controller && !CATALOG[controller.type]?.ethernet) {
+      err('project', `Ethernet activé mais ${CATALOG[controller.type].label} n'a pas de port Ethernet utilisable : désactivez-le.`);
+    }
+    if (eth.dhcp === false) {
+      for (const k of ['ip', 'gateway', 'mask']) if (!IPV4.test(String(eth[k] || '').trim())) err('project', `Ethernet : adresse « ${k} » invalide.`);
+      if (eth.dns && !IPV4.test(String(eth.dns).trim())) err('project', 'Ethernet : DNS invalide.');
+    }
+  }
+
   // --- Équipements ------------------------------------------------------
   const counts = {};
   const labels = new Set();
-  const addresses = new Map();
+  const addresses = new Map(); // bus RS485 : adresse -> équipement
+  const tcpUnits = new Map(); // "ip:port/unité" -> équipement
+  const tcpPorts = new Map(); // ip -> { port, label }
+  let modbusCount = 0;
   let hasController = false;
   let controllerCount = 0;
   let hasHardware = false;
@@ -96,16 +111,48 @@ export function validateProject(project, layout = buildLayout(project)) {
       if (eq.label.includes('/')) err('equipment', `Le nom « ${eq.label} » ne doit pas contenir « / ».`, eq.uid);
     }
     if (entry.modbus) {
+      modbusCount++;
       const a = Number(eq.address);
-      if (!Number.isInteger(a) || a < 1 || a > 247) err('equipment', `${eq.label} : adresse Modbus entre 1 et 247.`, eq.uid);
-      else if (addresses.has(a)) err('equipment', `${eq.label} et ${addresses.get(a)} ont la même adresse Modbus ${a}.`, eq.uid);
+      const tcp = modbusTcpOf(eq, entry);
+      if (!['rtu', 'tcp'].includes(eq.options?.transport || 'rtu')) err('equipment', `${eq.label} : liaison Modbus inconnue « ${eq.options.transport} ».`, eq.uid);
+      if (tcp) {
+        const port = Number(eq.options?.port ?? 502);
+        if (!IPV4.test(tcp.ip)) err('equipment', `${eq.label} : adresse IP Modbus TCP invalide (ex. 192.168.1.50).`, eq.uid);
+        if (!Number.isInteger(port) || port < 1 || port > 65535) err('equipment', `${eq.label} : port Modbus TCP entre 1 et 65535.`, eq.uid);
+        if (!Number.isInteger(a) || a < 0 || a > 255) err('equipment', `${eq.label} : n° d'unité Modbus TCP entre 0 et 255.`, eq.uid);
+        else if (IPV4.test(tcp.ip)) {
+          const key = `${tcp.ip}:${tcp.port}/${a}`;
+          if (tcpUnits.has(key)) err('equipment', `${eq.label} et ${tcpUnits.get(key)} ont la même adresse Modbus TCP (${tcp.ip}:${tcp.port}, unité ${a}).`, eq.uid);
+          else tcpUnits.set(key, eq.label);
+          const other = tcpPorts.get(tcp.ip);
+          // La bibliothèque Modbus ouvre une seule connexion par adresse IP.
+          if (other && other.port !== tcp.port) err('equipment', `${eq.label} et ${other.label} : même adresse IP ${tcp.ip} sur deux ports différents, non pris en charge.`, eq.uid);
+          else tcpPorts.set(tcp.ip, { port: tcp.port, label: eq.label });
+        }
+      } else if (!Number.isInteger(a) || a < 1 || a > 247) err('equipment', `${eq.label} : adresse Modbus entre 1 et 247.`, eq.uid);
+      else if (addresses.has(a)) err('equipment', `${eq.label} et ${addresses.get(a)} ont la même adresse Modbus ${a} sur le bus RS485.`, eq.uid);
       else addresses.set(a, eq.label);
     }
+    if (entry.generic) {
+      for (const g of entry.groups) {
+        const start = genericStartAddress(eq, g);
+        if (start < 0 || start + g.ids.length - 1 > 65535) err('equipment', `${eq.label} : adresse de départ de « ${g.label} » hors de 0 à 65535${eq.options?.oneBased ? ' (numérotation à partir de 1)' : ''}.`, eq.uid);
+      }
+    }
+  }
+  if (tcpPorts.size > 8) err('equipment', `${tcpPorts.size} adresses IP Modbus TCP : 8 au maximum (connexions simultanées).`);
+  if (tcpUnits.size > 16) err('equipment', `${tcpUnits.size} équipements Modbus TCP : 16 au maximum.`);
+  if (tcpUnits.size) {
+    const hasStation = (project.wifi || []).some((w) => (w.mode || 'station') === 'station');
+    if (!hasStation && !eth?.enabled) {
+      warn('equipment', "Équipements Modbus TCP sans WiFi station ni Ethernet : ils devront se connecter au point d'accès de l'automate.");
+    }
+    warn('equipment', "Modbus TCP passe par le réseau : ne l'utilisez pas pour une fonction de sécurité (arrêt d'urgence câblé obligatoire).");
   }
   if (hasHardware && !hasController) {
     err('equipment', "Ajoutez l'automate (KinCony, Waveshare ESP32-S3, M5Stack StamPLC, Homemaster MiniPLC…) : il porte le bus RS485 et doit être déclaré en premier.");
   }
-  if (addresses.size > 8) warn('equipment', 'Plus de 8 esclaves Modbus : les statistiques du bus ne suivent que les 8 premiers.');
+  if (modbusCount > 16) warn('equipment', 'Plus de 16 équipements Modbus : les statistiques ne suivent que les 16 premiers.');
 
   // Axes : leur nom sert de préfixe dans les expressions (Axe_X.enPosition) et en C++ (ax_Axe_X).
   const axisSymbols = new Map();

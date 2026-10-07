@@ -77,6 +77,8 @@ export function normalizeProject(p) {
           ap_channel: 6,
         },
       ];
+  // Ethernet filaire des cartes qui en ont (W5500 / LAN8720), en plus du WiFi.
+  project.ethernet = { enabled: false, dhcp: true, ip: '', gateway: '', mask: '255.255.255.0', dns: '', ...(project.ethernet || {}) };
   project.otaUrl = project.otaUrl || '';
   project.editorPassword = project.editorPassword || '';
   project.equipment = Array.isArray(project.equipment) ? project.equipment.map(normalizeEquipment) : [];
@@ -230,8 +232,10 @@ export function addEquipment(project, type, label) {
   const sameType = project.equipment.filter((e) => e.type === type).length;
   const base = entry.defaultLabel || entry.label;
   const eq = normalizeEquipment({ type, label: label || (sameType ? `${base} ${sameType + 1}` : base) });
-  if (entry.modbus) {
-    const usedAddr = new Set(project.equipment.filter((e) => CATALOG[e.type]?.modbus).map((e) => Number(e.address)));
+  if (entry.modbus && eq.options.transport !== 'tcp') {
+    // Adresse libre sur le bus RS485 (les équipements Modbus TCP ont leur propre n° d'unité).
+    const onBus = (e) => CATALOG[e.type]?.modbus && e.options?.transport !== 'tcp';
+    const usedAddr = new Set(project.equipment.filter(onBus).map((e) => Number(e.address)));
     let addr = entry.defaultAddress;
     while (usedAddr.has(addr) && addr < 247) addr++;
     eq.address = addr;

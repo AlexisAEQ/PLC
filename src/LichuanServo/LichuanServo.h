@@ -461,7 +461,7 @@ private:
     bool isAtPosition(int32_t target) const;
     static bool after(uint32_t a, uint32_t b) { return (int32_t)(a - b) > 0; }
     static bool fresh(Node* node, uint32_t t) { return node && after(node->getLastRefresh(), t); }
-    uint8_t getSlaveAddress() const;
+    uint16_t getSlaveAddress() const;
     bool isPlcSuspended() const;
     bool motionActive() const;
     void notifyDriveFault(const char* reason);

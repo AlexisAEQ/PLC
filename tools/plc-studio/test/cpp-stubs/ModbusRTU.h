@@ -9,7 +9,16 @@ class ModbusRTU : public Modbus {
  public:
   bool begin(HardwareSerial*, int16_t = -1, bool = true) { return true; }
   void client() {}
+  void master() {}
   void task() {}
-  bool slave() { return false; }
+  uint8_t slave() { return 0; }
   void setTimeout(uint32_t) {}
+  uint16_t readCoil(uint8_t, uint16_t, bool*, uint16_t = 1, cbTransaction = nullptr) { return 1; }
+  uint16_t readIsts(uint8_t, uint16_t, bool*, uint16_t = 1, cbTransaction = nullptr) { return 1; }
+  uint16_t readHreg(uint8_t, uint16_t, uint16_t*, uint16_t = 1, cbTransaction = nullptr) { return 1; }
+  uint16_t readIreg(uint8_t, uint16_t, uint16_t*, uint16_t = 1, cbTransaction = nullptr) { return 1; }
+  uint16_t writeCoil(uint8_t, uint16_t, bool, cbTransaction = nullptr) { return 1; }
+  uint16_t writeCoil(uint8_t, uint16_t, bool*, uint16_t = 1, cbTransaction = nullptr) { return 1; }
+  uint16_t writeHreg(uint8_t, uint16_t, uint16_t, cbTransaction = nullptr) { return 1; }
+  uint16_t writeHreg(uint8_t, uint16_t, uint16_t*, uint16_t = 1, cbTransaction = nullptr) { return 1; }
 };

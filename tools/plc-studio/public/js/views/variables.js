@@ -138,7 +138,7 @@ function channelRow(store, eq, g, c) {
   });
 
   let option = h('span');
-  if (v && isOut) option = select(v, 'fallback', FALLBACKS, { onChange: () => store.changed() });
+  if (v && isOut) option = select(v, 'fallback', g.dataType === 'int' ? FALLBACKS.filter((f) => f.value !== 'on') : FALLBACKS, { onChange: () => store.changed() });
   else if (v && g.supportsInverse) option = checkbox(v, 'inverse', undefined, { onChange: () => store.changed() });
 
   return h(

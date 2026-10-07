@@ -552,7 +552,11 @@ export class Simulator {
   set(sym, value) {
     const v = this.vars.get(sym);
     if (!v) return;
-    if (v.dataType === 'int') value = Math.trunc(Number(value) || 0) | 0;
+    if (v.dataType === 'int') {
+      value = Math.trunc(Number(value) || 0) | 0;
+      // Registre Modbus écrit (Uint16OutputNode) : 0 à 65535 comme dans le firmware.
+      if (v.kind === 'output') value &= 0xffff;
+    }
     else if (v.dataType === 'float') value = Math.fround(Number(value) || 0);
     else if (v.dataType === 'bool') value = !!value;
     else value = String(value ?? '');

@@ -147,7 +147,7 @@ function cmdCatalog() {
   for (const [type, e] of Object.entries(CATALOG)) {
     console.log(`${type} — ${e.label}${e.max ? ` (${e.max} max.)` : ''}`);
     console.log(`  ${e.description}`);
-    if (e.modbus) console.log(`  Modbus : adresse par défaut ${e.defaultAddress} (1 à 247, unique)`);
+    if (e.modbus) console.log(`  Modbus ${e.defaultTransport === 'tcp' ? 'TCP par défaut' : 'RTU par défaut'} : adresse par défaut ${e.defaultAddress} (RTU : 1 à 247, unique sur le bus ; TCP : n° d'unité 0 à 255, avec options ip et port)`);
     for (const g of e.groups) {
       const names = g.bank ? Array.from({ length: g.bank.bits }, (_, i) => channelName(g, i)) : g.ids.map((id) => channelName(g, id));
       console.log(`  ${g.dir === 'in' ? 'entrées' : 'sorties'} ${g.dataType.padEnd(4)} ${g.label} : ${names.join(' ')}${g.supportsInverse ? '  (inverse possible)' : ''}`);

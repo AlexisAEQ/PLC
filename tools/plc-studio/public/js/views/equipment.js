@@ -2,6 +2,7 @@
 
 import { CATALOG } from '/shared/catalog.js';
 import { addEquipment, removeEquipment } from '/shared/model.js';
+import { genericHardwareName } from '/shared/layout.js';
 import { h, input, checkbox, select, field, card, pageHead, button, confirmDialog } from '../ui.js';
 import { issueBlock } from './project.js';
 
@@ -22,7 +23,7 @@ export function renderEquipment(root, store) {
         'div',
         { class: 'cat-item' },
         h('h3', {}, entry.label),
-        h('div', { class: 'tags' }, h('span', { class: 'tag' }, ROLE_LABEL[entry.role] || entry.role), entry.modbus ? h('span', { class: 'tag' }, 'RS485') : null),
+        h('div', { class: 'tags' }, h('span', { class: 'tag' }, ROLE_LABEL[entry.role] || entry.role), entry.modbus ? h('span', { class: 'tag' }, entry.defaultTransport === 'tcp' ? 'Modbus TCP / RTU' : 'Modbus RTU / TCP') : null),
         h('p', {}, entry.description),
         channels.length ? h('small', { class: 'muted' }, channels.join(' · ')) : null,
         h(
@@ -53,7 +54,7 @@ export function renderEquipment(root, store) {
   root.append(
     pageHead('Équipements', 'Sélectionnez les équipements avec lesquels le projet interagit. Vous câblerez leurs voies à l’étape suivante.'),
     issueBlock(store, 'equipment'),
-    card('Équipements du projet', h('p', { class: 'hint' }, 'L’automate est toujours déclaré en premier dans config.json (il porte le bus RS485).'), list),
+    card('Équipements du projet', h('p', { class: 'hint' }, 'L’automate est toujours déclaré en premier dans config.json (il porte le bus RS485). Chaque équipement Modbus passe par le RS485 (RTU) ou par le réseau WiFi / Ethernet (TCP).'), list),
     card('Catalogue', catalog)
   );
 }
@@ -67,13 +68,20 @@ function equipmentCard(store, eq) {
     { class: 'grid' },
     field('Nom', input(eq, 'label', { onInput: () => store.changed(), onChange: () => store.changed({ render: true }) }), 'Sert à nommer les sections de config.json.')
   );
+  const tcp = entry?.modbus && eq.options?.transport === 'tcp';
   if (entry?.modbus) {
-    fields.append(field('Adresse Modbus', input(eq, 'address', { type: 'number', min: 1, max: 247, onInput: () => store.changed() }), 'Entre 1 et 247, unique sur le bus.'));
+    fields.append(
+      tcp
+        ? field('N° d’unité Modbus', input(eq, 'address', { type: 'number', min: 0, max: 255, onInput: () => store.changed() }), 'Entre 0 et 255 (souvent 1 ; adresse de l’esclave derrière une passerelle TCP → RTU).')
+        : field('Adresse Modbus', input(eq, 'address', { type: 'number', min: 1, max: 247, onInput: () => store.changed() }), 'Entre 1 et 247, unique sur le bus RS485.')
+    );
   }
   for (const opt of entry?.options || []) {
+    // Adresse IP et port : seulement en Modbus TCP.
+    if (entry.modbus && !tcp && (opt.key === 'ip' || opt.key === 'port')) continue;
     let control;
     if (opt.type === 'bool') control = checkbox(eq.options, opt.key, opt.label, { onChange: () => store.changed() });
-    else if (opt.type === 'select') control = field(opt.label, select(eq.options, opt.key, opt.choices, { onChange: () => store.changed() }), opt.help);
+    else if (opt.type === 'select') control = field(opt.label, select(eq.options, opt.key, opt.choices, { onChange: () => store.changed({ render: opt.key === 'transport' }) }), opt.help);
     else control = field(opt.label, input(eq.options, opt.key, { type: opt.type === 'number' ? 'number' : 'text', onInput: () => store.changed() }), opt.help);
     fields.append(opt.type === 'bool' ? h('div', { class: 'field' }, h('span', {}, ' '), control, opt.help ? h('small', {}, opt.help) : null) : control);
   }
@@ -83,6 +91,8 @@ function equipmentCard(store, eq) {
   if (entry?.signals) summary.push(`Signaux à câbler : ${entry.signals.map((s) => s.label).join(', ')}`);
   if (entry?.sections) summary.push(`${entry.sections.reduce((a, s) => a + s.nodes.length, 0)} nœuds créés automatiquement`);
   if (entry?.pioEnv) summary.push(`Compilation : environnement PlatformIO « ${entry.pioEnv} »`);
+  if (entry?.ethernet) summary.push('Port Ethernet utilisable (à activer à l’étape Projet)');
+  if (entry?.generic) summary.push(`Fichier matériel généré : data/hardware/${genericHardwareName(eq)}.json`);
 
   return h(
     'div',

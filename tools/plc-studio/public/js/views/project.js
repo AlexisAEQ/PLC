@@ -1,6 +1,7 @@
 // Étape 1 : réglages généraux du projet.
 
 import { toHostname } from '/shared/model.js';
+import { CATALOG } from '/shared/catalog.js';
 import { h, input, checkbox, select, field, card, pageHead, button, issueList } from '../ui.js';
 
 export function renderProject(root, store) {
@@ -63,8 +64,72 @@ export function renderProject(root, store) {
         field('URL de mise à jour (OTA)', input(p, 'otaUrl', { onInput: changed }), '79 caractères maximum.')
       )
     ),
-    wifiCard(store)
+    wifiCard(store),
+    ethernetCard(store)
   );
+}
+
+// Ethernet filaire (cartes W5500 / LAN8720), en plus du WiFi.
+function ethernetCard(store) {
+  const p = store.project;
+  const controller = p.equipment.find((e) => CATALOG[e.type]?.role === 'controller');
+  const capable = !!CATALOG[controller?.type]?.ethernet;
+  const body = h('div', {});
+  const draw = () => {
+    const fields = h('div', { class: 'grid' });
+    fields.append(
+      field(
+        'Ethernet',
+        select(
+          p.ethernet,
+          'enabled',
+          [
+            { value: false, label: 'Désactivé' },
+            { value: true, label: 'Activé' },
+          ],
+          { onChange: () => (draw(), store.changed()) }
+        )
+      )
+    );
+    if (p.ethernet.enabled) {
+      fields.append(
+        field(
+          'Adressage',
+          select(
+            p.ethernet,
+            'dhcp',
+            [
+              { value: true, label: 'Automatique (DHCP)' },
+              { value: false, label: 'Adresse fixe' },
+            ],
+            { onChange: () => (draw(), store.changed()) }
+          )
+        )
+      );
+      if (p.ethernet.dhcp === false) {
+        for (const [k, label] of [
+          ['ip', 'Adresse IP'],
+          ['mask', 'Masque'],
+          ['gateway', 'Passerelle'],
+          ['dns', 'DNS (optionnel)'],
+        ]) {
+          fields.append(field(label, input(p.ethernet, k, { cls: 'mono', onInput: () => store.changed() })));
+        }
+      }
+    }
+    body.replaceChildren(
+      h(
+        'p',
+        { class: 'hint' },
+        capable
+          ? 'Port Ethernet de l’automate, utilisable en même temps que le WiFi (écran, mDNS, Modbus TCP). Évitez de mettre le WiFi client et l’Ethernet sur le même sous-réseau.'
+          : 'L’automate choisi n’a pas de port Ethernet utilisable : seul le WiFi est disponible.'
+      ),
+      fields
+    );
+  };
+  draw();
+  return card('Réseau filaire (Ethernet)', body);
 }
 
 function modeChooser(p, changed) {

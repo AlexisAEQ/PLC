@@ -77,6 +77,11 @@ function variableAccess(project, layout) {
       case 'Uint16InputNode':
         acc.get = `(int32_t)${ptr}->getValue()`;
         break;
+      case 'Uint16OutputNode':
+        // Registre Modbus écrit (0 à 65535) : écrit seulement quand la valeur change.
+        acc.get = `(int32_t)${ptr}->getValue()`;
+        acc.set = (x) => `{ uint16_t _v = (uint16_t)(${x}); if (${ptr}->getValue() != _v) ${ptr}->setValue(_v); }`;
+        break;
       case 'VirtualUint32InputNode':
         acc.get = `${ptr}->getValueAsInt32()`;
         acc.set = (x) => `{ int32_t _v = ${x}; if (${ptr}->getValueAsInt32() != _v) ${ptr}->setValue((uint32_t)_v); }`;
@@ -798,10 +803,12 @@ export function generateCpp(project, layout, ir) {
   }
   const others = outputs.filter((v) => !drivenSet.has(v.symbol) && access.get(v.symbol)?.set);
   if (others.length) {
+    // Sorties booléennes : true/false ; registres Modbus écrits (entiers) : 1/0.
+    const lit = (v, on) => (v.dataType === 'int' ? (on ? '1' : '0') : on ? 'true' : 'false');
     L(`    if (emergency) {`);
-    for (const v of others) if (v.fallback !== 'hold') L(`        set_${v.symbol}(${v.fallback === 'on' ? 'true' : 'false'});`);
+    for (const v of others) if (v.fallback !== 'hold') L(`        set_${v.symbol}(${lit(v, v.fallback === 'on')});`);
     L(`    } else if (!run) {`);
-    for (const v of others) L(`        set_${v.symbol}(false);`);
+    for (const v of others) L(`        set_${v.symbol}(${lit(v, false)});`);
     L(`    }`);
   }
   for (const m of mirrors) L(`    mirror_${m.variable.symbol}->setValue(v_${m.variable.symbol}());`);

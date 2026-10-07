@@ -929,7 +929,7 @@ private:
      * Independant de l'adresse configuree dans la classe metier.
      * @return adresse esclave Modbus, ou 0 si non disponible
      */
-    uint8_t getSlaveAddress() const;
+    uint16_t getSlaveAddress() const;
 
     // Variables d'état EEPROM
     EEPROMMode currentEEPROMMode = EEPROMMode::AUTO_SAVE_DISABLED;

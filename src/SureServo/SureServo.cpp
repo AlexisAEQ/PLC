@@ -1357,7 +1357,7 @@ void SureServo::processInitialize(uint32_t now) {
     // ========================================
     // ATTENTE MODBUS VIVANT SUR ADRESSE DU DRIVE
     // ========================================
-    uint8_t slaveAddr = getSlaveAddress();
+    uint16_t slaveAddr = getSlaveAddress();
     if (slaveAddr != 0 && MyModbus::getInstance().isSlaveConsideredDead(slaveAddr)) {
         // Geler le timer - ne pas consommer le budget de 15s pendant que le drive ne repond pas
         operationStartTime = now;
@@ -3157,7 +3157,7 @@ bool SureServo::isPlcSuspended() const {
     return borne->getPlcSuspended();
 }
 
-uint8_t SureServo::getSlaveAddress() const {
+uint16_t SureServo::getSlaveAddress() const {
     ModbusNode* modbusNode = dynamic_cast<ModbusNode*>(nodes.status);
     if (modbusNode != nullptr) {
         return modbusNode->getModbusAddress();

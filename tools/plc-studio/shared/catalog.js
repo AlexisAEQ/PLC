@@ -119,8 +119,9 @@ export const CATALOG = {
 
   Waveshare_ESP32S3_POE_8DI8DO: {
     defaultLabel: 'Automate',
+    ethernet: true, // bloc ETH du fichier matériel
     label: 'Waveshare ESP32-S3-POE-ETH-8DI-8DO',
-    description: 'Automate ESP32-S3 : 8 entrées optocouplées, 8 sorties transistor (TCA9554), RS485 isolé, horloge PCF85063, buzzer. Ethernet/PoE non utilisé (WiFi).',
+    description: 'Automate ESP32-S3 : 8 entrées optocouplées, 8 sorties transistor (TCA9554), RS485 isolé, horloge PCF85063, buzzer, Ethernet W5500 (PoE).',
     role: 'controller',
     hardware: 'Waveshare_ESP32S3_POE_8DI8DO',
     pioEnv: 'esp32s3_n16r8',
@@ -166,6 +167,7 @@ export const CATALOG = {
 
   Kincony_KC868_A16: {
     defaultLabel: 'Automate',
+    ethernet: true, // bloc ETH du fichier matériel
     label: 'Kincony KC868-A16',
     description: 'Automate ESP32 : 16 entrées optocouplées, 16 sorties MOSFET (PCF8574), RS485, 3 GPIO libres (HT1-HT3). Pas d’horloge.',
     role: 'controller',
@@ -180,6 +182,7 @@ export const CATALOG = {
 
   Kincony_KC868_A16v3: {
     defaultLabel: 'Automate',
+    ethernet: true, // bloc ETH du fichier matériel
     label: 'Kincony KC868-A16v3',
     description: 'Automate ESP32-S3 : 16 entrées optocouplées, 16 sorties MOSFET (PCF8574), RS485, 6 GPIO libres, horloge DS3231.',
     role: 'controller',
@@ -194,6 +197,7 @@ export const CATALOG = {
 
   Kincony_KC868_A8v3: {
     defaultLabel: 'Automate',
+    ethernet: true, // bloc ETH du fichier matériel
     label: 'Kincony KC868-A8v3',
     description: 'Automate ESP32-S3 : 8 entrées optocouplées, 8 relais (PCF8575), RS485, 4 GPIO libres, horloge DS3231.',
     role: 'controller',
@@ -222,6 +226,7 @@ export const CATALOG = {
 
   Homemaster_MiniPLC: {
     defaultLabel: 'Automate',
+    ethernet: true, // bloc ETH du fichier matériel
     label: 'Homemaster MiniPLC',
     description: 'Automate ESP32 : 4 entrées 24 V, 4 boutons en façade, 6 relais (PCF8574), 2 LED, RS485 isolé, horloge PCF8563, buzzer, 2 GPIO libres (bornes 1-Wire).',
     role: 'controller',
@@ -238,6 +243,33 @@ export const CATALOG = {
       { key: 'led', label: 'LED en façade', short: 'LED', type: 'EXP_tx-bool', dir: 'out', dataType: 'bool', ids: [7, 8], prefix: 'LED', names: { 7: 'LED2', 8: 'LED3' } },
       gpio([5, 4], 'GPIO libres (bornes 1-Wire)'),
       buzzer(2),
+    ],
+  },
+
+  ModbusGeneric: {
+    defaultLabel: 'Robot',
+    label: 'Équipement Modbus générique (robot, automate, passerelle…)',
+    description: "Tout équipement Modbus (RTU ou TCP) : 16 bobines écrites et lues, 16 registres écrits, lus et d'entrée, à partir des adresses de départ réglées dans les options. Idéal pour piloter un robot par poignée de main (n° de programme, départ, en cours, fini).",
+    role: 'modbus-io',
+    hardware: null, // fichier matériel généré par PLC Studio : data/hardware/Modbus_<nom>.json
+    generic: true,
+    modbus: true,
+    defaultAddress: 1,
+    defaultTransport: 'tcp',
+    options: [
+      { key: 'oneBased', label: 'Adresses de la documentation comptées à partir de 1', type: 'bool', default: false, help: 'Coché : « 40001 », « 1 » = premier registre (l’outil retire 1).' },
+      { key: 'coilOutStart', label: 'Adresse de Q1 (bobines écrites)', type: 'number', default: 0 },
+      { key: 'coilInStart', label: 'Adresse de I1 (bobines lues)', type: 'number', default: 0 },
+      { key: 'regOutStart', label: 'Adresse de W1 (registres écrits)', type: 'number', default: 0 },
+      { key: 'regInStart', label: 'Adresse de R1 (registres lus)', type: 'number', default: 0 },
+      { key: 'inputRegStart', label: 'Adresse de IR1 (registres d’entrée)', type: 'number', default: 0 },
+    ],
+    groups: [
+      { key: 'q', label: 'Bobines écrites (FC05)', short: 'Bobines ecrites', type: 'ModbusWriteCoil', dir: 'out', dataType: 'bool', ids: range(1, 16), prefix: 'Q' },
+      { key: 'i', label: 'Bobines lues (FC01)', short: 'Bobines lues', type: 'ModbusReadCoil', dir: 'in', dataType: 'bool', ids: range(1, 16), prefix: 'I', supportsInverse: true, refreshInterval: 100 },
+      { key: 'w', label: 'Registres écrits (FC06)', short: 'Registres ecrits', type: 'ModbusWriteHoldingRegister', dir: 'out', dataType: 'int', ids: range(1, 16), prefix: 'W' },
+      { key: 'r', label: 'Registres lus (FC03)', short: 'Registres lus', type: 'ModbusReadHoldingRegister', dir: 'in', dataType: 'int', ids: range(1, 16), prefix: 'R', refreshInterval: 200 },
+      { key: 'ir', label: 'Registres d’entrée lus (FC04)', short: 'Registres entree', type: 'ModbusReadInputRegister', dir: 'in', dataType: 'int', ids: range(1, 16), prefix: 'IR', refreshInterval: 200 },
     ],
   },
 
@@ -639,6 +671,29 @@ export const CATALOG = {
   },
 };
 
+// Transport de chaque équipement Modbus : bus RS485 de l'automate (RTU) ou réseau (TCP,
+// équipement natif ou passerelle Modbus TCP -> RTU : l'adresse est alors le n° d'unité).
+export const MODBUS_TRANSPORT_OPTIONS = [
+  {
+    key: 'transport',
+    label: 'Liaison Modbus',
+    type: 'select',
+    default: 'rtu',
+    choices: [
+      { value: 'rtu', label: 'RS485 de l’automate (Modbus RTU)' },
+      { value: 'tcp', label: 'Réseau WiFi / Ethernet (Modbus TCP)' },
+    ],
+    help: 'TCP : équipement Modbus TCP, ou passerelle TCP → RTU (l’adresse devient le n° d’unité).',
+  },
+  { key: 'ip', label: 'Adresse IP (TCP)', type: 'text', default: '', help: 'Modbus TCP seulement, ex. 192.168.1.50.' },
+  { key: 'port', label: 'Port (TCP)', type: 'number', default: 502, help: 'Modbus TCP seulement (502 par défaut).' },
+];
+for (const entry of Object.values(CATALOG)) {
+  if (!entry.modbus) continue;
+  const transport = MODBUS_TRANSPORT_OPTIONS.map((o) => (o.key === 'transport' && entry.defaultTransport ? { ...o, default: entry.defaultTransport } : o));
+  entry.options = [...transport, ...(entry.options || [])];
+}
+
 // Types de variables "internes" (non câblées) proposées à l'étape Variables.
 export const VARIABLE_KINDS = {
   command: { label: 'Commande',  help: "Bouton ou interrupteur à l'écran, lu par la logique.", dataTypes: ['bool', 'int', 'float'] },
@@ -646,7 +701,7 @@ export const VARIABLE_KINDS = {
   indicator: { label: 'Indicateur', help: "Valeur calculée par la logique et affichée à l'écran.", dataTypes: ['bool', 'int', 'float', 'text'] },
   memory: { label: 'Mémoire', help: 'Variable de travail de la logique (compteur, mémoire), sans affichage.', dataTypes: ['bool', 'int', 'float'] },
   input: { label: 'Entrée câblée', help: 'Voie d\'entrée d\'un équipement.', dataTypes: ['bool', 'int'] },
-  output: { label: 'Sortie câblée', help: "Voie de sortie d'un équipement.", dataTypes: ['bool'] },
+  output: { label: 'Sortie câblée', help: "Voie de sortie d'un équipement (bobine, relais, ou registre d'un équipement Modbus).", dataTypes: ['bool', 'int'] },
 };
 
 export const DATA_TYPE_LABELS = { bool: 'Booléen', int: 'Entier', float: 'Réel', text: 'Texte' };
@@ -671,7 +726,8 @@ export function widgetsFor(variable) {
       if (t === 'bool') return ['rx-indicator', 'rx-bool'];
       return ['rx-numeric', 'rx-level-bar'];
     case 'output':
-      return ['rx-indicator', 'rx-bool'];
+      if (t === 'bool') return ['rx-indicator', 'rx-bool'];
+      return ['rx-numeric', 'rx-level-bar'];
     default:
       return ['rx-label'];
   }
