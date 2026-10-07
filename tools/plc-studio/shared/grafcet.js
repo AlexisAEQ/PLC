@@ -47,6 +47,36 @@ export const DEFAULT_BLOCKS = {
   servo: { homing: 'auto', homingCondition: '', jogEnabled: false, jogMode: '', jogPlus: '', jogMinus: '', jogSpeed: '500', torque: '' },
 };
 
+// Texte d'une action tel qu'affiché dans l'éditeur de grafcet (sert aussi à la mise en page).
+export function actionText(a) {
+  switch (a.type) {
+    case 'N':
+      return `N  ${a.target || '?'}${a.condition ? `  si ${a.condition}` : ''}`;
+    case 'S':
+      return `S  ${a.target || '?'}`;
+    case 'R':
+      return `R  ${a.target || '?'}`;
+    case 'SET':
+      return `${a.target || '?'} := ${a.value || '?'}`;
+    case 'NSET':
+      return `${a.target || '?'} = ${a.value || '?'}  (continu)`;
+    case 'INC':
+      return `${a.target || '?'} + 1`;
+    case 'DEC':
+      return `${a.target || '?'} − 1`;
+    case 'SERVO_MOVE':
+      return `Servo → ${a.position || '?'}  (vitesse ${a.speed || '?'})`;
+    case 'SERVO_HOME':
+      return 'Servo : prise d’origine';
+    case 'SERVO_STOP':
+      return 'Servo : arrêt';
+    case 'MSG':
+      return `Message : ${a.text || ''}`;
+    default:
+      return a.type;
+  }
+}
+
 export function normalizeLogic(logic) {
   const l = logic || {};
   return {

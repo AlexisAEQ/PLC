@@ -1,0 +1,505 @@
+{
+  "format": "plc-studio-spec",
+  "name": "PresseServo",
+  "hostname": "presseservo",
+  "execution": "hmi",
+  "wifi": [
+    {
+      "name": "Point d’accès",
+      "mode": "access_point",
+      "ap_name": "presseservo",
+      "ap_password": "secret123",
+      "ap_ip": "192.168.4.1",
+      "ap_channel": 6
+    }
+  ],
+  "equipment": [
+    {
+      "id": "plc",
+      "type": "Kincony_KC868_A8S",
+      "label": "Automate",
+      "options": {
+        "rtc": true
+      }
+    },
+    {
+      "id": "module_es",
+      "type": "Waveshare_8DIO",
+      "label": "Module ES",
+      "address": 1
+    },
+    {
+      "id": "servo",
+      "type": "SureServo",
+      "label": "Servo",
+      "address": 127,
+      "options": {
+        "pulsesPerUnit": 1,
+        "maxRange": 1000000,
+        "homePolicy": "NEGATIVE_INVALIDATES_HOME"
+      }
+    }
+  ],
+  "editorPassword": "1111",
+  "servoSignals": {
+    "servoOn": "plc.Y5",
+    "immediateStop": "plc.Y6",
+    "alarmsReset": "plc.Y7"
+  },
+  "io": [
+    {
+      "symbol": "AU_OK",
+      "label": "AU OK",
+      "at": "plc.X1"
+    },
+    {
+      "symbol": "Depart",
+      "label": "Départ cycle",
+      "at": "plc.X2"
+    },
+    {
+      "symbol": "Piece",
+      "label": "Pièce présente",
+      "at": "module_es.DI1",
+      "inverse": true
+    },
+    {
+      "symbol": "Verin_sorti",
+      "label": "Vérin sorti",
+      "at": "module_es.DI2"
+    },
+    {
+      "symbol": "Verin",
+      "label": "Vérin",
+      "at": "plc.Y1",
+      "fallback": "off"
+    },
+    {
+      "symbol": "Soufflage",
+      "label": "Soufflage",
+      "at": "module_es.DO1",
+      "fallback": "off"
+    }
+  ],
+  "variables": [
+    {
+      "symbol": "Acquit",
+      "label": "Acquitter",
+      "kind": "command",
+      "dataType": "bool",
+      "widget": "tx-button-hold"
+    },
+    {
+      "symbol": "Arret",
+      "label": "Arrêt",
+      "kind": "command",
+      "dataType": "bool",
+      "widget": "tx-button-hold"
+    },
+    {
+      "symbol": "Cible",
+      "label": "Cible",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 50000,
+      "min": 0,
+      "max": 900000,
+      "widget": "tx-numeric"
+    },
+    {
+      "symbol": "Vitesse",
+      "label": "Vitesse",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 8,
+      "min": 0,
+      "max": 15,
+      "widget": "tx-numeric"
+    },
+    {
+      "symbol": "Duree",
+      "label": "Durée soufflage",
+      "kind": "parameter",
+      "dataType": "float",
+      "initial": 1.5,
+      "widget": "tx-numeric"
+    },
+    {
+      "symbol": "Recette",
+      "label": "Recette",
+      "kind": "parameter",
+      "dataType": "text",
+      "initial": "A",
+      "widget": "tx-string"
+    },
+    {
+      "symbol": "Pieces",
+      "label": "Pièces",
+      "kind": "indicator",
+      "dataType": "int",
+      "widget": "rx-numeric"
+    },
+    {
+      "symbol": "Defaut",
+      "label": "Défaut",
+      "kind": "indicator",
+      "dataType": "bool",
+      "widget": "rx-indicator"
+    },
+    {
+      "symbol": "Mem",
+      "label": "Mémoire",
+      "kind": "memory",
+      "dataType": "bool",
+      "widget": "rx-indicator"
+    },
+    {
+      "symbol": "Jog",
+      "label": "Jog",
+      "kind": "command",
+      "dataType": "bool",
+      "widget": "tx-button-hold"
+    },
+    {
+      "symbol": "JogP",
+      "label": "Jog plus",
+      "kind": "command",
+      "dataType": "bool",
+      "widget": "tx-button-hold"
+    },
+    {
+      "symbol": "JogM",
+      "label": "Jog moins",
+      "kind": "command",
+      "dataType": "bool",
+      "widget": "tx-button-hold"
+    }
+  ],
+  "grafcet": {
+    "steps": [
+      {
+        "num": 0,
+        "label": "Attente",
+        "initial": true,
+        "actions": [
+          "N Mem"
+        ]
+      },
+      {
+        "num": 1,
+        "label": "Serrage",
+        "actions": [
+          "N Verin",
+          "S Mem"
+        ]
+      },
+      {
+        "num": 2,
+        "label": "Usinage",
+        "actions": [
+          "SERVO_MOVE Cible @ Vitesse"
+        ]
+      },
+      {
+        "num": 3,
+        "label": "Soufflage",
+        "actions": [
+          "N Soufflage si Piece"
+        ]
+      },
+      {
+        "num": 4,
+        "label": "Fin",
+        "actions": [
+          "INC Pieces",
+          "R Mem",
+          "MSG success: Pièce terminée"
+        ]
+      },
+      {
+        "num": 5,
+        "label": "Attente servo",
+        "actions": [
+          "SERVO_MOVE 0 @ 15"
+        ]
+      }
+    ],
+    "transitions": [
+      {
+        "num": 0,
+        "from": 0,
+        "to": 1,
+        "condition": "FM(Depart) ET Piece"
+      },
+      {
+        "num": 1,
+        "from": 1,
+        "to": [
+          2,
+          3
+        ],
+        "condition": "Verin_sorti"
+      },
+      {
+        "num": 2,
+        "from": [
+          2,
+          3
+        ],
+        "to": 4,
+        "condition": "Servo.enPosition ET X3.t >= 1500ms"
+      },
+      {
+        "num": 3,
+        "from": 4,
+        "to": 5,
+        "condition": "VRAI"
+      },
+      {
+        "num": 4,
+        "from": 5,
+        "to": 0,
+        "condition": "Servo.enPosition"
+      }
+    ]
+  },
+  "modes": {
+    "emergency": {
+      "condition": "NON AU_OK",
+      "reset": "Acquit"
+    },
+    "run": {
+      "start": "",
+      "stop": "Arret"
+    },
+    "servo": {
+      "homing": "auto",
+      "homingCondition": "",
+      "jogEnabled": true,
+      "jogMode": "Jog",
+      "jogPlus": "JogP",
+      "jogMinus": "JogM",
+      "jogSpeed": "400",
+      "torque": "80"
+    }
+  },
+  "hmi": "auto",
+  "description": "Presse : serrage par vérin, usinage par servo (position et vitesse réglables) en parallèle d'un soufflage, comptage des pièces, retour du servo en position 0.",
+  "scenarios": [
+    {
+      "name": "Prise d'origine puis cycle complet",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Piece": true
+          }
+        },
+        {
+          "comment": "Initialisation du variateur et prise d'origine automatique avant le premier cycle"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "expect": {
+            "X0": true,
+            "Servo.origineFaite": true,
+            "Verin": false
+          }
+        },
+        {
+          "press": "Depart"
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "expect": {
+            "Verin": true,
+            "mode": "CYCLE"
+          }
+        },
+        {
+          "set": {
+            "Verin_sorti": true
+          }
+        },
+        {
+          "until": {
+            "X2": true,
+            "X3": true
+          },
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Soufflage": true
+          }
+        },
+        {
+          "until": "X4 OU X5",
+          "timeout": "30s"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ]
+          },
+          "timeout": "30s"
+        },
+        {
+          "expect": {
+            "Pieces": 1,
+            "Servo.position": 0
+          }
+        },
+        {
+          "message": "Pièce terminée"
+        }
+      ]
+    },
+    {
+      "name": "Pas de départ sans pièce",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Piece": false
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "Depart"
+        },
+        {
+          "wait": "500ms"
+        },
+        {
+          "expect": {
+            "steps": [
+              0
+            ],
+            "Verin": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alarme servo pendant l'usinage : urgence, réarmement",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true,
+            "Piece": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "press": "Depart"
+        },
+        {
+          "set": {
+            "Verin_sorti": true
+          }
+        },
+        {
+          "until": "X2",
+          "timeout": "500ms"
+        },
+        {
+          "servo": "alarm"
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE",
+            "Verin": false,
+            "Soufflage": false,
+            "steps": []
+          }
+        },
+        {
+          "message": "Alarme servo"
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        }
+      ]
+    },
+    {
+      "name": "Arrêt d'urgence et acquittement",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        },
+        {
+          "set": {
+            "AU_OK": false
+          }
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE"
+          }
+        },
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "wait": "2s"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE"
+          }
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "20s"
+        }
+      ]
+    }
+  ]
+}

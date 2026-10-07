@@ -1,0 +1,676 @@
+{
+  "format": "plc-studio-spec",
+  "name": "TriColis",
+  "description": "Convoyeur de tri : les colis non conformes sont éjectés par un vérin, les autres continuent. Comptage des bons et des rejets, détection de bourrage en sortie.",
+  "execution": "hmi",
+  "equipment": [
+    {
+      "id": "plc",
+      "type": "Kincony_KC868_A8S",
+      "label": "Automate"
+    },
+    {
+      "id": "io",
+      "type": "Waveshare_8DIO",
+      "label": "Module ES",
+      "address": 1
+    }
+  ],
+  "io": [
+    {
+      "symbol": "AU_OK",
+      "label": "Arrêt d'urgence OK",
+      "at": "plc.X1"
+    },
+    {
+      "symbol": "BP_Marche",
+      "label": "Bouton marche",
+      "at": "plc.X2"
+    },
+    {
+      "symbol": "BP_Arret",
+      "label": "Bouton arrêt",
+      "at": "plc.X3",
+      "inverse": true,
+      "comment": "Contact NF : vrai quand le bouton est enfoncé"
+    },
+    {
+      "symbol": "Cel_entree",
+      "label": "Colis à l'entrée",
+      "at": "io.DI1"
+    },
+    {
+      "symbol": "Det_defaut",
+      "label": "Colis non conforme",
+      "at": "io.DI2"
+    },
+    {
+      "symbol": "Cel_ejection",
+      "label": "Colis devant l'éjecteur",
+      "at": "io.DI3"
+    },
+    {
+      "symbol": "Ejecteur_sorti",
+      "label": "Éjecteur sorti",
+      "at": "io.DI4"
+    },
+    {
+      "symbol": "Moteur",
+      "label": "Moteur convoyeur",
+      "at": "plc.Y1"
+    },
+    {
+      "symbol": "Ejecteur",
+      "label": "Vérin éjecteur",
+      "at": "plc.Y2"
+    },
+    {
+      "symbol": "Voyant_defaut",
+      "label": "Voyant défaut",
+      "at": "io.DO1"
+    }
+  ],
+  "variables": [
+    {
+      "symbol": "Acquit",
+      "label": "Acquitter",
+      "kind": "command",
+      "dataType": "bool"
+    },
+    {
+      "symbol": "Tempo_retour",
+      "label": "Retour éjecteur",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 300,
+      "min": 50,
+      "max": 5000,
+      "unit": "ms"
+    },
+    {
+      "symbol": "Tempo_bourrage",
+      "label": "Détection bourrage",
+      "kind": "parameter",
+      "dataType": "int",
+      "initial": 5000,
+      "min": 1000,
+      "max": 30000,
+      "unit": "ms",
+      "comment": "Durée maximale de passage d'un colis devant la cellule d'éjection"
+    },
+    {
+      "symbol": "Bons",
+      "label": "Colis conformes",
+      "kind": "indicator",
+      "dataType": "int"
+    },
+    {
+      "symbol": "Rejets",
+      "label": "Colis rejetés",
+      "kind": "indicator",
+      "dataType": "int"
+    },
+    {
+      "symbol": "Non_conforme",
+      "label": "Colis en cours non conforme",
+      "kind": "memory",
+      "dataType": "bool"
+    }
+  ],
+  "grafcet": {
+    "steps": [
+      {
+        "num": 0,
+        "label": "Attente colis",
+        "initial": true,
+        "actions": [
+          "N Moteur"
+        ]
+      },
+      {
+        "num": 1,
+        "label": "Contrôle",
+        "actions": [
+          "N Moteur",
+          "SET Non_conforme := Det_defaut"
+        ]
+      },
+      {
+        "num": 2,
+        "label": "Éjection",
+        "actions": [
+          "N Ejecteur",
+          "INC Rejets"
+        ]
+      },
+      {
+        "num": 3,
+        "label": "Retour éjecteur",
+        "actions": []
+      },
+      {
+        "num": 4,
+        "label": "Colis conforme",
+        "actions": [
+          "N Moteur",
+          "INC Bons"
+        ]
+      },
+      {
+        "num": 5,
+        "label": "Bourrage",
+        "actions": [
+          "N Voyant_defaut",
+          "MSG error: Bourrage en sortie : dégager le colis puis acquitter"
+        ]
+      }
+    ],
+    "transitions": [
+      {
+        "from": 0,
+        "to": 1,
+        "condition": "FM(Cel_entree)"
+      },
+      {
+        "from": 1,
+        "to": 2,
+        "condition": "Cel_ejection ET Non_conforme"
+      },
+      {
+        "from": 1,
+        "to": 4,
+        "condition": "Cel_ejection ET NON Non_conforme"
+      },
+      {
+        "from": 2,
+        "to": 3,
+        "condition": "Ejecteur_sorti"
+      },
+      {
+        "from": 3,
+        "to": 0,
+        "condition": "NON Ejecteur_sorti ET X3.t >= Tempo_retour"
+      },
+      {
+        "from": 4,
+        "to": 0,
+        "condition": "NON Cel_ejection"
+      },
+      {
+        "from": 4,
+        "to": 5,
+        "condition": "Cel_ejection ET X4.t >= Tempo_bourrage"
+      },
+      {
+        "from": 5,
+        "to": 0,
+        "condition": "FM(Acquit) ET NON Cel_ejection"
+      }
+    ]
+  },
+  "modes": {
+    "emergency": {
+      "condition": "NON AU_OK",
+      "reset": "Acquit"
+    },
+    "run": {
+      "start": "BP_Marche",
+      "stop": "BP_Arret"
+    }
+  },
+  "hmi": {
+    "pages": [
+      {
+        "name": "Production",
+        "sections": [
+          {
+            "name": "État",
+            "items": [
+              "@etat",
+              "Moteur",
+              "Voyant_defaut"
+            ]
+          },
+          {
+            "name": "Commandes",
+            "items": [
+              {
+                "ref": "Acquit",
+                "props": {
+                  "color": "warning"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Compteurs",
+            "items": [
+              "Bons",
+              {
+                "ref": "Rejets",
+                "props": {
+                  "state": "danger"
+                },
+                "widget": "rx-label"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Réglages",
+        "password": "1234",
+        "sections": [
+          {
+            "name": "Éjecteur",
+            "items": [
+              "Tempo_retour",
+              "Tempo_bourrage"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Entrées sorties",
+        "sections": [
+          {
+            "name": "Entrées",
+            "orientation": "vertical",
+            "items": [
+              "AU_OK",
+              "BP_Marche",
+              "BP_Arret",
+              "Cel_entree",
+              "Det_defaut",
+              "Cel_ejection",
+              "Ejecteur_sorti"
+            ]
+          },
+          {
+            "name": "Sorties",
+            "orientation": "vertical",
+            "items": [
+              "Moteur",
+              "Ejecteur",
+              "Voyant_defaut"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "name": "Démarrage puis colis conforme",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "expect": {
+            "Moteur": false
+          }
+        },
+        {
+          "press": "BP_Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "expect": {
+            "X0": true,
+            "Moteur": true
+          }
+        },
+        {
+          "set": {
+            "Cel_entree": true
+          }
+        },
+        {
+          "until": "X1",
+          "timeout": "200ms"
+        },
+        {
+          "set": {
+            "Cel_entree": false,
+            "Cel_ejection": true
+          }
+        },
+        {
+          "until": "X4",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "mode": "CYCLE",
+            "Bons": 1,
+            "Rejets": 0,
+            "Ejecteur": false,
+            "Moteur": true
+          }
+        },
+        {
+          "set": {
+            "Cel_ejection": false
+          }
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ]
+          },
+          "timeout": "200ms"
+        }
+      ]
+    },
+    {
+      "name": "Colis non conforme éjecté",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "BP_Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "set": {
+            "Cel_entree": true,
+            "Det_defaut": true
+          }
+        },
+        {
+          "until": "X1",
+          "timeout": "200ms"
+        },
+        {
+          "set": {
+            "Cel_entree": false,
+            "Det_defaut": false,
+            "Cel_ejection": true
+          }
+        },
+        {
+          "until": "X2",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Ejecteur": true,
+            "Moteur": false,
+            "Rejets": 1,
+            "Bons": 0
+          }
+        },
+        {
+          "set": {
+            "Ejecteur_sorti": true,
+            "Cel_ejection": false
+          }
+        },
+        {
+          "until": "X3",
+          "timeout": "200ms"
+        },
+        {
+          "expect": {
+            "Ejecteur": false
+          }
+        },
+        {
+          "set": {
+            "Ejecteur_sorti": false
+          }
+        },
+        {
+          "wait": "200ms"
+        },
+        {
+          "expect": {
+            "X3": true
+          }
+        },
+        {
+          "until": "X0",
+          "timeout": "500ms"
+        }
+      ]
+    },
+    {
+      "name": "Arrêt d'urgence pendant une éjection, acquittement",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "BP_Marche"
+        },
+        {
+          "set": {
+            "Cel_entree": true,
+            "Det_defaut": true
+          }
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "set": {
+            "Cel_entree": false,
+            "Cel_ejection": true
+          }
+        },
+        {
+          "until": "X2",
+          "timeout": "200ms"
+        },
+        {
+          "set": {
+            "AU_OK": false
+          }
+        },
+        {
+          "wait": "50ms"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE",
+            "steps": [],
+            "Moteur": false,
+            "Ejecteur": false
+          }
+        },
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "wait": "2s"
+        },
+        {
+          "expect": {
+            "mode": "URGENCE"
+          }
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "3s"
+        },
+        {
+          "press": "BP_Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS",
+            "Moteur": true
+          },
+          "timeout": "1s"
+        }
+      ]
+    },
+    {
+      "name": "Bouton arrêt",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "BP_Marche"
+        },
+        {
+          "until": {
+            "mode": "REPOS"
+          },
+          "timeout": "1s"
+        },
+        {
+          "press": "BP_Arret"
+        },
+        {
+          "expect": {
+            "mode": "ARRÊT",
+            "Moteur": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bourrage en sortie puis acquittement",
+      "steps": [
+        {
+          "set": {
+            "AU_OK": true
+          }
+        },
+        {
+          "until": {
+            "mode": "ARRÊT"
+          },
+          "timeout": "5s"
+        },
+        {
+          "press": "BP_Marche"
+        },
+        {
+          "set": {
+            "Cel_entree": true
+          }
+        },
+        {
+          "until": "X1",
+          "timeout": "500ms"
+        },
+        {
+          "set": {
+            "Cel_entree": false,
+            "Cel_ejection": true
+          }
+        },
+        {
+          "until": "X4",
+          "timeout": "200ms"
+        },
+        {
+          "comment": "Le colis reste devant la cellule : bourrage après Tempo_bourrage (5 s)"
+        },
+        {
+          "wait": "4.5s"
+        },
+        {
+          "expect": {
+            "X4": true,
+            "Voyant_defaut": false
+          }
+        },
+        {
+          "until": "X5",
+          "timeout": "1s"
+        },
+        {
+          "expect": {
+            "Moteur": false,
+            "Voyant_defaut": true
+          }
+        },
+        {
+          "message": "Bourrage"
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "expect": {
+            "X5": true
+          }
+        },
+        {
+          "set": {
+            "Cel_ejection": false
+          }
+        },
+        {
+          "press": "Acquit"
+        },
+        {
+          "until": {
+            "steps": [
+              0
+            ],
+            "Moteur": true
+          },
+          "timeout": "200ms"
+        }
+      ]
+    }
+  ]
+}
