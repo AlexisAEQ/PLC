@@ -1,502 +1,244 @@
 {
-  "name": "ressort_royal",
+  "name": "bancaubo",
   "type": 2,
+  "execution_mode": "hmi",
   "log on diagnostic file": true,
   "delete diagnostic file at startup": false,
   "show success messages": false,
   "show info messages": true,
   "log historry and transition": false,
+  "filteredMessages": [],
   "editable_files": [
     "*.json"
   ],
-  "ignore_files": [ 
-    "index.html", 
-    "index.js", 
-    "renderers.json" 
- ],
- "default_editor_file": "diagnostic.txt",
- "with_plc_enable_interface": true, 
-  "component": "hw-module",
+  "ignore_files": [
+    "index.html",
+    "index.js",
+    "renderers.json"
+  ],
+  "default_editor_file": "interface.json",
+  "with_plc_enable_interface": true,
   "security": {
     "passwords": {
-      "pages": {
-        "Configuration": "1111"
-      }
+      "pages": {}
     }
   },
   "config": [
     {
       "Wifi": [
-      
         {
-          "ssid": "Ella",
-          "pwd": "Oceanne1",
-          "name": "Thierry",
-          "dhcp": true
-        },
-  
-        {
-        
-          "name": "Access Point RessortRoyal",
+          "name": "Point d'accès",
           "mode": "access_point",
-          "ap_name": "RS- AP3",
-          "ap_password": "Secure123",
-          "ap_ip": "192.168.4.3",
-          "ap_channel": 11
-        } /*
-        {
-          "ssid": "MaisonRoss",
-          "pwd": "ignace753951",
-          "name": "Alexis",
-          "dhcp": true
-        },
-        {
-          "ssid": "PosadaLaHacienda",
-          "pwd": "Chispas2020",
-          "name": "Mexique",
-          "dhcp": true
-        },
-        {
-          "name": "ressort_royal_3",
-          "ssid": "ressort_royal_3",
-          "pwd": "Hugo_333",
-          "ip": "10.0.203.2",
-          "dns": "10.0.203.1",
-          "gateway": "10.0.203.1",
-          "mask": "255.255.255.0",
-          "dhcp": false
-        },
-        */
-       
+          "ap_name": "bancaubo",
+          "ap_password": "ChangeMoi123",
+          "ap_ip": "192.168.4.1",
+          "ap_channel": 6
+        }
       ]
     },
     {
+      "Ethernet": {
+        "enabled": true,
+        "dhcp": false,
+        "ip": "192.168.10.20",
+        "gateway": "192.168.10.1",
+        "mask": "255.255.255.0"
+      }
+    },
+    {
       "parameters": {
-        "ota_url": "truc"
+        "ota_url": ""
       }
     }
   ],
   "children": [
     {
-      "name": "Direct outputs",
-      "hardware": "Kincony_KC868_A8S",
-      "component": "no-show",
-      "type": "tx-bool",
-      "children": [
-        {
-          "id": 1,
-          "name": "Buzzer",
-          "component": "tx-bool",
-          "hash": 1711197005
-        }
-      ]
-    },
-    {
-      "name": "Inputs Kincony",
-      "hardware": "Kincony_KC868_A8S",
-      "component": "hw-section",
-      "type": "PF8574_rx-bool",
-      "children": [
-        {
-          "id": 1,
-          "name": "EStopA",
-          //"inverse": true,
-          "component": "no-show",
-          "hash": 721063196
-        },
-        {
-          "id": 5,
-          "name": "StartCycle",
-          "hash": 2693195903
-        }
-      ]
-    },
-    {
-      "name": "Outputs",
-      "hardware": "Kincony_KC868_A8S",
-      "component": "hw-section",
-      "type": "PF8574_tx-bool",
-      "children": [
-        {
-          "id": 1,
-          "name": "servoOn",
-          "hash": 1927398708
-        },
-        {
-          "id": 2,
-          "name": "triggerPR",
-          "hash": 4235117271
-        },
-        {
-          "id": 4,
-          "name": "immediatStop",
-          "component": "tx-bool",
-          "hash": 973196112
-        },
-        {
-          "id": 5,
-          "name": "alarmsReset",
-          "hash": 4138453966
-        },
-        {
-          "id": 6,
-          "name": "free run",
-          "hash": 2015677485
-        }
-      ]
-    },
-    {
-      "name": "Jog",
-      "hardware": "virtual",
-      "component": "hw-section",
+      "name": "Automate Entrees",
+      "hardware": "Waveshare_ESP32S3_POE_8DI8DO",
       "type": "rx-bool",
       "children": [
         {
           "id": 1,
-          "name": "jog",
-          "component": "tx-bool",
-          "hash": 627952477
+          "name": "Sel_start",
+          "hash": 1501735426
         },
         {
           "id": 2,
-          "name": "fwd",
-          "component": "tx-button-hold",
-          "hash": 936928435
+          "name": "Sel_stop",
+          "hash": 169406854
         },
         {
           "id": 3,
-          "name": "rwd",
-          "component": "tx-button-hold",
-          "hash": 2405696470
+          "name": "Rob_marche",
+          "hash": 2378054341
         },
         {
           "id": 4,
-          "name": "Full torque",
-          "component": "tx-bool",
-          "hash": 313736047
-        }
-      ]
-    },
-    {
-      "name": "Status",
-      "hardware": "virtual",
-      "component": "hw-section",
-      "type": "tx-bool",
-      "children": [
-        {
-          "id": 1,
-          "name": "servoReady",
-          "component": "rx-indicator",
-          "hash": 1578545169
-        },
-        {
-          "id": 2,
-          "name": "servoActivated",
-          "component": "rx-indicator",
-          "hash": 1878960780
-        },
-        {
-          "id": 3,
-          "name": "zeroSpeed",
-          "component": "no-show",
-          "hash": 3381240120
-        },
-        {
-          "id": 4,
-          "name": "targetSpeedRated",
-          "component": "no-show",
-          "hash": 204382134
+          "name": "Rob_pause",
+          "hash": 2905360014
         },
         {
           "id": 5,
-          "name": "AtTarget",
-          "component": "no-show",
-          "hash": 2857997314
-        },
-        {
-          "id": 7,
-          "name": "servoAlarm",
-          "component": "rx-indicator",
-          "hash": 1036420395
-        },
-        {
-          "id": 9,
-          "name": "absolutPositionLost",
-          "component": "no-show",
-          "hash": 1845100150
-        },
-        {
-          "id": 10,
-          "name": "batteryAlarm",
-          "component": "no-show",
-          "hash": 1229514833
-        },
-        {
-          "id": 11,
-          "name": "multipleTurnsOverflow",
-          "component": "no-show",
-          "hash": 4013941733
-        },
-        {
-          "id": 12,
-          "name": "puuOverflow",
-          "component": "no-show",
-          "hash": 3738696056
-        },
-        {
-          "id": 13,
-          "name": "absoluteCoordonateNotSet",
-          "component": "no-show",
-          "hash": 2023813836
-        },
-        {
-          "id": 14,
-          "name": "homeDone",
-          "component": "rx-indicator",
-          "hash": 3171404866
-        },
-        {
-          "id": 15,
-          "name": "modbusError",
-          "component_comment": "rx-indicator",
-          "hash": 460376054
-        },
-        {
-          "id": 16,
-          "name": "driveInitialised",
-          "component": "rx-indicator",
-          "hash": 714661227
-        }
-      ]
-    },
-    {
-      "name": "Inputs",
-      "hardware": "virtual",
-      "component": "hw-section",
-      "type": "tx-uint32",
-      "children": [
-        {
-          "id": 1,
-          "name": "user target",
-          "hash": 645363011
-        },
-        {
-          "id": 2,
-          "name": "return Pos",
-          "hash": 396324830
-        },
-        {
-          "id": 3,
-          "name": "vjog speed",
-          "hash": 2984797290
-        },
-        {
-          "id": 4,
-          "name": "vcycle speed",
-          "hash": 1951357668
-        },
-        {
-          "id": 5,
-          "name": "number of cycles to do",
-          "hash": 3526906192
+          "name": "Rob_sans_defaut",
+          "hash": 713723341
         },
         {
           "id": 6,
-          "name": "number of cycles made",
-          "hash": 3822078925
+          "name": "Rob_operable",
+          "hash": 2031146569
         },
         {
           "id": 7,
-          "name": "v_position",
-          "hash": 1168588921
+          "name": "DI7",
+          "hash": 4273347850
         },
         {
           "id": 8,
-          "name": "v_torque",
-          "hash": 3018797200
+          "name": "DI8",
+          "hash": 942943967
         }
       ]
     },
     {
-      "name": "Servo read holding register",
-      "hardware": "SureServo",
-      "component": "no-show",
-      "type": "ModbusReadHoldingRegister",
-      "address": 127,
+      "name": "Automate Sorties",
+      "hardware": "Waveshare_ESP32S3_POE_8DI8DO",
+      "type": "EXP_tx-bool",
       "children": [
         {
           "id": 1,
-          "name": "status",
-          "component": "rx-numeric",
-          "hash": 4137233651,
+          "name": "Cmd_start",
+          "hash": 903971659
+        },
+        {
+          "id": 2,
+          "name": "Cmd_stop",
+          "hash": 1719392463
+        }
+      ]
+    },
+    {
+      "name": "Robot Retours",
+      "hardware": "Robot_Aubo",
+      "type": "ModbusReadHoldingRegister",
+      "address": 1,
+      "tcp": {
+        "ip": "192.168.10.50",
+        "port": 502
+      },
+      "children": [
+        {
+          "id": 1,
+          "name": "Mb_pret",
+          "hash": 2906946473,
           "refreshInterval": 200
         },
         {
           "id": 2,
-          "name": "absolute coordonate system status",
-          "component": "no-show",
-          "hash": 4098304980,
-          "refreshInterval": 1000
+          "name": "Mb_en_cours",
+          "hash": 3508887154,
+          "refreshInterval": 200
         },
         {
           "id": 3,
-          "name": "alarms",
-          "component": "rx-numeric",
-          "hash": 4126332617,
-          "refreshInterval": 1000
-        }
-      ]
-    },
-    {
-      "name": "Servo write holding register",
-      "hardware": "SureServo",
-      "component_comment": "hw-section",
-      "component": "no-show",
-      "type": "ModbusWriteHoldingRegister",
-      "address": 127,
-      "children": [
-        {
-          "id": 1,
-          "name": "aux_function",
-          "component": "rx-numeric",
-          "hash": 2308213873
-        },
-        {
-          "id": 2,
-          "name": "trigger",
-          "component": "tx-numeric",
-          "hash": 748480285
+          "name": "Mb_fini",
+          "hash": 1277869828,
+          "refreshInterval": 200
         },
         {
           "id": 4,
-          "name": "jog speed",
-          "component": "rx-numeric",
-          "hash": 3187488644
+          "name": "Mb_defaut",
+          "hash": 703010244,
+          "refreshInterval": 200
         },
         {
           "id": 5,
-          "name": "maxTorque",
-          "component": "rx-numeric",
-          "hash": 3740987040
-        }
-      ]
-    },
-    {
-      "name": "Num Status",
-      "hardware": "SureServo",
-      "component": "hw-section",
-      "type": "ModbusReadDobbleHoldingRegister",
-      "address": 127,
-      "children": [
-        {
-          "id": 1,
-          "name": "position",
-          "component": "rx-numeric",
-          "hash": 4045003206,
-          "refreshInterval": 250
-        }
-      ]
-    },
-     {
-      "name": "Servo write doubble holding registers",
-      "hardware": "SureServo",
-      "type": "ModbusWriteDobbleHoldingRegister",
-      "address": 127,
-      "children": [
-        {
-          "id": 1,
-          "name": "target A",
-          "hash": 715974120
-        },
-        {
-          "id": 2,
-          "name": "target B",
-          "hash": 1732568463
-        },
-        {
-          "id": 3,
-          "name": "PR1 speed",
-          "hash": 3939244141
-        },
-        {
-          "id": 4,
-          "name": "PR2 speed",
-          "hash": 4237616449
-        },
-        {
-          "id": 5,
-          "name": "PR3 speed",
-          "hash": 1897666723
+          "name": "Mb_echo_prog",
+          "hash": 3035165874,
+          "refreshInterval": 200
         },
         {
           "id": 6,
-          "name": "PR3 data",
-          "hash": 1022630084
+          "name": "Mb_vie",
+          "hash": 3364475241,
+          "refreshInterval": 200
         }
       ]
     },
     {
-      "name": "Virtual bool inputs",
-      "hardware": "virtual",
-      "type": "rx-bool",
-      "children":[
-        {
-          "id": 2,
-          "name": "v_immediatStop",
-          "hash": 2701507160
-        },
-        {
-          "id": 3,
-          "name": "nb cycles clear",
-          "hash": 3294789918
-        },
-        {
-          "id": 4,
-          "name": "v_servoOn",
-          "hash": 623257485
-
-        },
-        {
-          "id": 5,
-          "name": "go and back",
-          "hash": 1078009035
-        },
-        {
-          "id": 7,
-          "name": "Full torque",
-          "hash": 2324654663
-        },
-        {
-          "id": 8,
-          "name": "clear all notifications",
-          "hash": 4128250470
-        },
-        {
-          "id": 10,
-          "name": "v_alarmsReset",
-          "hash": 1726752376
-        },
+      "name": "Robot Positions",
+      "hardware": "Robot_Aubo",
+      "type": "ModbusReadHoldingRegister",
+      "address": 1,
+      "tcp": {
+        "ip": "192.168.10.50",
+        "port": 502
+      },
+      "children": [
         {
           "id": 11,
-          "name": "v_rtc_set_time",
-          "hash": 59448638
+          "name": "Pos_X",
+          "hash": 1396041419,
+          "refreshInterval": 1000
+        },
+        {
+          "id": 12,
+          "name": "Pos_Y",
+          "hash": 2063422009,
+          "refreshInterval": 1000
+        },
+        {
+          "id": 13,
+          "name": "Pos_Z",
+          "hash": 3566584744,
+          "refreshInterval": 1000
         }
       ]
     },
     {
-      "name": "Textes",
+      "name": "Parametres",
+      "hardware": "virtual",
+      "type": "tx-uint32",
+      "children": [
+        {
+          "id": 1,
+          "name": "Tempo_reponse",
+          "hash": 885864203
+        }
+      ]
+    },
+    {
+      "name": "Voyants",
+      "hardware": "virtual",
+      "type": "tx-bool",
+      "children": [
+        {
+          "id": 1,
+          "name": "Defaut_cmd",
+          "hash": 581731598
+        }
+      ]
+    },
+    {
+      "name": "Messages",
       "hardware": "virtual",
       "type": "tx-text",
       "children": [
         {
-          "id": 2,
-          "name": "machine d'états",
-          "hash": 1218981442
-        },
+          "id": 1,
+          "name": "Etat_programme",
+          "hash": 2551538582
+        }
+      ]
+    },
+    {
+      "name": "Systeme",
+      "hardware": "virtual",
+      "type": "tx-text",
+      "children": [
         {
-          "id": 3,
-          "name": "clock",
-          "hash": 4007601654
+          "id": 1,
+          "name": "etat machine",
+          "hash": 3958179723
         }
       ]
     }

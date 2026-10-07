@@ -1,329 +1,170 @@
 {
-    "pages": [
+  "pages": [
+    {
+      "PageName": "Banc",
+      "sections": [
         {
-            "PageName": "Page principale",
-            "sections": [
-                {
-                    "SectionName": "Opération",
-                    "orientation": "horizontal",
-                    "NodesList": [
-                        {
-                            "name": "Position cible",
-                            "component": "tx-numeric",
-                            "unit": "pulses",
-                            "hash": 645363011
-                        },
-                        {
-                            "name": "Position retour",
-                            "component": "tx-numeric",
-                            "unit": "pulses",
-                            "hash": 396324830
-                        },
-                        {
-                            "name": "Nombre de cycles du job",
-                            "component": "tx-numeric",
-                            "hash": 3526906192
-                        },
-                        {
-                            "name": "Réinitialiser compteur",
-                            "component": "tx-button-hold",
-                            "color": "warning",
-                            "hash": 3294789918
-                        },
-                        {
-                            "name": "Free Run",
-                            "component": "tx-bool",
-                            "color": "primary",
-                            "hash": 2015677485
-                        },
-                        {
-                            "name": "Go And Back",
-                            "component": "tx-bool",
-                            "color": "success",
-                            "hash": 1078009035
-                        },
-                        {
-                            "name": "Reset défauts",
-                            "component": "tx-button-hold",
-                            "color": "warning",
-                            "hash": 1726752376
-                        },
-                        {
-                            "name": "Alarme Servo",
-                            "component": "rx-indicator",
-                            "color": "red",
-                            "hash": 1036420395
-                        },
-                        {
-                            "name": "Machine d'états",
-                            "component": "rx-label",
-                            "color": "neutral",
-                            "hash": 1218981442
-                        },
-                        {
-                            "name": "Cycles du job effectués",
-                            "hash": 3822078925,
-                            "component": "rx-level-bar",
-                            "isLabelAlarmWarningOn": false,
-                            "orientation": "horizontal",
-                            //"barLength": "400px",
-                            "max": 100,
-                            "min": 0
-                        },
-                        {
-                            "name": "Position actuelle [pulses]",
-                            "component": "rx-numeric",
-                            "unit": "pulses",
-                            "hash": 1168588921
-                        },
-                        {
-                            "name": "Horloge",
-                            "component": "rx-label",
-                            "state": "success",
-                            "isBlinking": false,
-                            "tooltip": "Shows the local time, updated only when IDLE",
-                            "getState": false,
-                            "hash": 4007601654
-                        }
-                    ]
-                },
-                {
-                    "SectionName": "Jog",
-                    "orientation": "horizontal",
-                    "NodesList": [
-                        {
-                            "name": "Jog Mode",
-                            "component": "tx-bool",
-                            "hash": 627952477
-                        },
-                        {
-                            "name": "Jog +",
-                            "component": "tx-button-hold",
-                            "color": "warning",
-                            "hash": 936928435
-                        },
-                        {
-                            "component": "tx-slider",
-                            "low": 0,
-                            "high": 3000, 
-                            "tooltip": "Vitesse du jog",
-                            "name": "Vitesse du jog",
-                            "disable": false,
-                            "getState": false,
-                            "hash": 2984797290
-                        },
-                        {
-                            "name": "Jog -",
-                            "component": "tx-button-hold",
-                            "color": "warning",
-                            "hash": 2405696470
-                        }
-                    ]
-                }
-            ]
+          "SectionName": "Commande",
+          "orientation": "horizontal",
+          "NodesList": [
+            {
+              "name": "État machine",
+              "component": "rx-label",
+              "hash": 3958179723,
+              "state": "neutral"
+            },
+            {
+              "name": "État programme",
+              "component": "rx-label",
+              "hash": 2551538582,
+              "state": "neutral"
+            },
+            {
+              "name": "Sélecteur START",
+              "component": "rx-indicator",
+              "hash": 1501735426,
+              "color": "lime",
+              "tooltip": "Contact NO, sélecteur maintenu"
+            },
+            {
+              "name": "Sélecteur STOP",
+              "component": "rx-indicator",
+              "hash": 169406854,
+              "color": "lime",
+              "tooltip": "Contact NO, sélecteur maintenu"
+            },
+            {
+              "name": "Départ programme robot",
+              "component": "rx-indicator",
+              "hash": 903971659,
+              "color": "lime",
+              "tooltip": "Entrée robot StartProgram"
+            },
+            {
+              "name": "Arrêt programme robot",
+              "component": "rx-indicator",
+              "hash": 1719392463,
+              "color": "lime",
+              "tooltip": "Entrée robot StopProgram"
+            },
+            {
+              "name": "Robot ne répond pas",
+              "component": "rx-indicator",
+              "hash": 581731598,
+              "color": "lime"
+            }
+          ]
         },
         {
-            "PageName": "Monitoring",
-            "sections": [
-                {
-                    "SectionName": "États du servo",
-                    "orientation": "horizontal",
-                    "NodesList": [
-                        {
-                            "name": "Start cycle physique",
-                            "component": "rx-indicator",
-                            "color": "green",
-                            "hash": 2693195903
-                        },
-                        {
-                            "name": "Servo Ready",
-                            "component": "rx-indicator",
-                            "color": "green",
-                            "hash": 1578545169
-                        },
-                        {
-                            "name": "Servo Activé",
-                            "component": "rx-indicator",
-                            "color": "green",
-                            "hash": 1878960780
-                        },
-                        {
-                            "name": "Vitesse Zéro",
-                            "component": "rx-indicator",
-                            "color": "green",
-                            "hash": 3381240120
-                        },
-                        {
-                            "name": "Vitesse Cible Atteinte",
-                            "component": "rx-indicator",
-                            "color": "yellow",
-                            "hash": 204382134
-                        },
-                        {
-                            "name": "Position cible atteinte",
-                            "component": "rx-indicator",
-                            "color": "green",
-                            "hash": 2857997314
-                        },
-                        {
-                            "name": "Home effectué",
-                            "component": "rx-indicator",
-                            "color": "green",
-                            "hash": 3171404866
-                        }
-                    ]
-                },
-                {
-                    "SectionName": "Alarmes",
-                    "orientation": "horizontal",
-                    "NodesList": [
-                        {
-                            "name": "Alarme Servo",
-                            "component": "rx-indicator",
-                            "color": "red",
-                            "hash": 1036420395
-                        },
-                        {
-                            "name": "Position Absolue Perdue",
-                            "component": "rx-indicator",
-                            "color": "red",
-                            "hash": 1845100150
-                        },
-                        {
-                            "name": "Alarme Batterie",
-                            "component": "rx-indicator",
-                            "color": "yellow",
-                            "hash": 1229514833
-                        },
-                        {
-                            "name": "Overflow Tours Multiples",
-                            "component": "rx-indicator",
-                            "color": "yellow",
-                            "hash": 4013941733
-                        },
-                        {
-                            "name": "Overflow PUU",
-                            "component": "rx-indicator",
-                            "color": "yellow",
-                            "hash": 3738696056
-                        },
-                        {
-                            "name": "Coordonnées Absolues Non Définies",
-                            "component": "rx-indicator",
-                            "color": "red",
-                            "hash": 2023813836
-                        },
-                        {
-                            "name": "Erreur Modbus",
-                            "component": "rx-indicator",
-                            "color": "red",
-                            "hash": 460376054
-                        }
-                    ]
-                },
-                {
-                    "SectionName": "États du système",
-                    "orientation": "horizontal",
-                    "NodesList": [
-                        {
-                            "name": "Drive Initialisé",
-                            "component": "rx-indicator",
-                            "color": "green",
-                            "hash": 714661227
-                        },
-                        {
-                            "name": "E stop A",
-                            "component": "rx-indicator",
-                            "color": "red",
-                            "hash": 721063196
-                        }
-                    ]
-                }
-            ]
+          "SectionName": "Robot (E/S)",
+          "orientation": "horizontal",
+          "NodesList": [
+            {
+              "name": "Programme robot en marche",
+              "component": "rx-indicator",
+              "hash": 2378054341,
+              "color": "lime",
+              "tooltip": "Sortie robot RunningHigh"
+            },
+            {
+              "name": "Robot en pause",
+              "component": "rx-indicator",
+              "hash": 2905360014,
+              "color": "lime",
+              "tooltip": "Sortie robot PausedHigh"
+            },
+            {
+              "name": "Robot sans défaut",
+              "component": "rx-indicator",
+              "hash": 713723341,
+              "color": "lime",
+              "tooltip": "Sortie robot NotSystemError"
+            },
+            {
+              "name": "Robot opérationnel",
+              "component": "rx-indicator",
+              "hash": 2031146569,
+              "color": "lime",
+              "tooltip": "Sortie robot RobotOperable"
+            }
+          ]
         },
         {
-            "PageName": "Configuration",
-            "password": "1111",
-            "sections": [
-                {
-                    "SectionName": "Paramètres de cycle",
-                    "orientation": "horizontal",
-                    "NodesList": [
-                        {
-                            "name": "Mettre à jour l'horloge",
-                            "component": "tx-button-hold",
-                            "color": "warning",
-                            "hash": 59448638
-                        }
-
-                    ]
-                },
-                {
-                    "SectionName": "Vitesses et couple",
-                    "orientation": "horizontal",
-                    "NodesList": [
-                        {
-                           "component": "tx-slider",
-                            "low": 1,
-                            "high": 15, 
-                            "name": "Vitesse du cycle",
-                            "tooltip": "Vitesse du cycle",
-                            "disable": false,
-                            "getState": false,
-                            "hash": 1951357668
-                        },
-                        {
-                            "component": "tx-slider",
-                            "low": 0,
-                            "high": 3000, 
-                            "tooltip": "Vitesse du jog",
-                            "name": "Vitesse du jog",
-                            "disable": false,
-                            "getState": false,
-                            "hash": 2984797290
-                        },
-                        {
-                            "name": "Full torque",
-                            "component": "tx-bool",
-                            "color": "green",
-                            "tooltip": "Spécifie le couple du servo: réduit ou 100%",
-                            "hash": 313736047
-                        },
-                        {
-                            "name": "Position [pulses]",
-                            "component": "rx-numeric",
-                            "unit": "pulses",
-                            "hash": 1168588921
-                        },
-                        {
-                            "component": "tx-slider",
-                            "low": 0,
-                            "high": 100, 
-                            "tooltip": "Torque",
-                            "name": "Couple",
-                            "disable": false,
-                            "getState": false,
-                            "hash": 3018797200
-                        }
-                    ]
-                },
-                {
-                    "SectionName": "Tests",
-                    "orientation": "horizontal",
-                    "NodesList": [
-                        {
-                            "name": "Jog Mode",
-                            "component": "tx-bool",
-                            "hash": 627952477
-                        },
-                        {
-                            "name": "Servo on",
-                            "component": "tx-bool",
-                            "hash": 623257485
-                        }
-                    ]
-                }
-            ]
+          "SectionName": "Robot (Modbus)",
+          "orientation": "horizontal",
+          "NodesList": [
+            {
+              "name": "Prog. maître prêt",
+              "component": "rx-numeric",
+              "hash": 2906946473
+            },
+            {
+              "name": "Tâche en cours",
+              "component": "rx-numeric",
+              "hash": 3508887154
+            },
+            {
+              "name": "Tâche finie",
+              "component": "rx-numeric",
+              "hash": 1277869828
+            },
+            {
+              "name": "Code défaut programme",
+              "component": "rx-numeric",
+              "hash": 703010244
+            },
+            {
+              "name": "N° tâche en cours",
+              "component": "rx-numeric",
+              "hash": 3035165874
+            },
+            {
+              "name": "Vie robot",
+              "component": "rx-numeric",
+              "hash": 3364475241
+            }
+          ]
+        },
+        {
+          "SectionName": "Position outil",
+          "orientation": "horizontal",
+          "NodesList": [
+            {
+              "name": "TCP X (0,1 mm)",
+              "component": "rx-numeric",
+              "hash": 1396041419
+            },
+            {
+              "name": "TCP Y (0,1 mm)",
+              "component": "rx-numeric",
+              "hash": 2063422009
+            },
+            {
+              "name": "TCP Z (0,1 mm)",
+              "component": "rx-numeric",
+              "hash": 3566584744
+            }
+          ]
         }
-    ]
+      ]
+    },
+    {
+      "PageName": "Réglages",
+      "sections": [
+        {
+          "SectionName": "Surveillance",
+          "orientation": "horizontal",
+          "NodesList": [
+            {
+              "name": "Délai réponse robot (ms)",
+              "component": "tx-numeric",
+              "hash": 885864203,
+              "low": 500,
+              "high": 30000
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

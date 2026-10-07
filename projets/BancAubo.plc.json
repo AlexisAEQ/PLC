@@ -343,7 +343,8 @@
       "comment": "",
       "initial": 5000,
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "tx-numeric"
       },
       "min": 500,
       "max": 30000
@@ -356,7 +357,8 @@
       "dataType": "text",
       "comment": "",
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "rx-label"
       }
     },
     {
@@ -367,7 +369,8 @@
       "dataType": "bool",
       "comment": "",
       "hmi": {
-        "show": true
+        "show": true,
+        "widget": "rx-indicator"
       }
     }
   ],

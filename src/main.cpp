@@ -11,7 +11,7 @@
 #include "BorneUniverselle/borneUniverselle.h"
 #include "EthernetManager/EthernetManager.h"
 #include "WifiManagement/wifimanagment.h"
-#include "RessortRoyal2/RessortRoyal2.h"
+#include "BancAubo/BancAubo.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -19,7 +19,7 @@
 // ========================================
 // DÉFINITIONS ET VERSIONS
 // ========================================
-#define MAIN_VERSION "RessortRoyal2 v1.0"
+#define MAIN_VERSION "BancAubo v1.0"
 #define OTA_STARTED "HTTP update process started"
 #define OTA_FINISHED "HTTP update process finished"
 
@@ -27,7 +27,7 @@
 // VARIABLES GLOBALES
 // ========================================
 BorneUniverselle *bu;
-RessortRoyal2 *ressortRoyal2;
+BancAubo *plcApp;
 MyToolBox toolbox;
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -548,8 +548,8 @@ void commandInterpretor(char car){
     case 'E':     bu->notifyWebClient(true);
       break;
 
-    case 'F':     if (ressortRoyal2 != NULL && ressortRoyal2 != nullptr){
-                    ressortRoyal2->printPersistance();
+    case 'F':     if (plcApp != NULL && plcApp != nullptr){
+                    plcApp->printPersistance();
                   }
       break;
 
@@ -1023,30 +1023,30 @@ void setup() {
     // CRÉATION RESSORTROYAL2
     // ========================================
     Serial.println("========================================");
-    Serial.println("Creating RessortRoyal2 instance...");
+    Serial.println("Creating BancAubo instance...");
     Serial.println("========================================");
 
-    Serial.printf("✅ RessortRoyal2 size: %u bytes\n", sizeof(RessortRoyal2));
-    Serial.println("Before RessortRoyal2 constructor, checking heap integrity...");
+    Serial.printf("✅ BancAubo size: %u bytes\n", sizeof(BancAubo));
+    Serial.println("Before BancAubo constructor, checking heap integrity...");
     if (!heap_caps_check_integrity_all(false)) {
         Serial.println("❌ HEAP CORROMPU DÉTECTÉ AVANT constrcuteur RessortRoyal !");
     }
     
-    ressortRoyal2 = new RessortRoyal2();
-    if (ressortRoyal2 == nullptr) {
-        Serial.println("Erreur critique: Échec de la création de l'instance RessortRoyal2");
-        bu->setPlcBrokenImpl("Failed to create RessortRoyal2 instance");
+    plcApp = new BancAubo();
+    if (plcApp == nullptr) {
+        Serial.println("Erreur critique: Échec de la création de l'instance BancAubo");
+        bu->setPlcBrokenImpl("Failed to create BancAubo instance");
         return;
     }
 
     Serial.println("Registering BusinessLogic with BorneUniverselle...");
-    bu->setBusinessLogic(ressortRoyal2);
+    bu->setBusinessLogic(plcApp);
   
     // ========================================
     // INITIALISATION DES POINTEURS
     // ========================================
     Serial.println("Appel à initializePointers");
-    if (!ressortRoyal2->initializePointers("main::setup")) {
+    if (!plcApp->initializePointers("main::setup")) {
         Serial.println("Erreur critique: Échec de initializePointers");
         bu->setPlcBrokenImpl("Failed to initialize pointers");
         return;
@@ -1059,7 +1059,7 @@ void setup() {
     Serial.println("Starting state machine...");
     Serial.println("========================================");
     
-    if (!ressortRoyal2->startStateMachine()) {
+    if (!plcApp->startStateMachine()) {
         Serial.println("Erreur: Échec du démarrage de la state machine");
         bu->setPlcBrokenImpl("Failed to start state machine");
         return;
@@ -1120,10 +1120,10 @@ void setup() {
     bu->markSetupComplete();
     
     Serial.println("========================================");
-    Serial.printf("%lu:: RessortRoyal2::setup() finished !\n", (unsigned long)millis());
+    Serial.printf("%lu:: BancAubo::setup() finished !\n", (unsigned long)millis());
     Serial.println("========================================");
     // ⭐ LOG après markSetupComplete pour que le fichier diagnostic soit créé
-    PLC_Tools::logDiagnostic("PLC is up - RessortRoyal2 ready");
+    PLC_Tools::logDiagnostic("PLC is up - BancAubo ready");
 }
 
 // ========================================
@@ -1168,8 +1168,8 @@ void loop() {
     uint32_t refreshDuration = millis() - refreshStart;
 
 #ifdef PERF_MONITOR
-    if (ressortRoyal2 && ressortRoyal2->isPmActive()) {
-        ressortRoyal2->pmAccumulateRefresh(refreshDuration);
+    if (plcApp && plcApp->isPmActive()) {
+        plcApp->pmAccumulateRefresh(refreshDuration);
     }
 #endif
 
