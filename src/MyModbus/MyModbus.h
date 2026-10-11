@@ -253,6 +253,7 @@ private:
         uint16_t  port = 502;
         uint8_t   unit = 1;
         bool      used = false;
+        bool      connected = false;          // connexion établie au dernier passage (détection de perte)
         uint32_t  lastConnectAttempt = 0;
     };
     TcpDevice tcpDevices[MAX_TCP_DEVICES];

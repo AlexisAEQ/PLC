@@ -95,7 +95,11 @@ bool MyModbus::requestTransaction(uint16_t slaveAddress) {
                 PLC_Tools::sendPeriodicMessage(true, WARNING, throttleMsg);
                 currentTransactionAddress = slaveAddress;
                 lastEvent = Modbus::EX_TIMEOUT;
-                updateSlaveStats(slaveAddress, Modbus::EX_TIMEOUT);  // maintenir le compteur
+                // Maintenir le compteur, mais garder la vraie cause du dernier échec
+                // (connexion refusée, exception Modbus...) pour le diagnostic.
+                const Modbus::ResultCode realCause = slot->lastErrorCode;
+                updateSlaveStats(slaveAddress, Modbus::EX_TIMEOUT);
+                slot->lastErrorCode = realCause;
                 currentTransactionAddress = 0;
                 return false;  // <-- transaction interdite
             }
@@ -889,13 +893,22 @@ bool MyModbus::tcpPrepare(uint16_t address) {
         return false;
     }
     if (tcp->isConnected(d->ip)) {
+        d->connected = true;
         return true;
+    }
+    if (d->connected) {
+        // Connexion établie puis perdue (fermeture par l'équipement, ou coupée après un
+        // délai dépassé) : nouvelle tentative tout de suite plutôt que d'attendre TCP_RECONNECT_MS.
+        d->connected = false;
+        d->lastConnectAttempt = 0;
+        Serial.printf("Modbus TCP : connexion perdue avec %s:%u\r\n", d->ip.toString().c_str(), d->port);
     }
     uint32_t now = millis();
     bool attempt = (d->lastConnectAttempt == 0) || (now - d->lastConnectAttempt >= TCP_RECONNECT_MS);
     if (attempt) {
         d->lastConnectAttempt = now;
         if (tcp->connect(d->ip, d->port)) {
+            d->connected = true;
             Serial.printf("Modbus TCP : connecte a %s:%u\r\n", d->ip.toString().c_str(), d->port);
             return true;
         }
@@ -928,8 +941,15 @@ bool MyModbus::waitEndTcpTransaction() {
         vTaskDelay(pdMS_TO_TICKS(1));
     }
     if (tcp->isTransaction(currentTcpTransaction)) {
-        // Pas de réponse dans le délai : la bibliothèque appellera le callback (timeout)
-        // plus tard ; on rend la main avec une erreur sans attendre.
+        // Pas de réponse dans le délai. La bibliothèque garde la requête MODBUSIP_TIMEOUT
+        // (1 s) et écrirait une réponse tardive dans la variable du nœud, qui a déjà rendu
+        // la main : on ferme donc la connexion, ce qui écarte toute réponse tardive et
+        // remet à zéro une socket à demi fermée par l'équipement. La requête abandonnée
+        // est ensuite purgée par la bibliothèque (callback ignoré : identifiant périmé).
+        TcpDevice* d = tcpDevice(currentTransactionAddress);
+        if (d != nullptr) {
+            tcp->disconnect(d->ip);
+        }
         lastEvent = Modbus::EX_TIMEOUT;
         stats.totalTransactions++;
         updateSlaveStats(currentTransactionAddress, Modbus::EX_TIMEOUT);

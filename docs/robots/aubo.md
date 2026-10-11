@@ -1,62 +1,60 @@
-# Robot AUBO (contrôleur ARCS) en Modbus TCP — `Robot_Aubo`
+# Robots AUBO — ARCS (Modbus TCP) et AUBOPE 4.x (E/S « linkage »)
 
-Fichier matériel : `data/hardware/Robot_Aubo.json`.
-L'automate est **client Modbus TCP** (maître) ; le contrôleur du robot est **serveur** (esclave).
+Ce qui est possible depuis l'automate dépend du **logiciel** du contrôleur, pas du coffret :
 
-| Contrôleur | Logiciel | Ce document |
-|---|---|---|
-| AUBO i-series / iS-series récents (coffret CB-M, etc.) | **ARCS** (AuboScope) | s'applique |
-| AUBO i-series anciens (coffret CB4) | AUBOPE 4.x | serveur Modbus TCP non confirmé : utiliser le câblage TOR « linkage » (§ 6) |
+| Logiciel du contrôleur | Robots concernés | Liaison avec l'automate | Profil PLC Studio |
+|---|---|---|---|
+| **ARCS** (interface AUBO Scope) | AUBO iS-series, robots livrés ou migrés sous ARCS | Modbus TCP (le robot est serveur) + E/S câblées | `Robot_Aubo` (§ A) |
+| **AUBOPE 4.x** | coffrets CB4 et **CB-M** (ex. AUBO i10 CB-M, manuel V4.5.13) | **E/S câblées « linkage »** ; aucun serveur Modbus TCP documenté | aucun : E/S de l'automate (§ B) |
 
-> **Point essentiel.** La table officielle de l'esclave Modbus ARCS (`modbus从站地址表_v1.14.xlsx`,
-> qui contient les commandes natives « départ / arrêt du projet », l'état du projet, la levée
-> d'arrêt de protection, etc.) **n'est pas publique** : AUBO la fournit sur demande à son support
-> technique. Ce fichier matériel n'utilise donc que la zone **documentée publiquement** : les
-> **registres généraux 300 à 525**, dans lesquels ce projet définit sa propre poignée de main avec
-> un programme robot. Le départ / l'arrêt / la pause du programme et les états critiques passent
-> par des **E/S TOR câblées** dont les fonctions sont, elles, vérifiées.
+**Première chose à faire :** sur le pendant, ouvrir *À propos* et relever la version.
+« AUBOPE 4.x » : aller au § B. « ARCS » : § A.
+
+> Retour d'expérience : le banc `BancAubo` (AUBO i10, coffret CB-M sous AUBOPE 4.5.13) a été
+> configuré avec le profil ARCS et l'automate n'a jamais communiqué avec le robot. Analyse et
+> tests : `docs/robots/diagnostic-aubo-i10.md`.
 
 ---
 
-## 1. Réglages côté robot
+## A. Contrôleur ARCS — profil `Robot_Aubo` (Modbus TCP)
 
-1. **Réseau** : IP fixe du contrôleur dans le sous-réseau de l'automate (relever l'IP dans les
-   paramètres réseau d'ARCS ; l'IP d'usine n'a pas pu être confirmée).
-2. **Serveur Modbus** : *Configuration > Bus de terrain > Modbus*, activer **Modbus TCP**
-   (esclave). Port **502**, n° d'unité **1** (valeurs de l'exemple AUBO). Tester ensuite avec un
-   analyseur Modbus (QModMaster, Modbus Poll…) : lecture FC03 de l'adresse 300.
-3. **E/S configurables** (*Configuration > Général > Réglages E/S*) — noms des fonctions
-   relevés dans le SDK ARCS 0.24.1 (`StandardInputAction` / `StandardOutputRunState`) :
+Fichier matériel : `data/hardware/Robot_Aubo.json`. L'automate est **client Modbus TCP** ; le
+contrôleur ARCS est **serveur**. Le profil utilise les **registres généraux 300 à 525** d'ARCS,
+dans lesquels ce projet définit sa propre poignée de main : il faut donc **un programme ARCS**
+qui lit et écrit ces registres (§ A.3). Sans ce programme, les registres restent à 0.
+
+La table native de l'esclave ARCS (`modbus从站地址表`, commandes « départ / arrêt du projet »,
+état du projet…) n'est pas publique : AUBO la fournit sur demande. Le départ, l'arrêt, la pause
+et les états critiques passent donc par des **E/S câblées**.
+
+### A.1 Réglages côté robot (ARCS)
+
+1. **Réseau** : IP fixe du contrôleur dans le sous-réseau de l'automate.
+2. **Serveur Modbus TCP** : l'activer dans les réglages Modbus d'ARCS (« 从站开关 », port 502 par
+   défaut selon la note d'application AUBO 61). Le chemin exact du menu est à confirmer sur le
+   robot. Tester ensuite depuis un PC : `tools/modbus-tests/test_modbus_tcp.py <ip> --adresses 300`.
+3. **E/S configurables** (*Configuration > Général > Réglages E/S*) — fonctions du SDK ARCS
+   (`StandardInputAction` / `StandardOutputRunState`) :
 
    | Sens | Fonction ARCS | Câblée vers / depuis l'automate |
    |---|---|---|
    | Entrée robot | `StartProgram` | sortie API « Départ programme robot » (impulsion) |
    | Entrée robot | `StopProgram` | sortie API « Arrêt programme robot » (impulsion) |
-   | Entrée robot | `PauseProgram` | sortie API « Pause robot » (impulsion) |
-   | Entrée robot | `ResumeProgram` | sortie API « Reprise robot » (impulsion) |
-   | Entrée robot (option) | `PopupDismiss` | sortie API « Fermer message robot » |
+   | Entrée robot | `PauseProgram` / `ResumeProgram` | sorties API « Pause » / « Reprise » (impulsions) |
    | Sortie robot | `RunningHigh` | entrée API « Programme robot en marche » |
    | Sortie robot | `PausedHigh` | entrée API « Robot en pause » |
    | Sortie robot | `NotSystemError` | entrée API « Robot sans défaut » |
    | Sortie robot | `RobotOperable` | entrée API « Robot opérationnel » |
-   | Sortie robot | `ExternalEmergencyStop` / `InternalEmergencyStop` | entrées API « AU robot » (information seulement) |
-   | Sortie robot (option) | `AtHome` | entrée API « Robot en position de repos » |
 
-   Les E/S AUBO sont de type **NPN** : vérifier la compatibilité avec les entrées/sorties de
-   l'automate (relais ou interface si besoin).
-4. **Programme maître** : créer un projet (ex. `plc_maitre`) qui exécute la boucle du § 3, le
-   définir comme projet par défaut chargé au démarrage, et passer le robot en mode automatique /
-   distant selon la politique du site.
+   Les E/S AUBO sont de type **NPN** : vérifier la compatibilité avec l'automate.
+4. **Programme maître** : un projet ARCS qui exécute la boucle du § A.3, chargé au démarrage.
 
----
+### A.2 Table d'adresses du profil (convention de ce projet)
 
-## 2. Table d'adresses utilisée
+Registres de maintien 16 bits, `registersOffset = 0` (adresse Modbus = 300 + index du registre
+ARCS, d'après la note d'application AUBO 61).
 
-`registersOffset = 0` : l'exemple AUBO lit le registre général 300 avec l'adresse 300 telle
-quelle (adresses comptées à partir de 0). Tous les échanges sont des **registres de maintien**
-16 bits.
-
-### Automate → robot (`ModbusWriteHoldingRegister`, FC06)
+Automate → robot (`ModbusWriteHoldingRegister`, FC06) :
 
 | id | Adresse | Nom | Rôle |
 |---|---|---|---|
@@ -67,7 +65,7 @@ quelle (adresses comptées à partir de 0). Tous les échanges sont des **regist
 | 5..8 | 304..307 | `P1`..`P4` | paramètres libres |
 | 9 | 308 | `VIE_API` | battement de vie de l'automate (compteur) |
 
-### Robot → automate (`ModbusReadHoldingRegister`, FC03)
+Robot → automate (`ModbusReadHoldingRegister`, FC03) :
 
 | id | Adresse | Nom | Rôle |
 |---|---|---|---|
@@ -81,22 +79,15 @@ quelle (adresses comptées à partir de 0). Tous les échanges sont des **regist
 | 11..16 | 320..325 | `TCP_X`..`TCP_RZ` | position outil : X, Y, Z en 0,1 mm ; RX, RY, RZ en 0,1° |
 | 17..22 | 326..331 | `J1`..`J6` | angles articulaires en 0,1° |
 
-Positions : le contrôleur les donne en flottants (m, rad) ; le firmware de l'automate ne lit
-pas de flottant. Le programme robot les recopie donc **en entiers signés 16 bits mis à
-l'échelle** (portée ±3276,7 mm et ±3276,7°, suffisante pour un cobot). Côté automate, PLC Studio
-lit ces voies `POS` en signé (une valeur > 32767 du node devient négative). Rafraîchir ces registres
-lentement (≥ 500 ms) : chaque registre est une transaction Modbus.
+Le contrôleur donne les positions en flottants et le firmware de l'automate ne lit pas de
+flottant : le programme robot les recopie en entiers signés 16 bits mis à l'échelle (±3276,7 mm
+ou degrés). PLC Studio lit ces voies `POS` en signé. Rafraîchir les positions lentement (≥ 500 ms) :
+chaque registre est une transaction Modbus.
 
----
-
-## 3. Programme robot (pseudo-code)
-
-Les fonctions `getInt16Register(i)` / `setInt16Register(i, v)` existent dans ARCS (SDK 0.24.1).
-**Supposé** : l'index `i` correspond à l'adresse Modbus `300 + i` — à confirmer en écrivant une
-valeur depuis l'analyseur Modbus et en la relisant dans le robot avant toute mise en mouvement.
+### A.3 Programme robot ARCS (pseudo-code)
 
 ```lua
--- Programme maître ARCS (pseudo-code) : index = adresse - 300
+-- index = adresse - 300 (getInt16Register / setInt16Register du SDK ARCS)
 setInt16Register(12, 0)  -- FINI
 setInt16Register(11, 0)  -- EN_COURS
 setInt16Register(10, 1)  -- PRET
@@ -108,88 +99,104 @@ while true do
     prog = getInt16Register(0)
     setInt16Register(12, 0) ; setInt16Register(14, prog)        -- FINI = 0, ECHO_PROG
     setInt16Register(10, 0) ; setInt16Register(11, 1)           -- PRET = 0, EN_COURS = 1
-    -- appeler ici la procédure de la tâche « prog » (P1..P4 en paramètres) ;
-    -- tester ABANDON (index 2) entre deux mouvements ; en cas d'erreur : setInt16Register(13, code)
+    -- procédure de la tâche « prog » (P1..P4 en paramètres) ; tester ABANDON (index 2)
+    -- entre deux mouvements ; en cas d'erreur : setInt16Register(13, code)
     setInt16Register(11, 0) ; setInt16Register(12, 1)           -- EN_COURS = 0, FINI = 1
     setInt16Register(10, 1)                                      -- PRET = 1
   end
-  -- recopier ici TCP / articulations (× 10) dans les index 20..31 si besoin
-  -- attente ~50 ms
+  -- recopier ici TCP / articulations (× 10) dans les index 20..31 si besoin ; attente ~50 ms
 end
 ```
 
----
+### A.4 Séquence à programmer dans le grafcet
 
-## 4. Séquence à programmer dans le grafcet
-
-1. **Initialisation** : `DEPART` = 0, `ABANDON` = 0, `ACQUIT` = 0. La classe générée par PLC
-   Studio écrit l'état de repos de chaque sortie Modbus câblée au démarrage de l'automate. Conditions de marche : pas d'erreur Modbus,
-   `VIE_ROBOT` évolue, entrées TOR `NotSystemError` et `RobotOperable` à 1.
-2. **Lancement du programme robot** (si `RunningHigh` = 0) : impulsion TOR `StartProgram`
-   (≈ 0,5 s), attendre `RunningHigh` = 1 puis `PRET` = 1 (temporisation de surveillance).
+1. **Initialisation** : `DEPART`, `ABANDON`, `ACQUIT` à 0 (la classe générée écrit l'état de
+   repos des sorties Modbus câblées au démarrage). Conditions de marche : pas d'erreur Modbus,
+   `VIE_ROBOT` évolue, `NotSystemError` et `RobotOperable` à 1.
+2. **Lancement du programme robot** (si `RunningHigh` = 0) : impulsion `StartProgram` (≈ 0,5 s),
+   attendre `RunningHigh` = 1 puis `PRET` = 1 (temporisation de surveillance).
 3. **Ordre de tâche** : écrire `PROG` = N (et `P1`..`P4`), **puis** `DEPART` = 1.
-4. **Accusé** : attendre `EN_COURS` = 1 **et** `ECHO_PROG` = N (délai max ≈ 2 s, sinon défaut),
-   puis `DEPART` = 0.
-5. **Fin** : attendre `FINI` = 1 (délai max = temps de cycle + marge) ou `DEFAUT` ≠ 0.
-6. **Défaut** (`DEFAUT` ≠ 0, perte Modbus, `VIE_ROBOT` figé > 1 s, `NotSystemError` = 0) :
-   impulsion `StopProgram` (TOR) ou `ABANDON` = 1 selon la gravité ; après intervention,
-   `ACQUIT` = 1 jusqu'à `DEFAUT` = 0, puis retour à l'étape 2.
-7. **Pause / reprise opérateur** : impulsions TOR `PauseProgram` / `ResumeProgram`, état lu sur
-   `PausedHigh`.
+4. **Accusé** : attendre `EN_COURS` = 1 et `ECHO_PROG` = N (≈ 2 s max), puis `DEPART` = 0.
+5. **Fin** : attendre `FINI` = 1 ou `DEFAUT` ≠ 0.
+6. **Défaut** : impulsion `StopProgram` ou `ABANDON` = 1 ; après intervention `ACQUIT` = 1 jusqu'à
+   `DEFAUT` = 0.
 
 ---
 
-## 5. Sécurité
+## B. Contrôleur AUBOPE 4.x (coffrets CB4 et CB-M)
 
-* Le Modbus TCP (et le Wi-Fi) **n'est pas une fonction de sécurité** : ni l'arrêt d'urgence, ni
+**Pas de profil Modbus pour ces contrôleurs.** Sous AUBOPE 4.x :
+
+- le seul Modbus documenté fait du robot un **maître** : le plug-in Modbus (*Extensions*) et la
+  configuration `ModbusCfg` du SDK AUBOPE V4 déclarent des équipements que le robot interroge ;
+- aucune documentation ne décrit de **serveur** Modbus TCP ni de table d'adresses. Une vidéo AUBO
+  intitulée « AUBOPE Tutorial - Modbus: TCP Server » laisse penser qu'une option existe : à
+  vérifier sur le pendant, puis à tester (`tools/modbus-tests/`) avant tout projet ;
+- les registres généraux 300-525 et `setInt16Register` n'existent que sous ARCS.
+
+### B.1 E/S câblées « linkage » (mode de référence)
+
+D'après le manuel AUBO-i5 & CB4 V4.5.11 (à confirmer sur le bornier du CB-M) :
+
+| Signal robot | Fonction | Câblé vers / depuis l'automate |
+|---|---|---|
+| `LI00` (entrée) | départ du programme par défaut | sortie API « Départ programme robot » (impulsion) |
+| `LI01` (entrée) | arrêt | sortie API « Arrêt programme robot » (impulsion) |
+| `LI02` (entrée) | pause | sortie API « Pause robot » (impulsion) |
+| `LI03` (entrée) | retour en position initiale | sortie API (impulsion) |
+| `LO00` (sortie) | programme en marche | entrée API « Programme robot en marche » |
+| `LO01` (sortie) | programme arrêté | entrée API |
+| `LO02` (sortie) | en pause | entrée API « Robot en pause » |
+| `LO03` (sortie) | en position initiale | entrée API |
+
+Le coffret fournit aussi des sorties d'état : en mouvement, pas à l'arrêt, mode réduit,
+**erreur système** (active en cas d'erreur : polarité inverse d'un « robot sans défaut », à
+mesurer), arrêt d'urgence, AUBOPE en exécution. Il n'y a pas d'équivalent de `RobotOperable`.
+
+Mise en œuvre (à confirmer sur le robot) : passer le contrôleur en mode linkage (sélection au
+démarrage, puis redémarrage), définir le projet par défaut, vérifier la logique NPN (une sortie
+robot active tire vers 0 V ; une entrée robot s'active en la ramenant au 0 V). L'échange de
+valeurs (n° de programme) se fait par E/S utilisateur codées en binaire.
+
+### B.2 Pour échanger des données
+
+| Topologie | Principe | État |
+|---|---|---|
+| PC passerelle | le PC qui pilote déjà le robot par le SDK (port 8899) republie les états vers l'automate, par exemple en serveur Modbus TCP lu par l'automate (rien à changer dans le firmware : `"tcp": {"ip": <PC>}`) | recommandé |
+| Automate serveur | le plug-in Modbus d'AUBOPE interroge l'automate | le firmware n'est que client : à développer |
+| Robot serveur | seulement si le test du port 502 et un balayage révèlent une table réelle | non documenté |
+
+Le protocole du port 8899 est propriétaire : ne pas chercher à l'implémenter sur l'ESP32.
+
+---
+
+## C. Sécurité
+
+* Le Modbus TCP (et le WiFi) **n'est pas une fonction de sécurité** : ni l'arrêt d'urgence, ni
   les protecteurs, ni le mode réduit ne doivent en dépendre.
-* L'**arrêt d'urgence** de la cellule est **câblé** sur les entrées de sécurité du robot
-  (double canal) et dans la chaîne d'AU de la machine. Les signaux d'AU lus par l'automate sont
-  informatifs.
-* Le départ d'un cycle depuis l'automate doit respecter l'analyse de risques (zone protégée,
-  mode automatique, réarmement opérateur).
-* Garder le robot sur un réseau isolé : le serveur Modbus n'a pas d'authentification.
+* L'arrêt d'urgence de la cellule est **câblé** sur les entrées de sécurité du robot (double
+  canal) et dans la chaîne d'AU de la machine. Les signaux d'AU lus par l'automate sont informatifs.
+* Le départ d'un cycle depuis l'automate respecte l'analyse de risques (zone protégée, mode
+  automatique, réarmement opérateur).
+* Garder le robot sur un réseau isolé : le Modbus n'a pas d'authentification.
 
 ---
 
-## 6. Ancien contrôleur CB4 (AUBOPE 4.x)
-
-Le manuel AUBO-i5 & CB4 (V4.5.11) décrit un mode **« linkage »** par E/S TOR de la carte
-d'interface : `LI00` départ programme, `LI01` arrêt, `LI02` pause, `LI03` retour position
-initiale ; `LO00` en marche, `LO01` arrêté, `LO02` en pause, `LO03` en position initiale.
-Câbler ces signaux sur des E/S de l'automate (logique NPN). L'échange de données (n° de
-programme) se fait alors par E/S utilisateur `U_DI_xx` / `U_DO_xx` codées en binaire.
-Un serveur Modbus TCP n'a pas pu être confirmé sur ces contrôleurs.
-
----
-
-## 7. Vérifié / supposé / limites
+## D. Vérifié / probable / inconnu
 
 | Élément | Statut | Source |
 |---|---|---|
-| Serveur Modbus TCP à activer dans *Configuration > Bus de terrain > Modbus* | vérifié | guide AUBO « 29 ARCS Modbus » |
-| Registres généraux 300..525, lecture FC03 à l'adresse 300 | vérifié | même guide (exemple `modbusAddSignal(..., 1, 300, 0x03, ...)`) |
-| Table native (commande / état du projet, levée d'arrêt de protection) | existe, adresses **non publiques** | même guide (historique de versions, table v1.14 sur demande) |
-| Fonctions E/S `StartProgram`, `StopProgram`, `PauseProgram`, `ResumeProgram`, `RunningHigh`, `PausedHigh`, `NotSystemError`, `RobotOperable`… | vérifié | SDK ARCS `pyaubo_sdk` 0.24.1 |
-| `getInt16Register` / `setInt16Register` | vérifié (existence) | SDK ARCS 0.24.1 |
-| Index script ↔ adresse Modbus `300 + i` | **supposé** | — |
+| CB-M sous AUBOPE 4.5 (pas ARCS) | vérifié | intitulé des manuels « AUBO-i5/i10 & CB-M User Manual V4.5.13 » |
+| Registres généraux 300..525, index ARCS ↔ adresse `300 + i` | vérifié, **ARCS seulement** | guide AUBO « 29 ARCS Modbus », note d'application 61 |
+| Serveur Modbus TCP ARCS, port 502 par défaut | vérifié (ARCS) ; chemin du menu à confirmer | note d'application 61 |
+| `registersOffset = 0`, unité 1 | probable (ARCS) | déduits d'un exemple `modbusAddSignal` où le robot ARCS est **client** |
+| Écriture FC06 acceptée par ARCS | probable (standard) | — |
+| Fonctions E/S `StartProgram`… `RobotOperable` | vérifié, **ARCS seulement** | SDK ARCS `pyaubo_sdk` 0.24.1 |
 | Répartition des registres 300..331 | **convention de ce projet** | — |
-| Port 502, unité 1 | usuel, unité 1 dans l'exemple AUBO | — |
-| Écriture FC06 acceptée | **supposé** (standard) | — |
-| E/S linkage CB4 `LI00..LI03` / `LO00..LO03` | vérifié | manuel AUBO-i5 & CB4 V4.5.11 |
+| AUBOPE 4.x : Modbus maître (plug-in Extensions) | vérifié | SDK AUBOPE V4 (`ModbusCfg`), manuel, document utilisateur |
+| AUBOPE 4.x : serveur Modbus TCP | **inconnu** (non documenté) | — |
+| E/S linkage `LI00..LI03` / `LO00..LO03` | vérifié sur CB4, probable sur CB-M | manuel AUBO-i5 & CB4 V4.5.11 |
 
-Limites côté automate :
-
-* **Pas de flottant** : positions en entiers mis à l'échelle par le programme robot.
-* **Entiers signés** : les voies `POS` du catalogue sont lues en signé (−32768 à 32767) ;
-  les autres registres sont non signés (0 à 65535).
-* Nodes 32 bits (`ModbusReadDobbleHoldingRegister`) : **mot de poids faible en premier**
-  (adresse N = poids faible) — à respecter si le programme robot écrit des valeurs 32 bits.
-* **Une transaction par registre** : 31 registres lus = 31 requêtes ; espacer les
-  rafraîchissements (états 100–200 ms, positions ≥ 500 ms).
-* **Écriture sur changement** : un node de sortie n'écrit que si sa valeur change ; au
-  démarrage, la classe générée par PLC Studio écrit une fois l'état de repos (0) de chaque
-  sortie Modbus câblée, donc `DEPART` = 0.
-
-Dès réception de la table officielle AUBO, ajouter dans `Robot_Aubo.json` les commandes et états
-natifs (nouveaux ids, sans renuméroter les existants).
+Limites côté automate : pas de flottant, une transaction par registre, écriture seulement sur
+changement (état de repos écrit au démarrage), nœuds 32 bits avec le mot de poids faible en
+premier.

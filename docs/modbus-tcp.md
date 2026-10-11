@@ -74,13 +74,44 @@ Un changement des sections (adresse, IP, port, nœuds) ou de l'Ethernet redémar
   et 16 équipements TCP ; deux ports différents sur la même IP ne sont pas acceptés.
 - Connexion à la première requête ; si l'équipement ne répond pas, une nouvelle tentative
   au plus toutes les 3 s (chaque tentative peut bloquer la boucle jusqu'à 500 ms :
-  `MODBUSIP_CONNECT_TIMEOUT` dans `platformio.ini`). Délai de réponse : 500 ms.
+  `MODBUSIP_CONNECT_TIMEOUT` dans `platformio.ini`). Délai de réponse : 500 ms ; au-delà, la
+  connexion est fermée (une réponse tardive est ignorée) et rouverte à la requête suivante.
+  Une connexion fermée par l'équipement est rouverte tout de suite.
 - Un équipement TCP injoignable est signalé comme un esclave RTU
   (« Peripherique Modbus TCP 192.168.10.50:502 unite 1 injoignable… ») ; il ne compte pas
   dans la détection « bus RS485 mort ».
 - Ethernet : `EthernetManager` (W5500 en SPI, LAN8720 en RMII sur ESP32), démarré à côté du
   WiFi ; le serveur web et le mDNS répondent aussi sur l'Ethernet. Nécessite Arduino-ESP32
   3.x (pioarduino) : environnements `esp32s3_n16r8` et `quatre_mb_huge`.
+
+## Diagnostiquer une liaison qui ne s'établit pas
+
+1. **Tester l'équipement depuis un PC** avant de mettre l'automate en cause :
+   `Test-NetConnection <ip> -Port 502` (Windows), puis `tools/modbus-tests/test_modbus_tcp.py`
+   (lectures, n° d'unité, balayage). Port fermé : il n'y a pas de serveur Modbus TCP, rien à
+   faire côté automate. Voir `tools/modbus-tests/README.md`.
+2. **Lire ce que dit l'automate** (moniteur série sur l'USB, ou `http://<automate>/diagnostic.txt`) :
+   - « Modbus TCP : equipement <ip>:<port> unite <n> -> adresse interne 1000 » : l'équipement
+     est déclaré (les équipements TCP ont des adresses internes 1000, 1001…) ;
+   - « Modbus TCP : connecte a <ip>:<port> » : la connexion TCP est ouverte ;
+   - après 10 échecs consécutifs : « MODBUS addr:1000 MORT apres 10 erreurs consecutives
+     (cause) ». Ensuite l'automate ne fait plus que 2 essais toutes les 5 s, jusqu'au premier
+     succès. La cause indique quoi corriger :
+
+     | Cause | Signification |
+     |---|---|
+     | Connection lost | connexion TCP impossible (port fermé, IP ou réseau) |
+     | Output Address not exists | le serveur répond, l'adresse n'existe pas |
+     | Operation timeout | connecté mais sans réponse (n° d'unité, serveur muet) |
+     | Function Code not Supported | code fonction non géré par l'équipement |
+   - `http://<automate>/api/status` : `"all_inputs_read_once": false` tant qu'aucune entrée
+     n'a été lue. **La logique de la machine ne démarre pas tant que toutes les entrées, y compris
+     Modbus, n'ont pas été lues une fois** : un équipement Modbus injoignable bloque donc aussi
+     les E/S câblées.
+3. **Valider l'automate sans l'équipement** : `tools/modbus-tests/faux_esclave_modbus.py` sur un
+   PC qui prend l'IP de l'équipement ; l'écran doit afficher les adresses lues comme valeurs.
+
+Exemple complet : `docs/robots/diagnostic-aubo-i10.md`.
 
 ## Précautions
 

@@ -463,8 +463,8 @@ export const CATALOG = {
 
   Robot_Aubo: {
     defaultLabel: 'Robot',
-    label: 'Robot AUBO (contrôleur ARCS, Modbus TCP)',
-    description: "Cobot AUBO à contrôleur ARCS, serveur Modbus TCP (port 502, unité 1). Poignée de main dans les registres généraux 300 à 331, avec un programme robot qui suit cette convention ; départ, arrêt, pause et états critiques en TOR câblés. Mise en service : docs/robots/aubo.md.",
+    label: 'Robot AUBO sous ARCS (Modbus TCP, programme robot requis)',
+    description: "Cobot AUBO à contrôleur ARCS uniquement (interface AUBO Scope) : serveur Modbus TCP (port 502, unité 1), poignée de main dans les registres généraux 300 à 331 remplis par un programme robot ARCS qui suit cette convention ; départ, arrêt, pause et états critiques en TOR câblés. Ne convient pas aux contrôleurs AUBOPE 4.x (coffrets CB4 et CB-M) : utiliser leurs E/S câblées « linkage ». Voir docs/robots/aubo.md.",
     role: 'modbus-io',
     hardware: 'Robot_Aubo',
     modbus: true,
