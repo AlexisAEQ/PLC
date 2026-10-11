@@ -18,12 +18,16 @@ un contrôleur **ARCS** : un serveur Modbus TCP qui expose les registres génér
 par un programme ARCS (`setInt16Register`). Le robot du banc tourne sous **AUBOPE 4.5.13** :
 
 - le seul Modbus documenté y fait du robot un **maître** (plug-in *Extensions*) ;
-- aucun serveur Modbus TCP ni aucune table d'adresses n'y sont documentés ;
-- les registres 300-525 et `setInt16Register` n'existent pas sous AUBOPE ;
+- aucun serveur Modbus TCP ni aucune table d'adresses n'y sont documentés ; une vidéo AUBO
+  intitulée « AUBOPE Tutorial - Modbus: TCP Server » laisse penser qu'une option serveur existe,
+  sans table d'adresses connue (non vérifié) ;
+- les registres 300-525 et `setInt16Register` ne sont documentés que pour ARCS (absents du SDK
+  AUBOPE V4 ; le langage de script AUBOPE n'a pas été vérifié) ;
 - aucun programme robot n'a été écrit pour remplir ces registres.
 
-Notre propre documentation rangeait à tort le coffret CB-M parmi les contrôleurs ARCS : c'est
-l'erreur d'origine (corrigée dans `docs/robots/aubo.md`).
+Notre propre documentation rangeait le coffret CB-M parmi les contrôleurs ARCS, sans faire
+vérifier le logiciel réellement installé : c'est l'erreur d'origine (corrigée dans
+`docs/robots/aubo.md`, qui classe désormais les contrôleurs par logiciel).
 
 Ce verdict n'est pas encore une preuve : aucun test de port ni aucune trace série n'ont été faits.
 Les tests ci-dessous le confirment ou non en quelques minutes.
@@ -43,20 +47,21 @@ Les tests ci-dessous le confirment ou non en quelques minutes.
 
   Aucun défaut bloquant. Ce n'est pas mesuré sur la carte elle-même.
 - **Témoins RJ45** : ils ne permettent pas de trancher. Sans connexion, le firmware ne retente
-  qu'une connexion toutes les 3 s, puis, après 10 échecs, deux requêtes toutes les 5 s. Une session
+  qu'une connexion toutes les 3 s, puis, après 10 échecs, une toutes les 5 s environ. Une session
   normale ferait clignoter le témoin presque en continu.
 
 ## Effets de bord qui brouillaient les essais
 
-- **Tant qu'aucune lecture Modbus n'a réussi, la logique ne tourne pas**, même le départ et
-  l'arrêt câblés. Le firmware attend que chaque entrée ait été lue au moins une fois. Le message
+- **Tant qu'une entrée Modbus n'a jamais été lue, la logique ne tourne pas**, même le départ et
+  l'arrêt câblés : le firmware attend que chaque entrée ait été lue au moins une fois. Le message
   série « Not calling logic executor because not all inputs are read once » en est la conséquence,
   pas une deuxième panne.
 - La logique ne tourne que si un écran (la tablette) est connecté (constat CR-2 de l'audit).
 - Les E/S câblées de `BancAubo` portent des fonctions ARCS : `StartProgram`, `RunningHigh`,
-  `NotSystemError`, `RobotOperable`. Sous AUBOPE, ce sont les E/S linkage `LI00`/`LI01` et
-  `LO00`/`LO02` ; `RobotOperable` n'a pas d'équivalent, ce qui peut bloquer la transition de
-  départ même avec un Modbus parfait.
+  `NotSystemError`, `RobotOperable`. Sous AUBOPE, l'équivalent probable est le jeu d'E/S linkage
+  `LI00`/`LI01` et `LO00`/`LO02` (noms du manuel CB4, à confirmer au bornier du CB-M) ;
+  `RobotOperable` n'a probablement pas d'équivalent, ce qui peut bloquer la transition de départ
+  même avec un Modbus parfait.
 
 ## Tests décisifs, dans l'ordre
 
@@ -76,10 +81,14 @@ Les tests ci-dessous le confirment ou non en quelques minutes.
 4. **Ce que dit l'automate**, sans rien modifier :
    - Moniteur série sur l'USB natif. Lignes attendues : « Ethernet demarre (W5500, 192.168.10.20) »,
      « Modbus TCP : equipement 192.168.10.50:502 unite 1 -> adresse interne 1000 », puis
-     « Modbus TCP : connecte a … » ou, au bout d'environ 30 s, l'alerte « MODBUS addr:1000 MORT
-     apres 10 erreurs consecutives (…) ».
-   - Sans câble USB : http://192.168.4.1/diagnostic.txt (ligne « MORT ») et
-     http://192.168.4.1/api/status (`all_inputs_read_once: false` = aucune lecture réussie).
+     « Modbus TCP : connecte a … ». En cas d'échec, l'alerte « MODBUS addr:1000 MORT apres 10
+     erreurs consecutives (…) » arrive environ 30 s après le démarrage si la connexion échoue, ou
+     quelques secondes après « connecte a » si le serveur répond mal : laisser le moniteur ouvert.
+     Aucune ligne « Ethernet… » : la section Ethernet est absente ou désactivée dans le config.json
+     de la carte (retéléverser le système de fichiers : `pio run -e esp32s3_n16r8 -t uploadfs`).
+   - Sans câble USB : http://192.168.4.1/diagnostic.txt (ligne « MORT » ; les lignes « connecte a »
+     n'y figurent pas) et http://192.168.4.1/api/status (`all_inputs_read_once: false` = au moins
+     une entrée jamais lue).
 
    La cause entre parenthèses de l'alerte « MORT » se lit ainsi :
 
@@ -104,12 +113,12 @@ Les tests ci-dessous le confirment ou non en quelques minutes.
   `Robot_Aubo` réservé à ARCS ; E/S linkage comme référence pour AUBOPE 4.x ; statuts corrigés.
 - `data/hardware/Robot_Aubo.json`, catalogue PLC Studio : profil marqué « ARCS seulement,
   programme robot requis ».
-- Firmware (`MyModbus`) :
-  - la vraie cause d'un échec (connexion refusée, exception Modbus) n'est plus remplacée par
-    « timeout » une fois l'équipement bridé ;
-  - après un délai dépassé, la connexion est fermée, ce qui écarte toute réponse tardive écrite
-    dans une variable déjà libérée et remet à zéro une connexion fermée par l'équipement ;
-  - la reconnexion est immédiate après la perte d'une connexion établie.
+- Firmware (`MyModbus`), validé sur un banc PC avec la vraie bibliothèque :
+  - après un délai dépassé, la requête est annulée : une réponse tardive n'est plus écrite dans
+    une variable déjà libérée ;
+  - reconnexion immédiate après la perte d'une connexion qui avait répondu ;
+  - connexions mortes purgées avant chaque nouvelle connexion, et échec d'envoi compté comme une
+    erreur de l'équipement (il déclenchait sinon des reconnexions sans fin, sans alerte).
 - `tools/modbus-tests/` : script de test et faux esclave Modbus TCP.
 - `docs/modbus-tcp.md` : comment diagnostiquer une liaison qui ne s'établit pas.
 
@@ -117,7 +126,7 @@ Les tests ci-dessous le confirment ou non en quelques minutes.
 
 À décider après les tests 1 et 2 :
 
-- **Pas de serveur sur le CB-M** (cas le plus probable) :
+- **Le pendant n'offre aucune option serveur Modbus TCP, ou le port 502 reste fermé** :
   - départ, arrêt et états par les E/S linkage : `LI00` / `LI01`, `LO00` / `LO02`, et la sortie
     « erreur système », dont la polarité est à mesurer ;
   - retirer les voies Modbus du robot du projet, qui ne servaient qu'à l'affichage ;

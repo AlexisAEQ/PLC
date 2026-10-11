@@ -1,15 +1,17 @@
 {
     // Robot AUBO avec contrôleur ARCS SEULEMENT (interface AUBO Scope), piloté en Modbus TCP.
-    // NE CONVIENT PAS aux contrôleurs AUBOPE 4.x (coffrets CB4 et CB-M, ex. AUBO i10 CB-M
-    // V4.5.13) : pas de serveur Modbus TCP documenté ni de registres généraux ; utiliser les E/S
-    // câblées « linkage » (docs/robots/aubo.md § B, docs/robots/diagnostic-aubo-i10.md).
+    // NE CONVIENT PAS aux contrôleurs sous AUBOPE 4.x (version lue dans « À propos » du pendant ;
+    // souvent les coffrets CB4 et CB-M d'origine, ex. AUBO i10 CB-M V4.5.13) : pas de serveur
+    // Modbus TCP documenté ni de registres généraux ; utiliser les E/S câblées « linkage »
+    // (docs/robots/aubo.md § B, docs/robots/diagnostic-aubo-i10.md).
     //
     // L'automate est client (maître) ; le contrôleur ARCS est serveur (esclave) : activer le
     // serveur Modbus TCP dans les réglages Modbus d'ARCS (port 502 par défaut). Unité 1 et
-    // registersOffset = 0 : PROBABLES, déduits d'un exemple AUBO où ARCS est client ; à
-    // confirmer avec tools/modbus-tests/test_modbus_tcp.py avant la mise en service.
-    // VÉRIFIÉ (ARCS) : registres généraux 300 à 525, index ARCS i <-> adresse 300 + i (note
-    // d'application AUBO 61).
+    // registersOffset = 0 : PROBABLES, déduits d'un exemple AUBO où ARCS est client.
+    // VÉRIFIÉ (ARCS) : registres généraux 300 à 525. PROBABLE : index ARCS i <-> adresse 300 + i.
+    // AVANT TOUTE MISE EN MOUVEMENT : écrire des valeurs distinctes en 300..308 depuis un PC et
+    // les relire dans le robot, puis faire écrire le robot à l'index 10 et lire l'adresse 310
+    // (docs/robots/aubo.md § A.3). Une simple lecture ne suffit pas : sans programme, tout vaut 0.
     // CONVENTION DE CE PROJET (pas une table AUBO) : la répartition des registres 300..331
     // ci-dessous. Un PROGRAMME ROBOT ARCS doit la respecter (getInt16Register /
     // setInt16Register) : sans lui, les registres restent à 0.

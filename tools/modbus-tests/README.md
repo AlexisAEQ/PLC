@@ -6,7 +6,7 @@ vraiment en Modbus TCP. Écrits lors du diagnostic du banc AUBO i10
 
 | Script | Rôle | Dépendance |
 |---|---|---|
-| `test_modbus_tcp.py` | Le PC joue l'automate : connexion au port, lectures FC03 sur les adresses du projet, n° d'unité 1 / 0 / 255, balayage FC01 à FC04 (`--scan`). | `pip install pymodbus` |
+| `test_modbus_tcp.py` | Le PC joue l'automate : connexion au port, lectures FC03 sur les adresses du projet, n° d'unité 1 / 0 / 255, balayage FC01 à FC04 des adresses 0 à 599 (`--scan`). | `pip install -U "pymodbus>=3.8"` (Python 3.9 ou plus) |
 | `faux_esclave_modbus.py` | Le PC joue l'équipement : chaque registre renvoie son adresse, chaque requête reçue est affichée. Valide l'automate (firmware, Ethernet, câble) sans le robot. | aucune (Python standard) |
 
 ## Ordre conseillé

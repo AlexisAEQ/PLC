@@ -75,8 +75,8 @@ Un changement des sections (adresse, IP, port, nœuds) ou de l'Ethernet redémar
 - Connexion à la première requête ; si l'équipement ne répond pas, une nouvelle tentative
   au plus toutes les 3 s (chaque tentative peut bloquer la boucle jusqu'à 500 ms :
   `MODBUSIP_CONNECT_TIMEOUT` dans `platformio.ini`). Délai de réponse : 500 ms ; au-delà, la
-  connexion est fermée (une réponse tardive est ignorée) et rouverte à la requête suivante.
-  Une connexion fermée par l'équipement est rouverte tout de suite.
+  requête est annulée (une réponse tardive est ignorée). Une connexion qui avait répondu puis
+  qui est fermée par l'équipement est rouverte tout de suite.
 - Un équipement TCP injoignable est signalé comme un esclave RTU
   (« Peripherique Modbus TCP 192.168.10.50:502 unite 1 injoignable… ») ; il ne compte pas
   dans la détection « bus RS485 mort ».
@@ -90,13 +90,19 @@ Un changement des sections (adresse, IP, port, nœuds) ou de l'Ethernet redémar
    `Test-NetConnection <ip> -Port 502` (Windows), puis `tools/modbus-tests/test_modbus_tcp.py`
    (lectures, n° d'unité, balayage). Port fermé : il n'y a pas de serveur Modbus TCP, rien à
    faire côté automate. Voir `tools/modbus-tests/README.md`.
-2. **Lire ce que dit l'automate** (moniteur série sur l'USB, ou `http://<automate>/diagnostic.txt`) :
+2. **Lire ce que dit l'automate.** Sur le moniteur série (USB) seulement :
    - « Modbus TCP : equipement <ip>:<port> unite <n> -> adresse interne 1000 » : l'équipement
      est déclaré (les équipements TCP ont des adresses internes 1000, 1001…) ;
-   - « Modbus TCP : connecte a <ip>:<port> » : la connexion TCP est ouverte ;
-   - après 10 échecs consécutifs : « MODBUS addr:1000 MORT apres 10 erreurs consecutives
-     (cause) ». Ensuite l'automate ne fait plus que 2 essais toutes les 5 s, jusqu'au premier
-     succès. La cause indique quoi corriger :
+   - « Modbus TCP : connecte a <ip>:<port> » : la connexion TCP est ouverte (cela ne prouve
+     pas que les adresses sont bonnes).
+
+   Sur le moniteur série **et** dans `http://<automate>/diagnostic.txt` : après 10 échecs
+   consécutifs, l'alerte « MODBUS addr:1000 MORT apres 10 erreurs consecutives (cause) » (environ
+   30 s après le démarrage si la connexion échoue, quelques secondes après « connecte a » si
+   l'équipement répond mal), puis « RETABLI » au premier succès. Entre les deux, l'automate ne
+   fait plus qu'une tentative de connexion toutes les 5 s environ (2 requêtes toutes les 5 s si
+   la connexion est établie mais que l'équipement répond par une erreur). La cause indique quoi
+   corriger :
 
      | Cause | Signification |
      |---|---|
@@ -104,10 +110,12 @@ Un changement des sections (adresse, IP, port, nœuds) ou de l'Ethernet redémar
      | Output Address not exists | le serveur répond, l'adresse n'existe pas |
      | Operation timeout | connecté mais sans réponse (n° d'unité, serveur muet) |
      | Function Code not Supported | code fonction non géré par l'équipement |
-   - `http://<automate>/api/status` : `"all_inputs_read_once": false` tant qu'aucune entrée
-     n'a été lue. **La logique de la machine ne démarre pas tant que toutes les entrées, y compris
-     Modbus, n'ont pas été lues une fois** : un équipement Modbus injoignable bloque donc aussi
-     les E/S câblées.
+   - `http://<automate>/api/status` : `"all_inputs_read_once": false` tant qu'au moins une
+     entrée (non virtuelle) n'a jamais été lue, ou si le bus RS485 est déclaré mort ; le moniteur
+     série nomme la voie en cause (« isAllInputsReadOnce: at least node <nom> has not been read
+     once »). **La logique de la machine ne démarre pas tant que toutes les entrées, y compris
+     Modbus, n'ont pas été lues une fois** : un équipement Modbus jamais lu depuis le démarrage
+     bloque donc aussi les E/S câblées.
 3. **Valider l'automate sans l'équipement** : `tools/modbus-tests/faux_esclave_modbus.py` sur un
    PC qui prend l'IP de l'équipement ; l'écran doit afficher les adresses lues comme valeurs.
 

@@ -95,11 +95,7 @@ bool MyModbus::requestTransaction(uint16_t slaveAddress) {
                 PLC_Tools::sendPeriodicMessage(true, WARNING, throttleMsg);
                 currentTransactionAddress = slaveAddress;
                 lastEvent = Modbus::EX_TIMEOUT;
-                // Maintenir le compteur, mais garder la vraie cause du dernier échec
-                // (connexion refusée, exception Modbus...) pour le diagnostic.
-                const Modbus::ResultCode realCause = slot->lastErrorCode;
-                updateSlaveStats(slaveAddress, Modbus::EX_TIMEOUT);
-                slot->lastErrorCode = realCause;
+                updateSlaveStats(slaveAddress, Modbus::EX_TIMEOUT);  // maintenir le compteur
                 currentTransactionAddress = 0;
                 return false;  // <-- transaction interdite
             }
@@ -893,12 +889,11 @@ bool MyModbus::tcpPrepare(uint16_t address) {
         return false;
     }
     if (tcp->isConnected(d->ip)) {
-        d->connected = true;
         return true;
     }
     if (d->connected) {
-        // Connexion établie puis perdue (fermeture par l'équipement, ou coupée après un
-        // délai dépassé) : nouvelle tentative tout de suite plutôt que d'attendre TCP_RECONNECT_MS.
+        // Connexion qui avait déjà répondu, puis perdue (fermeture par l'équipement) :
+        // nouvelle tentative tout de suite plutôt que d'attendre TCP_RECONNECT_MS.
         d->connected = false;
         d->lastConnectAttempt = 0;
         Serial.printf("Modbus TCP : connexion perdue avec %s:%u\r\n", d->ip.toString().c_str(), d->port);
@@ -907,8 +902,8 @@ bool MyModbus::tcpPrepare(uint16_t address) {
     bool attempt = (d->lastConnectAttempt == 0) || (now - d->lastConnectAttempt >= TCP_RECONNECT_MS);
     if (attempt) {
         d->lastConnectAttempt = now;
+        tcp->task();   // purge les connexions mortes (cleanupConnections) avant d'en ouvrir une
         if (tcp->connect(d->ip, d->port)) {
-            d->connected = true;
             Serial.printf("Modbus TCP : connecte a %s:%u\r\n", d->ip.toString().c_str(), d->port);
             return true;
         }
@@ -932,7 +927,17 @@ void MyModbus::startTcpTransaction(uint16_t transactionId) {
 }
 
 bool MyModbus::waitEndTcpTransaction() {
-    if (tcp == nullptr || currentTcpTransaction == 0) {
+    if (tcp == nullptr) {
+        return false;
+    }
+    if (currentTcpTransaction == 0) {
+        // Requête refusée par la bibliothèque (connexion perdue entre la connexion et l'envoi) :
+        // comptée comme une erreur de l'équipement, pour le bridage et l'alerte.
+        if (lastEvent == Modbus::EX_CONNECTION_LOST) {
+            stats.totalTransactions++;
+            updateSlaveStats(currentTransactionAddress, Modbus::EX_CONNECTION_LOST);
+            handleError(Modbus::EX_CONNECTION_LOST);
+        }
         return false;
     }
     uint32_t start = millis();
@@ -941,15 +946,14 @@ bool MyModbus::waitEndTcpTransaction() {
         vTaskDelay(pdMS_TO_TICKS(1));
     }
     if (tcp->isTransaction(currentTcpTransaction)) {
-        // Pas de réponse dans le délai. La bibliothèque garde la requête MODBUSIP_TIMEOUT
-        // (1 s) et écrirait une réponse tardive dans la variable du nœud, qui a déjà rendu
-        // la main : on ferme donc la connexion, ce qui écarte toute réponse tardive et
-        // remet à zéro une socket à demi fermée par l'équipement. La requête abandonnée
-        // est ensuite purgée par la bibliothèque (callback ignoré : identifiant périmé).
-        TcpDevice* d = tcpDevice(currentTransactionAddress);
-        if (d != nullptr) {
-            tcp->disconnect(d->ip);
-        }
+        // Pas de réponse dans le délai. La bibliothèque garderait la requête MODBUSIP_TIMEOUT
+        // (1 s) et écrirait une réponse tardive dans la variable du nœud, qui aura rendu la
+        // main : on annule la requête maintenant. Une réponse qui arriverait pendant ce task()
+        // est encore écrite pendant que la variable existe ; ensuite, plus aucune transaction
+        // ne l'attend. Le callback de la requête annulée est ignoré (identifiant remis à 0).
+        currentTcpTransaction = 0;
+        tcp->dropTransactions();
+        tcp->task();
         lastEvent = Modbus::EX_TIMEOUT;
         stats.totalTransactions++;
         updateSlaveStats(currentTransactionAddress, Modbus::EX_TIMEOUT);
@@ -959,6 +963,9 @@ bool MyModbus::waitEndTcpTransaction() {
         return false;
     }
     currentTcpTransaction = 0;
+    if (TcpDevice* d = tcpDevice(currentTransactionAddress)) {
+        d->connected = true;   // l'équipement a répondu sur cette connexion
+    }
     stats.lastTransactionTime = millis() - start;
     if (lastEvent == Modbus::EX_SUCCESS) {
         stats.lastSuccessTime = millis();

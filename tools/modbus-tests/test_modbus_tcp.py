@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Vérifie depuis un PC qu'un équipement répond en Modbus TCP, avant d'y brancher l'automate.
 
-    pip install pymodbus
+    pip install -U "pymodbus>=3.8"      (Python 3.9 ou plus récent)
     python test_modbus_tcp.py 192.168.10.50                  # mêmes lectures que BancAubo
     python test_modbus_tcp.py 192.168.10.50 --port 502 --unites 1,0,255 --adresses 310,320,300
     python test_modbus_tcp.py 192.168.10.50 --scan            # balayage FC01 à FC04, adresses 0 à 599
@@ -19,17 +19,29 @@ Lecture du résultat :
 import argparse
 import sys
 
+import pymodbus
 from pymodbus.client import ModbusTcpClient
 
 
+def _version(texte):
+    morceaux = []
+    for part in texte.split(".")[:2]:
+        chiffres = "".join(c for c in part if c.isdigit())
+        morceaux.append(int(chiffres or 0))
+    return tuple(morceaux)
+
+
+# Le n° d'unité s'appelle « slave » avant pymodbus 3.10 et « device_id » ensuite. Les versions
+# 3.0 à 3.6 acceptent un mot-clé inconnu sans erreur (et l'ignorent) : on choisit donc d'après la
+# version, sans essai.
+MOT_UNITE = "device_id" if _version(pymodbus.__version__) >= (3, 10) else "slave"
+
+
 def lire(fonction, adresse, nombre, unite):
-    """Une lecture Modbus, compatible avec pymodbus avant et après la 3.10 (slave / device_id)."""
+    """Une lecture Modbus ; renvoie la réponse, ou l'exception (délai dépassé, connexion coupée...)."""
     try:
-        try:
-            return fonction(adresse, count=nombre, device_id=unite)
-        except TypeError:
-            return fonction(adresse, count=nombre, slave=unite)
-    except Exception as erreur:  # délai dépassé, connexion coupée...
+        return fonction(adresse, count=nombre, **{MOT_UNITE: unite})
+    except Exception as erreur:
         return erreur
 
 
@@ -56,7 +68,8 @@ def main():
     unites = [int(u) for u in args.unites.split(",") if u.strip()]
     adresses = [int(a) for a in args.adresses.split(",") if a.strip()]
 
-    client = ModbusTcpClient(args.ip, port=args.port, timeout=args.timeout, retries=0)
+    print(f"pymodbus {pymodbus.__version__}")
+    client = ModbusTcpClient(args.ip, port=args.port, timeout=args.timeout, retries=1)
     if not client.connect():
         print(f"connexion TCP impossible vers {args.ip}:{args.port} : aucun serveur Modbus TCP ne répond.")
         print("Vérifier l'IP, le câble et le réseau, et que le serveur Modbus est activé sur l'équipement.")
@@ -76,11 +89,19 @@ def main():
         )
         for unite in unites:
             for nom, fonction in fonctions:
+                bits = nom in ("FC01", "FC02")
                 for adresse in range(0, 600, 10):
                     reponse = lire(fonction, adresse, 10, unite)
-                    if not isinstance(reponse, Exception) and not reponse.isError():
-                        texte = decrire(reponse, 10, bits=nom in ("FC01", "FC02"))
-                        print(f"{nom} unité {unite} adresses {adresse}-{adresse + 9} : {texte}")
+                    if isinstance(reponse, Exception):
+                        continue  # pas de réponse : inutile d'insister sur ce bloc
+                    if not reponse.isError():
+                        print(f"{nom} unité {unite} adresses {adresse}-{adresse + 9} : {decrire(reponse, 10, bits)}")
+                        continue
+                    # Bloc refusé (exception) : il peut contenir des adresses valides isolées.
+                    for a in range(adresse, adresse + 10):
+                        r = lire(fonction, a, 1, unite)
+                        if not isinstance(r, Exception) and not r.isError():
+                            print(f"{nom} unité {unite} adresse {a} : {decrire(r, 1, bits)}")
     client.close()
     return 0
 

@@ -4,8 +4,8 @@ Ce qui est possible depuis l'automate dépend du **logiciel** du contrôleur, pa
 
 | Logiciel du contrôleur | Robots concernés | Liaison avec l'automate | Profil PLC Studio |
 |---|---|---|---|
-| **ARCS** (interface AUBO Scope) | AUBO iS-series, robots livrés ou migrés sous ARCS | Modbus TCP (le robot est serveur) + E/S câblées | `Robot_Aubo` (§ A) |
-| **AUBOPE 4.x** | coffrets CB4 et **CB-M** (ex. AUBO i10 CB-M, manuel V4.5.13) | **E/S câblées « linkage »** ; aucun serveur Modbus TCP documenté | aucun : E/S de l'automate (§ B) |
+| **ARCS** (interface AUBO Scope) | AUBO iS-series, robots i-series livrés ou migrés sous ARCS (coffret CB-M possible) | Modbus TCP (le robot est serveur) + E/S câblées | `Robot_Aubo` (§ A) |
+| **AUBOPE 4.x** | souvent les coffrets CB4 et CB-M d'origine (ex. AUBO i10 CB-M du banc, manuel V4.5.13) | **E/S câblées « linkage »** ; aucun serveur Modbus TCP documenté | aucun : E/S de l'automate (§ B) |
 
 **Première chose à faire :** sur le pendant, ouvrir *À propos* et relever la version.
 « AUBOPE 4.x » : aller au § B. « ARCS » : § A.
@@ -51,8 +51,8 @@ et les états critiques passent donc par des **E/S câblées**.
 
 ### A.2 Table d'adresses du profil (convention de ce projet)
 
-Registres de maintien 16 bits, `registersOffset = 0` (adresse Modbus = 300 + index du registre
-ARCS, d'après la note d'application AUBO 61).
+Registres de maintien 16 bits, `registersOffset = 0` (probable : adresse Modbus = 300 + index du
+registre ARCS ; à vérifier avant toute mise en mouvement, § A.3).
 
 Automate → robot (`ModbusWriteHoldingRegister`, FC06) :
 
@@ -85,6 +85,13 @@ ou degrés). PLC Studio lit ces voies `POS` en signé. Rafraîchir les positions
 chaque registre est une transaction Modbus.
 
 ### A.3 Programme robot ARCS (pseudo-code)
+
+**Avant toute mise en mouvement**, vérifier la correspondance entre index du programme et
+adresse Modbus : depuis un PC, écrire des valeurs distinctes en 300 à 308 (pymodbus
+`write_register`) et les relire dans le robot ; faire écrire par le robot une valeur connue à
+l'index 10 et la relire à l'adresse 310. Un décalage d'un registre ferait partir une tâche sur
+l'écriture de `PROG` au lieu de `DEPART`. Une simple lecture depuis le PC ne le voit pas : sans
+programme robot, tous les registres valent 0.
 
 ```lua
 -- index = adresse - 300 (getInt16Register / setInt16Register du SDK ARCS)
@@ -123,7 +130,7 @@ end
 
 ---
 
-## B. Contrôleur AUBOPE 4.x (coffrets CB4 et CB-M)
+## B. Contrôleur sous AUBOPE 4.x (souvent les coffrets CB4 et CB-M d'origine)
 
 **Pas de profil Modbus pour ces contrôleurs.** Sous AUBOPE 4.x :
 
@@ -132,7 +139,8 @@ end
 - aucune documentation ne décrit de **serveur** Modbus TCP ni de table d'adresses. Une vidéo AUBO
   intitulée « AUBOPE Tutorial - Modbus: TCP Server » laisse penser qu'une option existe : à
   vérifier sur le pendant, puis à tester (`tools/modbus-tests/`) avant tout projet ;
-- les registres généraux 300-525 et `setInt16Register` n'existent que sous ARCS.
+- les registres généraux 300-525 et `setInt16Register` ne sont documentés que pour ARCS
+  (absents du SDK AUBOPE V4 ; le langage de script AUBOPE n'a pas été vérifié).
 
 ### B.1 E/S câblées « linkage » (mode de référence)
 
@@ -150,11 +158,13 @@ D'après le manuel AUBO-i5 & CB4 V4.5.11 (à confirmer sur le bornier du CB-M) :
 | `LO03` (sortie) | en position initiale | entrée API |
 
 Le coffret fournit aussi des sorties d'état : en mouvement, pas à l'arrêt, mode réduit,
-**erreur système** (active en cas d'erreur : polarité inverse d'un « robot sans défaut », à
-mesurer), arrêt d'urgence, AUBOPE en exécution. Il n'y a pas d'équivalent de `RobotOperable`.
+**erreur système** (probablement active en cas d'erreur : polarité inverse d'un « robot sans
+défaut », à mesurer), arrêt d'urgence, AUBOPE en exécution. `RobotOperable` (ARCS) n'a
+probablement pas d'équivalent.
 
-Mise en œuvre (à confirmer sur le robot) : passer le contrôleur en mode linkage (sélection au
-démarrage, puis redémarrage), définir le projet par défaut, vérifier la logique NPN (une sortie
+Mise en œuvre (d'après les extraits du manuel V4.x, à confirmer sur le robot) : choisir le mode
+avec le bouton MANUAL/LINKAGE du coffret, robot hors tension, puis redémarrer le pendant et le
+bras ; identifier sur le pendant le projet lancé par `LI00` ; vérifier la logique NPN (une sortie
 robot active tire vers 0 V ; une entrée robot s'active en la ramenant au 0 V). L'échange de
 valeurs (n° de programme) se fait par E/S utilisateur codées en binaire.
 
@@ -186,15 +196,17 @@ Le protocole du port 8899 est propriétaire : ne pas chercher à l'implémenter 
 
 | Élément | Statut | Source |
 |---|---|---|
-| CB-M sous AUBOPE 4.5 (pas ARCS) | vérifié | intitulé des manuels « AUBO-i5/i10 & CB-M User Manual V4.5.13 » |
-| Registres généraux 300..525, index ARCS ↔ adresse `300 + i` | vérifié, **ARCS seulement** | guide AUBO « 29 ARCS Modbus », note d'application 61 |
+| CB-M du banc sous AUBOPE 4.5.13 ; manuels « AUBO-i5/i10 & CB-M V4.5.x » | vérifié | document utilisateur, intitulés des manuels |
+| Un CB-M peut aussi tourner sous ARCS (iS-series, migration) | probable | manuel ARCS, échanges avec AUBO (extraits) |
+| Registres généraux 300..525 | vérifié, **ARCS seulement** | guide AUBO « 29 ARCS Modbus », note d'application 61 |
+| Index ARCS ↔ adresse `300 + i` | probable (ARCS) ; tester avant mouvement (§ A.3) | note d'application 61 (extraits) |
 | Serveur Modbus TCP ARCS, port 502 par défaut | vérifié (ARCS) ; chemin du menu à confirmer | note d'application 61 |
 | `registersOffset = 0`, unité 1 | probable (ARCS) | déduits d'un exemple `modbusAddSignal` où le robot ARCS est **client** |
 | Écriture FC06 acceptée par ARCS | probable (standard) | — |
 | Fonctions E/S `StartProgram`… `RobotOperable` | vérifié, **ARCS seulement** | SDK ARCS `pyaubo_sdk` 0.24.1 |
 | Répartition des registres 300..331 | **convention de ce projet** | — |
 | AUBOPE 4.x : Modbus maître (plug-in Extensions) | vérifié | SDK AUBOPE V4 (`ModbusCfg`), manuel, document utilisateur |
-| AUBOPE 4.x : serveur Modbus TCP | **inconnu** (non documenté) | — |
+| AUBOPE 4.x : serveur Modbus TCP | **inconnu** : non documenté ; une vidéo AUBO « Modbus: TCP Server » l'évoque | — |
 | E/S linkage `LI00..LI03` / `LO00..LO03` | vérifié sur CB4, probable sur CB-M | manuel AUBO-i5 & CB4 V4.5.11 |
 
 Limites côté automate : pas de flottant, une transaction par registre, écriture seulement sur

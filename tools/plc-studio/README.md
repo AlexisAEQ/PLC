@@ -58,8 +58,8 @@ Vous pouvez revenir à n'importe quelle étape : tout est recalculé et revérif
    M5Stack StamPLC, Homemaster MiniPLC (chacun indique son environnement PlatformIO) ;
    modules Waveshare (8DIO, 16DO, 8AI) ; autant d'axes que nécessaire : SureServo 2,
    Lichuan A6 / A5 (Modbus), pas-à-pas StepperOnline DM-RS / CL-RS et servos StepperOnline A6-RS / T6 (Modbus), moteurs
-   pas-à-pas STEP/DIR ; robots AUBO sous ARCS et FAIRINO (les AUBO sous AUBOPE 4.x se câblent
-   en E/S « linkage », voir `docs/robots/aubo.md`), équipement Modbus générique (robot,
+   pas-à-pas STEP/DIR ; robots AUBO sous ARCS et FAIRINO (les AUBO sous AUBOPE 4.x, souvent les
+   coffrets CB4 et CB-M d'origine, se câblent en E/S « linkage », voir `docs/robots/aubo.md`), équipement Modbus générique (robot,
    automate tiers…). Chaque équipement Modbus passe par le RS485 (RTU) ou par le
    réseau (TCP : IP, port, n° d'unité ; voir `docs/modbus-tcp.md`). L'automate est
    toujours déclaré en premier (il porte le bus RS485, sinon le firmware bloque au

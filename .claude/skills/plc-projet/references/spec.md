@@ -65,8 +65,8 @@ Modbus et ses `signals` (voies de l'automate) :
   équipements TCP, un seul port par IP. Voir `docs/modbus-tcp.md`.
 - Robots (TCP par défaut, poignée de main avec un programme robot, voir `docs/robots/`) :
   `Robot_Aubo` **pour un contrôleur ARCS seulement** (demander à l'utilisateur la version lue
-  dans *À propos* du pendant ; sous AUBOPE 4.x — coffrets CB4 et CB-M — ne pas l'utiliser :
-  câbler les E/S « linkage » `LI00`/`LI01`/`LO00`/`LO02` sur les voies de l'automate, voir
+  dans *À propos* du pendant ; sous AUBOPE 4.x — souvent les coffrets CB4 et CB-M d'origine — ne
+  pas l'utiliser : câbler les E/S « linkage » `LI00`/`LI01`/`LO00`/`LO02` sur les voies de l'automate, voir
   `docs/robots/aubo.md` § B) — voies `PROG`, `DEPART`, `ABANDON`, `ACQUIT`, `P1`…`P4`, `VIE_API`
   (registres écrits, entiers) ; `PRET`, `EN_COURS`, `FINI`, `DEFAUT`,
   `ECHO_PROG`, `VIE_ROBOT`, `V1`…`V4` (registres lus, 0/1 ou valeurs) ; `TCP_X`…`J6`
