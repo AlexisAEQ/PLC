@@ -1329,3 +1329,27 @@ textarea.mono {
     max-height: 320px;
   }
 }
+
+/* Référentiel d'infrastructure : modifié pendant que le serveur tourne, ou invalide. */
+.bandeau-referentiel {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  max-width: calc(100vw - 32px);
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+}
+.erreur-fatale {
+  margin: 24px;
+  padding: 16px;
+  white-space: pre-wrap;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+}

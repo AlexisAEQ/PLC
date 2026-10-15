@@ -1,0 +1,937 @@
+// =============================================================================
+//  infrastructure.jsonc — RÉFÉRENTIEL D'INFRASTRUCTURE de PLC Studio
+// =============================================================================
+//
+//  C'est LE fichier à modifier quand l'installation change : IP d'un robot, logiciel
+//  d'un contrôleur, carte remplacée ou ajoutée, module ou variateur réadressé, bus RS485,
+//  environnement de compilation, limite relevée dans le firmware, renommage...
+//  PLC Studio (interface, CLI, générateur, validation, simulateur) le lit au démarrage.
+//  Le firmware, lui, ne le lit JAMAIS : il lit config.json et data/hardware/*.json,
+//  qui restent sa vérité (broches, registres, puces).
+//
+//  APRÈS CHAQUE MODIFICATION :
+//      node tools/plc-studio/cli/plc.mjs infra verifier
+//  (contrôle ce fichier contre data/hardware/, platformio.ini et les en-têtes C++),
+//  puis « npm test » dans tools/plc-studio, et redémarrer PLC Studio s'il tourne.
+//  Procédures pas à pas : docs/referentiel-infrastructure.md
+//
+//  SOMMAIRE (de la section la plus souvent modifiée à la plus rare)
+//     1. sites         ce qui est réellement installé : IP, adresses, logiciels relevés
+//     2. logiciels     logiciels de contrôleur connus (AUBO ARCS / AUBOPE, FAIRINO)
+//     3. automates     cartes automates (une par fichier data/hardware)
+//     4. robots        robots et équipement Modbus générique
+//     5. modules       modules d'E/S déportés
+//     6. axes          variateurs et moteurs (modèles)
+//     7. compilation   environnements PlatformIO
+//     8. firmware      ce que le firmware sait faire : version, limites, types de section
+//     9. pilotes       types d'axe gérés par le CODE (contrat avec src/<Pilote>/)
+//    10. gabarits      morceaux réutilisables (voies, options, sections, écran d'axe)
+//    11. alias         anciens noms encore acceptés
+//    12. ecartsConnus  écarts acceptés entre ce fichier et le firmware
+//
+//  NOTATIONS
+//    "gabarit": "nom"   reprend gabarits.<famille>.<nom>, puis applique les clés locales
+//                       (objets fusionnés, listes et valeurs remplacées ; null = retirer).
+//    "<obligatoire>"    dans un gabarit : valeur à fournir par chaque utilisateur.
+//    "{cle}"            dans un texte : remplacé par la valeur de cette clé (ex. {broche}).
+//    "ids": "1-8"       plage d'identifiants ; "1-4, 9" ; un seul : "9".
+//    "noms": [...]      noms des voies, dans l'ordre des ids (ou des bits d'un banc).
+//    "broches": [...]   voies GPIO : ids 1..n (= ids tx-bool du fichier matériel), noms GPIO<n>.
+//    "options": ["x"]   option tirée de gabarits.options.x ; { "gabarit": "x", ... } pour l'ajuster.
+//    "noeuds": "par modèle"   (pilotes) chaque modèle de la section « axes » donne ces nœuds.
+//    "seulementSi": "boucleFermee"   nœud présent seulement si le modèle a boucleFermee: true.
+//
+//  IDENTIFIANTS GELÉS — enregistrés dans les projets ou hachés dans les nœuds :
+//    clés d'équipement (Kincony_KC868_A8S...), "cle" des voies, "prefixe", "noms",
+//    "suffixeSection" et "suffixe" (ils entrent dans le hash des nœuds : les renommer change
+//    les identifiants de interface.json et du C++), ids, "nom" et "champ" des nœuds, "cle"
+//    des options et des signaux, noms de site et d'appareil.
+//    Renommer = ajouter l'ancien nom dans « alias » ; « npm test » signale tout retrait.
+//
+//  AUCUN MOT DE PASSE NI IDENTIFIANT WIFI ICI : le chargeur refuse ces clés.
+// =============================================================================
+{
+  "format": "plc-studio-referentiel",
+  "version": 1,
+  "revision": "2026-10-15 : création ; banc AUBO (i10 CB-M sous AUBOPE 4.5.13), automate POE 192.168.10.20",
+
+  // ===========================================================================
+  // 1. SITES — ce qui est réellement installé. Un projet choisit un site (étape
+  //    Projet) et lie chacun de ses équipements à un appareil (étape Équipements) :
+  //    IP, port, n° d'unité, adresse RS485, Ethernet et bus de l'automate viennent
+  //    alors d'ici à chaque ouverture et à chaque génération. Un projet sans site
+  //    n'est pas touché.
+  //    Champs d'un appareil (tous facultatifs) :
+  //      "type"       clé d'équipement (sections 3 à 6) : contrôle la cohérence ;
+  //      "materiel"   texte libre (modèle, coffret, n° de série...) ;
+  //      "logiciel"   { "nom": <section 2>, "version": "4.5.13", "releveLe": "AAAA-MM-JJ" } ;
+  //      "ip"         IP de l'appareil ; "modbusTcp": { "port": 502, "unite": 1 } ou null ;
+  //      "rs485"      { "adresse": 1..247 } (équipement sur le bus de l'automate) ;
+  //      "ethernet"   (automate) { "ip", "masque", "passerelle", "dns" } ;
+  //      "bus"        (automate) { "vitesse": 19200, "format": "SERIAL_8N1" }, null = fichier matériel ;
+  //      "remarque"   texte libre.
+  // ===========================================================================
+  "sites": {
+    "banc-aubo": {
+      "libelle": "Banc AUBO i10 (atelier)",
+      "reseau": { "sousReseau": "192.168.10.0/24", "passerelle": "192.168.10.1" },
+      "appareils": {
+        "automate": {
+          "type": "Waveshare_ESP32S3_POE_8DI8DO",
+          "ethernet": { "ip": "192.168.10.20", "masque": "255.255.255.0", "passerelle": "192.168.10.1" },
+          "remarque": "Tablette opérateur sur le point d'accès WiFi de l'automate (192.168.4.1)."
+        },
+        "robot": {
+          // Pas de "type" : aucun profil Modbus ne convient à un AUBO sous AUBOPE (le profil
+          // Robot_Aubo exige ARCS). Le robot se câble en E/S « linkage » sur l'automate.
+          "materiel": "AUBO i10, coffret CB-M",
+          "logiciel": { "nom": "AUBOPE", "version": "4.5.13", "releveLe": "2026-10-11" },
+          "ip": "192.168.10.50",
+          "modbusTcp": null,
+          "remarque": "Aucun serveur Modbus TCP vérifié sous AUBOPE ; SDK AUBO sur le port 8899 (aubo_jog.py)."
+        }
+        // Autres formes possibles :
+        //   "io":    { "type": "Waveshare_8DIO", "rs485": { "adresse": 4 } }
+        //   "cobot": { "type": "Robot_Aubo", "logiciel": { "nom": "ARCS", "version": "1.5", "releveLe": "2026-11-02" },
+        //              "ip": "192.168.10.51", "modbusTcp": { "port": 502, "unite": 1 } }
+      }
+    }
+  },
+
+  // ===========================================================================
+  // 2. LOGICIELS de contrôleur. "serveurModbusTcp": false interdit un "modbusTcp"
+  //    dans un appareil qui déclare ce logiciel.
+  // ===========================================================================
+  "logiciels": {
+    "ARCS":    { "editeur": "AUBO", "libelle": "AUBO ARCS (interface AUBO Scope)", "serveurModbusTcp": true },
+    "AUBOPE":  { "editeur": "AUBO", "libelle": "AUBOPE 4.x (pendant d'origine des coffrets CB4 / CB-M)", "serveurModbusTcp": false,
+                 "remarque": "Pas de serveur Modbus TCP documenté : E/S câblées « linkage » (docs/robots/aubo.md § B)." },
+    "FAIRINO": { "editeur": "FAIRINO", "libelle": "Contrôleur FAIRINO (WebApp)", "serveurModbusTcp": true }
+  },
+
+  // ===========================================================================
+  // 3. AUTOMATES — une entrée par fichier data/hardware/<fichierMateriel>.json.
+  //    Chaque automate : nom par défaut « Automate », 1 par projet, porte le bus
+  //    RS485, options RS485 ; "horloge" ajoute l'option « Horloge … installée ».
+  //    La première voie doit être une entrée (toujours déclarée en entier).
+  //    "marque" sert aux messages (« Ajoutez l'automate (KinCony, …) »).
+  //    Contrôlé par « infra verifier » : ids, broches, buzzer, ETH, horloge, env.
+  // ===========================================================================
+  "automates": {
+    "Kincony_KC868_A8S": {
+      "marque": "KinCony",
+      "libelle": "Kincony KC868-A8S",
+      "description": "Automate ESP32 : 8 entrées optocouplées, 8 relais, RS485 (Modbus maître), horloge DS3231.",
+      "fichierMateriel": "Kincony_KC868_A8S", // NE PAS RENOMMER : le firmware déduit le buzzer GPIO2 du nom « A8S »
+      "envPlatformIO": "esp32dev",          // note E15 : déploiement réel en quatre_mb_huge ? à trancher
+      "horloge": "DS3231",                  // fichier : RTC true (auto-détection)
+      "voies": [
+        { "gabarit": "entrees", "type": "PF8574_rx-bool", "ids": "1-8" },
+        { "gabarit": "sorties", "type": "PF8574_tx-bool", "ids": "1-8" },
+        // GPIO2 = buzzer de la carte (le firmware le déduit du nom de fichier « A8S »)
+        { "gabarit": "gpio", "broches": [2], "libelle": "Sortie directe GPIO2 (buzzer)", "buzzerCarte": true }
+      ]
+    },
+
+    "Waveshare_ESP32S3_POE_8DI8DO": {
+      "marque": "Waveshare ESP32-S3",
+      "libelle": "Waveshare ESP32-S3-POE-ETH-8DI-8DO",
+      "description": "Automate ESP32-S3 : 8 entrées optocouplées, 8 sorties transistor (TCA9554), RS485 isolé, horloge PCF85063, buzzer, Ethernet W5500 (PoE).",
+      "fichierMateriel": "Waveshare_ESP32S3_POE_8DI8DO",
+      "envPlatformIO": "esp32s3_n16r8",
+      "ethernet": true,
+      "horloge": "PCF85063",
+      "voies": [
+        { "gabarit": "entrees", "type": "rx-bool", "ids": "1-8", "prefixe": "DI" },
+        { "gabarit": "sorties", "type": "EXP_tx-bool", "ids": "1-8", "prefixe": "DO", "libelle": "Sorties transistor", "suffixeSection": "Sorties" },
+        { "gabarit": "gpio", "broches": [40, 1, 47, 48], "libelle": "GPIO libres (à repiquer ; 47/48 : lecteur TF inutilisé)" },
+        { "gabarit": "buzzer", "broche": 46 }
+      ]
+    },
+
+    "Waveshare_ESP32S3_RS485_WLED": {
+      "marque": "Waveshare ESP32-S3",
+      "libelle": "Waveshare ESP32-S3-RS485-WLED",
+      "description": "Contrôleur ESP32-S3 compact : RS485 isolé (sens automatique), 2 sorties 5 V (prévues pour bandeaux LED, idéales en STEP/DIR), 2 GPIO 3,3 V, bouton BOOT. Pas de relais ni d’entrées isolées : à compléter par des modules Modbus.",
+      "fichierMateriel": "Waveshare_ESP32S3_RS485_WLED",
+      "envPlatformIO": "esp32s3_n16r8",
+      "voies": [
+        { "cle": "di", "libelle": "Bouton BOOT (GPIO0)", "suffixeSection": "Entrees", "type": "rx-bool", "sens": "entree", "donnee": "bool", "ids": "1", "prefixe": "BOOT", "noms": ["BOOT"], "inversable": true },
+        { "gabarit": "gpio", "broches": [2, 16, 3, 4], "libelle": "Sorties directes (GPIO2 et GPIO16 en 5 V, GPIO3/4 en 3,3 V)" }
+      ]
+    },
+
+    "Kincony_KC868_A16": {
+      "marque": "KinCony",
+      "libelle": "Kincony KC868-A16",
+      "description": "Automate ESP32 : 16 entrées optocouplées, 16 sorties MOSFET (PCF8574), RS485, 3 GPIO libres (HT1-HT3). Pas d’horloge.",
+      "fichierMateriel": "Kincony_KC868_A16",
+      "envPlatformIO": "quatre_mb_huge",
+      "ethernet": true,
+      "voies": [
+        { "gabarit": "entrees", "type": "EXP_rx-bool", "ids": "1-16" },
+        { "gabarit": "sorties", "type": "EXP_tx-bool", "ids": "1-16", "libelle": "Sorties MOSFET", "suffixeSection": "Sorties" },
+        { "gabarit": "gpio", "broches": [32, 33, 14], "libelle": "GPIO libres HT1-HT3" }
+      ]
+    },
+
+    "Kincony_KC868_A16v3": {
+      "marque": "KinCony",
+      "libelle": "Kincony KC868-A16v3",
+      "description": "Automate ESP32-S3 : 16 entrées optocouplées, 16 sorties MOSFET (PCF8574), RS485, 6 GPIO libres, horloge DS3231.",
+      "fichierMateriel": "Kincony_KC868_A16v3",
+      "envPlatformIO": "esp32s3_n16r8",
+      "ethernet": true,
+      "horloge": "DS3231",                  // fichier : RTC "auto"
+      "voies": [
+        { "gabarit": "entrees", "type": "EXP_rx-bool", "ids": "1-16" },
+        { "gabarit": "sorties", "type": "EXP_tx-bool", "ids": "1-16", "libelle": "Sorties MOSFET", "suffixeSection": "Sorties" },
+        { "gabarit": "gpio", "broches": [38, 39, 40, 41, 47, 48], "libelle": "GPIO libres" }
+      ]
+    },
+
+    "Kincony_KC868_A8v3": {
+      "marque": "KinCony",
+      "libelle": "Kincony KC868-A8v3",
+      "description": "Automate ESP32-S3 : 8 entrées optocouplées, 8 relais (PCF8575), RS485, 4 GPIO libres, horloge DS3231.",
+      "fichierMateriel": "Kincony_KC868_A8v3",
+      "envPlatformIO": "esp32s3_n16r8",
+      "ethernet": true,
+      "horloge": "DS3231",
+      "voies": [
+        { "gabarit": "entrees", "type": "EXP_rx-bool", "ids": "1-8" },
+        { "gabarit": "sorties", "type": "EXP_tx-bool", "ids": "1-8" },
+        { "gabarit": "gpio", "broches": [13, 14, 40, 48], "libelle": "GPIO libres" }
+      ]
+    },
+
+    "M5Stack_StamPLC": {
+      "marque": "M5Stack StamPLC",
+      "libelle": "M5Stack StamPLC",
+      "description": "Automate ESP32-S3 : 8 entrées optocouplées, 4 relais (AW9523), RS485, horloge RX8130, buzzer, ports Grove (GPIO libres).",
+      "fichierMateriel": "M5Stack_StamPLC",
+      "envPlatformIO": "m5stack_stamplc",
+      "horloge": "RX8130",
+      "voies": [
+        { "gabarit": "entrees", "type": "EXP_rx-bool", "ids": "1-8", "prefixe": "DI" },
+        { "gabarit": "sorties", "type": "EXP_tx-bool", "ids": "1-4", "prefixe": "DO" },
+        { "gabarit": "gpio", "broches": [4, 5, 1, 2], "libelle": "GPIO libres (ports Grove)" },
+        { "gabarit": "buzzer", "broche": 44 }
+      ]
+    },
+
+    "Homemaster_MiniPLC": {
+      "marque": "Homemaster MiniPLC",
+      "libelle": "Homemaster MiniPLC",
+      "description": "Automate ESP32 : 4 entrées 24 V, 4 boutons en façade, 6 relais (PCF8574), 2 LED, RS485 isolé, horloge PCF8563, buzzer, 2 GPIO libres (bornes 1-Wire).",
+      "fichierMateriel": "Homemaster_MiniPLC",
+      "envPlatformIO": "quatre_mb_huge",
+      "ethernet": true,
+      "horloge": "PCF8563",                 // pas auto-détectée : le fichier matériel doit la nommer
+      "voies": [
+        { "gabarit": "entrees", "type": "rx-bool", "ids": "1-4", "prefixe": "DI" },
+        { "gabarit": "entrees", "cle": "btn", "libelle": "Boutons en façade", "suffixeSection": "Boutons", "type": "EXP_rx-bool", "ids": "1-4", "prefixe": "BTN" },
+        { "gabarit": "sorties", "type": "EXP_tx-bool", "ids": "1-6", "prefixe": "DO" },
+        { "gabarit": "sorties", "cle": "led", "libelle": "LED en façade", "suffixeSection": "LED", "type": "EXP_tx-bool", "ids": "7-8", "prefixe": "LED", "noms": ["LED2", "LED3"] },
+        { "gabarit": "gpio", "broches": [5, 4], "libelle": "GPIO libres (bornes 1-Wire)" },
+        { "gabarit": "buzzer", "broche": 2 }
+      ]
+    }
+  },
+
+  // ===========================================================================
+  // 4. ROBOTS (et équipement Modbus générique) — Modbus TCP par défaut.
+  //    "logicielRequis" : logiciel que doit faire tourner le contrôleur du robot ;
+  //    comparé au logiciel relevé dans le site (section 1) : un profil Robot_Aubo
+  //    lié à un robot sous AUBOPE est une ERREUR (génération bloquée).
+  //    "ModbusGeneric" : tout équipement Modbus sans profil ; fichier matériel
+  //    généré par PLC Studio (data/hardware/Modbus_<nom>.json).
+  // ===========================================================================
+  "robots": {
+    "ModbusGeneric": {
+      "nomParDefaut": "Robot",
+      "libelle": "Équipement Modbus générique (robot, automate, passerelle…)",
+      "description": "Tout équipement Modbus (RTU ou TCP) : 16 bobines écrites et lues, 16 registres écrits, lus et d'entrée, à partir des adresses de départ réglées dans les options. Idéal pour piloter un robot par poignée de main (n° de programme, départ, en cours, fini).",
+      "fichierMateriel": null,
+      "generique": true,
+      "adresseParDefaut": 1,
+      "transportParDefaut": "tcp",
+      "options": [
+        { "cle": "oneBased", "libelle": "Adresses de la documentation comptées à partir de 1", "type": "bool", "defaut": false, "aide": "Coché : « 40001 », « 1 » = premier registre (l’outil retire 1)." },
+        { "cle": "coilOutStart", "libelle": "Adresse de Q1 (bobines écrites)", "type": "number", "defaut": 0 },
+        { "cle": "coilInStart", "libelle": "Adresse de I1 (bobines lues)", "type": "number", "defaut": 0 },
+        { "cle": "regOutStart", "libelle": "Adresse de W1 (registres écrits)", "type": "number", "defaut": 0 },
+        { "cle": "regInStart", "libelle": "Adresse de R1 (registres lus)", "type": "number", "defaut": 0 },
+        { "cle": "inputRegStart", "libelle": "Adresse de IR1 (registres d’entrée)", "type": "number", "defaut": 0 }
+      ],
+      "voies": [
+        { "cle": "q",  "libelle": "Bobines écrites (FC05)", "suffixeSection": "Bobines ecrites", "type": "ModbusWriteCoil", "sens": "sortie", "donnee": "bool", "ids": "1-16", "prefixe": "Q" },
+        { "cle": "i",  "libelle": "Bobines lues (FC01)", "suffixeSection": "Bobines lues", "type": "ModbusReadCoil", "sens": "entree", "donnee": "bool", "ids": "1-16", "prefixe": "I", "inversable": true, "rafraichissement": 100 },
+        { "cle": "w",  "libelle": "Registres écrits (FC06)", "suffixeSection": "Registres ecrits", "type": "ModbusWriteHoldingRegister", "sens": "sortie", "donnee": "int", "ids": "1-16", "prefixe": "W" },
+        { "cle": "r",  "libelle": "Registres lus (FC03)", "suffixeSection": "Registres lus", "type": "ModbusReadHoldingRegister", "sens": "entree", "donnee": "int", "ids": "1-16", "prefixe": "R", "rafraichissement": 200 },
+        { "cle": "ir", "libelle": "Registres d’entrée lus (FC04)", "suffixeSection": "Registres entree", "type": "ModbusReadInputRegister", "sens": "entree", "donnee": "int", "ids": "1-16", "prefixe": "IR", "rafraichissement": 200 }
+      ]
+    },
+
+    "Robot_Aubo": {
+      "nomParDefaut": "Robot",
+      "libelle": "Robot AUBO sous ARCS (Modbus TCP, programme robot requis)",
+      "description": "Cobot AUBO à contrôleur ARCS uniquement (interface AUBO Scope) : serveur Modbus TCP (port 502 ; unité 1 et correspondance des adresses à vérifier avant mise en mouvement), poignée de main dans les registres généraux 300 à 331 remplis par un programme robot ARCS qui suit cette convention ; départ, arrêt, pause et états critiques en TOR câblés. Ne convient pas aux contrôleurs sous AUBOPE 4.x (version lue dans « À propos » du pendant ; souvent les CB4 et CB-M d'origine) : utiliser leurs E/S câblées « linkage ». Voir docs/robots/aubo.md.",
+      "fichierMateriel": "Robot_Aubo",
+      "adresseParDefaut": 1,
+      "transportParDefaut": "tcp",
+      "logicielRequis": { "noms": ["ARCS"], "sinon": "Sous AUBOPE 4.x : pas de serveur Modbus TCP documenté ; câbler les E/S « linkage » (docs/robots/aubo.md § B)." },
+      "voies": [
+        { "cle": "cmd", "libelle": "Consignes vers le robot (300-308)", "suffixeSection": "Consignes", "type": "ModbusWriteHoldingRegister", "sens": "sortie", "donnee": "int", "ids": "1-9", "prefixe": "CMD",
+          "noms": ["PROG", "DEPART", "ABANDON", "ACQUIT", "P1", "P2", "P3", "P4", "VIE_API"] },
+        { "cle": "sts", "libelle": "Retours du robot (310-319)", "suffixeSection": "Retours", "type": "ModbusReadHoldingRegister", "sens": "entree", "donnee": "int", "ids": "1-10", "prefixe": "STS", "rafraichissement": 200,
+          "noms": ["PRET", "EN_COURS", "FINI", "DEFAUT", "ECHO_PROG", "VIE_ROBOT", "V1", "V2", "V3", "V4"] },
+        { "cle": "pos", "libelle": "Positions (320-331, 0,1 mm / 0,1°, signées)", "suffixeSection": "Positions", "type": "ModbusReadHoldingRegister", "sens": "entree", "donnee": "int", "ids": "11-22", "prefixe": "POS", "rafraichissement": 1000, "signe": true,
+          "noms": ["TCP_X", "TCP_Y", "TCP_Z", "TCP_RX", "TCP_RY", "TCP_RZ", "J1", "J2", "J3", "J4", "J5", "J6"] }
+      ]
+    },
+
+    "Robot_Fairino": {
+      "nomParDefaut": "Robot",
+      "libelle": "Robot FAIRINO série FR (Modbus TCP)",
+      "description": "Cobot FAIRINO série FR (contrôleur V3.7.3 ou plus), serveur Modbus TCP (192.168.58.2, port 502, unité 1). Bobine 502 = départ du programme configuré ; poignée de main par les signaux utilisateur de l'esclave (adresses à confirmer) ; arrêt, pause et acquittement en TOR câblés. Mise en service : docs/robots/fairino.md.",
+      "fichierMateriel": "Robot_Fairino",
+      "adresseParDefaut": 1,
+      "transportParDefaut": "tcp",
+      "ipParDefaut": "192.168.58.2",        // IP d'usine FAIRINO
+      "logicielRequis": { "noms": ["FAIRINO"], "versionMin": "3.7.3" },
+      "voies": [
+        { "cle": "start", "libelle": "Départ programme (bobine 502)", "suffixeSection": "Depart", "type": "ModbusWriteCoil", "sens": "sortie", "donnee": "bool", "ids": "1", "prefixe": "START", "noms": ["DEMARRER"] },
+        { "cle": "do", "libelle": "Sorties du coffret robot (bobines 300-307)", "suffixeSection": "Sorties robot", "type": "ModbusWriteCoil", "sens": "sortie", "donnee": "bool", "ids": "2-9", "prefixe": "DO",
+          "noms": ["DO0", "DO1", "DO2", "DO3", "DO4", "DO5", "DO6", "DO7"] },
+        { "cle": "cmd", "libelle": "Commandes vers le robot (bobines utilisateur)", "suffixeSection": "Commandes", "type": "ModbusWriteMultipleCoils", "sens": "sortie", "donnee": "bool", "banc": { "noeud": 1, "bits": 8 }, "prefixe": "CMD",
+          "noms": ["DEPART", "ABANDON", "ACQUIT"] },
+        { "cle": "sts", "libelle": "États du robot (entrées TOR utilisateur)", "suffixeSection": "Etats", "type": "ModbusReadMultipleInputsStatus", "sens": "entree", "donnee": "bool", "banc": { "noeud": 1, "bits": 8 }, "prefixe": "STS", "inversable": true,
+          "noms": ["PRET", "EN_COURS", "FINI", "DEFAUT"] },
+        { "cle": "w", "libelle": "Consignes vers le robot", "suffixeSection": "Consignes", "type": "ModbusWriteHoldingRegister", "sens": "sortie", "donnee": "int", "ids": "1-5", "prefixe": "W",
+          "noms": ["PROG", "P1", "P2", "P3", "VIE_API"] },
+        { "cle": "ir", "libelle": "Retours du robot", "suffixeSection": "Retours", "type": "ModbusReadInputRegister", "sens": "entree", "donnee": "int", "ids": "1-5", "prefixe": "IR", "rafraichissement": 200,
+          "noms": ["ECHO_PROG", "CODE_DEFAUT", "VIE_ROBOT", "V1", "V2"] },
+        { "cle": "pos", "libelle": "Positions (0,1 mm / 0,1°, signées)", "suffixeSection": "Positions", "type": "ModbusReadInputRegister", "sens": "entree", "donnee": "int", "ids": "6-17", "prefixe": "POS", "rafraichissement": 1000, "signe": true,
+          "noms": ["TCP_X", "TCP_Y", "TCP_Z", "TCP_RX", "TCP_RY", "TCP_RZ", "J1", "J2", "J3", "J4", "J5", "J6"] }
+      ]
+    }
+  },
+
+  // ===========================================================================
+  // 5. MODULES d'E/S déportés (Modbus RTU par défaut).
+  //    "banc" : toutes les voies dans un seul nœud ; bits = nb_values du fichier.
+  // ===========================================================================
+  "modules": {
+    "Waveshare_8DIO": {
+      "nomParDefaut": "Module ES",
+      "libelle": "Waveshare Modbus RTU IO 8CH",
+      "description": "Module déporté RS485 : 8 entrées TOR et 8 sorties TOR.",
+      "fichierMateriel": "Waveshare_8DIO",
+      "adresseParDefaut": 1,
+      "voies": [
+        { "cle": "di", "libelle": "Entrées TOR", "suffixeSection": "Entrees", "type": "ModbusReadMultipleInputsStatus", "sens": "entree", "donnee": "bool", "banc": { "noeud": 1, "bits": 8 }, "prefixe": "DI", "inversable": true },
+        { "cle": "do", "libelle": "Sorties TOR", "suffixeSection": "Sorties", "type": "ModbusWriteMultipleCoils", "sens": "sortie", "donnee": "bool", "banc": { "noeud": 1, "bits": 8 }, "prefixe": "DO" }
+      ]
+    },
+    "Waveshare_16DO": {
+      "nomParDefaut": "Module relais",
+      "libelle": "Waveshare Modbus RTU Relay 16CH",
+      "description": "Module déporté RS485 : 16 sorties TOR.",
+      "fichierMateriel": "Waveshare_16DO",
+      "adresseParDefaut": 2,
+      "voies": [
+        { "cle": "do", "libelle": "Sorties TOR", "suffixeSection": "Sorties", "type": "ModbusWriteMultipleCoils", "sens": "sortie", "donnee": "bool", "banc": { "noeud": 1, "bits": 16 }, "prefixe": "DO" }
+      ]
+    },
+    "Waveshare_8AI": {
+      "nomParDefaut": "Module analogique",
+      "libelle": "Waveshare Modbus RTU Analog Input 8CH",
+      "description": "Module déporté RS485 : 8 entrées analogiques (registres 16 bits).",
+      "fichierMateriel": "Waveshare_8AI",
+      "adresseParDefaut": 3,
+      "voies": [
+        { "cle": "ai", "libelle": "Entrées analogiques", "suffixeSection": "Analogiques", "type": "ModbusReadInputRegister", "sens": "entree", "donnee": "int", "ids": "1-8", "prefixe": "AI", "rafraichissement": 200 }
+      ]
+    }
+  },
+
+  // ===========================================================================
+  // 6. AXES — variateurs et moteurs. "pilote" = section 9.
+  //    Les unités, l'écran et les nœuds viennent du pilote ; le modèle précise
+  //    famille, bornes, fichier matériel et les nœuds « par modèle ».
+  //    Bornes reprises du firmware (contrôlées par « infra verifier ») :
+  //      "rampeMaxMs"        temps de rampe maximal écrit par le générateur ;
+  //      "modelesVariateur"  { "<modèle>": { "courantCreteMax": <0,1 A> } } : crée l'option « Modèle ».
+  //    Bus : "formatSerie": { "impose": "SERIAL_8E1" } (format fixe du variateur, contrôlé
+  //    à la génération) ; "adresses": "1-32" (adresses RS485 acceptées par le variateur).
+  // ===========================================================================
+  "axes": {
+    "SureServo": {
+      "nomParDefaut": "Servo",
+      "libelle": "Servo AutomationDirect SureServo 2",
+      "description": "Variateur piloté en Modbus RTU (plusieurs possibles, adresses distinctes). Ses signaux TOR (servo ON, arrêt immédiat, reset alarmes) se câblent sur des sorties de l'automate.",
+      "fichierMateriel": "SureServo",
+      "adresseParDefaut": 127,
+      "pilote": "sureservo",
+      "options": [
+        { "gabarit": "pulsesPerUnit", "aide": "1 = travail direct en impulsions (PUU)." },
+        { "gabarit": "maxRange", "defaut": 1000000, "aide": "Butée logicielle : toute cible au-delà est refusée (avec 1 impulsion par unité, la course est en impulsions)." },
+        { "cle": "homePolicy", "libelle": "Position négative", "type": "select", "defaut": "NEGATIVE_INVALIDATES_HOME",
+          "choix": [{ "valeur": "NEGATIVE_INVALIDATES_HOME", "libelle": "Invalide l'origine" }, { "valeur": "NEGATIVE_TOLERATED", "libelle": "Tolérée (dérive normale)" }] }
+      ]
+    },
+
+    "LichuanA6": {
+      "nomParDefaut": "Servo",
+      "libelle": "Servo Lichuan A6 / LCDA6 (Modbus)",
+      "description": "Variateur Lichuan série A6 (paramètres PA_xxx) piloté en Modbus RTU, 8E1. Mise en service du variateur : docs/axes/lichuan.md.",
+      "fichierMateriel": "Lichuan_A6",
+      "adresseParDefaut": 1,
+      "pilote": "lichuan",
+      "famille": "A6",
+      "vitesseMax": 3000, "vitesseJogMax": 3000,
+      "rampeMaxMs": 2500,                    // borne du firmware (LichuanOptions, PA_058)
+      "formatSerie": { "impose": "SERIAL_8E1" },   // format fixe du variateur : tout le bus en 8E1
+      "adresses": "1-32",                    // PA_000
+      "aideRampe": "0 = réglage du variateur conservé. A6 : ms pour 0 → 1000 tr/min (PA_058/PA_059).",
+      "noeuds": {
+        "registres ecrits": [
+          { "id": 1, "nom": "entrees virtuelles", "champ": "virtualInputs", "cpp": "Uint16OutputNode" },
+          { "id": 2, "nom": "vitesse", "champ": "moveSpeed", "cpp": "Uint16OutputNode" },
+          { "id": 3, "nom": "acceleration", "champ": "accelTime", "cpp": "Uint16OutputNode" },
+          { "id": 4, "nom": "deceleration", "champ": "decelTime", "cpp": "Uint16OutputNode" },
+          { "id": 6, "nom": "couple max", "champ": "torqueLimit", "cpp": "Uint16OutputNode" } ]
+      }
+    },
+
+    "LichuanA5": {
+      "nomParDefaut": "Servo",
+      "libelle": "Servo Lichuan A5 / LCDA630P / LC10E (Modbus)",
+      "description": "Variateur Lichuan série A5 (paramètres Pgg-nn) piloté en Modbus RTU. Mise en service du variateur : docs/axes/lichuan.md.",
+      "fichierMateriel": "Lichuan_A5",
+      "adresseParDefaut": 1,
+      "pilote": "lichuan",
+      "famille": "A5",
+      "vitesseMax": 6000, "vitesseJogMax": 6000,   // écart connu E02 : le firmware borne à 3000
+      "rampeMaxMs": 65535,                   // borne du firmware (LichuanOptions, P11-15)
+      "aideRampe": "0 = réglage du variateur conservé. A5 : ms (P11-15).",
+      "noeuds": {
+        "registres ecrits": [
+          { "id": 1, "nom": "entrees virtuelles", "champ": "virtualInputs", "cpp": "Uint16OutputNode" },
+          { "id": 2, "nom": "vitesse", "champ": "moveSpeed", "cpp": "Uint16OutputNode" },
+          { "id": 3, "nom": "acceleration", "champ": "accelTime", "cpp": "Uint16OutputNode" },
+          { "id": 5, "nom": "vitesse jog", "champ": "jogSpeed", "cpp": "Uint16OutputNode" },
+          { "id": 6, "nom": "couple max", "champ": "torqueLimit", "cpp": "Uint16OutputNode" },
+          { "id": 7, "nom": "couple max inverse", "champ": "torqueLimitReverse", "cpp": "Uint16OutputNode" },
+          { "id": 8, "nom": "reset defaut", "champ": "faultReset", "cpp": "Uint16OutputNode" } ]
+      }
+    },
+
+    "StepperOnlineDM_RS": {
+      "nomParDefaut": "Axe",
+      "libelle": "Pas-à-pas StepperOnline DM556RS / DM882RS (Modbus)",
+      "description": "Variateur pas-à-pas boucle ouverte StepperOnline RS (mode PR, protocole Leadshine) piloté en Modbus RTU (usine 38400 8N1). Mise en service : docs/axes/stepperonline-rs.md.",
+      "fichierMateriel": "StepperOnline_DM_RS",
+      "adresseParDefaut": 1,
+      "pilote": "stepperonline-rs",
+      "boucleFermee": false,
+      // Courant crête maximal par modèle, en 0,1 A (firmware : StepperOnlineRSOptions::defaultsFor).
+      "modelesVariateur": { "DM556RS": { "courantCreteMax": 56 }, "DM882RS": { "courantCreteMax": 82 } }
+    },
+
+    "StepperOnlineCL_RS": {
+      "nomParDefaut": "Axe",
+      "libelle": "Pas-à-pas boucle fermée StepperOnline CL57RS / CL86RS (Modbus)",
+      "description": "Variateur pas-à-pas boucle fermée StepperOnline RS (mode PR, protocole Leadshine) piloté en Modbus RTU (usine 38400 8N1). Mise en service : docs/axes/stepperonline-rs.md.",
+      "fichierMateriel": "StepperOnline_CL_RS",
+      "adresseParDefaut": 1,
+      "pilote": "stepperonline-rs",
+      "boucleFermee": true,
+      "modelesVariateur": { "CL57RS": { "courantCreteMax": 70 }, "CL86RS": { "courantCreteMax": 80 } }
+    },
+
+    "StepperOnlineA6RS": {
+      "nomParDefaut": "Servo",
+      "libelle": "Servo StepperOnline A6-RS (Modbus)",
+      "description": "Servo StepperOnline A6 RS485 (paramètres Cgg.nn) piloté en Modbus RTU (115200 8N1 d'usine) par la logique des entrées DI. Adresses en partie supposées : mise en service et vérifications dans docs/axes/stepperonline-servo.md.",
+      "fichierMateriel": "StepperOnline_A6RS",
+      "adresseParDefaut": 1,
+      "pilote": "stepperonline-servo",
+      "famille": "A6RS",
+      "couple": false,
+      "rampeMaxMs": 65535,                   // borne du firmware (StepperOnlineOptions)
+      "aideRampe": "0 = réglage du variateur conservé. A6-RS : ms (C11.0A / C11.0C).",
+      "noeuds": {
+        "registres lus": [
+          { "id": 1, "nom": "etat", "champ": "status", "cpp": "Uint16InputNode", "rafraichissement": 200, "libelle": "État des DO" },
+          { "id": 5, "nom": "servo relu", "champ": "servoOnReadback", "cpp": "Uint16InputNode", "rafraichissement": 1000 } ],
+        "registres ecrits": [
+          { "id": 1, "nom": "servo on", "champ": "servoOn", "cpp": "Uint16OutputNode" },
+          { "id": 2, "nom": "vitesse", "champ": "moveSpeed", "cpp": "Uint16OutputNode" },
+          { "id": 3, "nom": "acceleration", "champ": "accelTime", "cpp": "Uint16OutputNode" },
+          { "id": 4, "nom": "deceleration", "champ": "decelTime", "cpp": "Uint16OutputNode" },
+          { "id": 5, "nom": "depart", "champ": "startMove", "cpp": "Uint16OutputNode" },
+          { "id": 6, "nom": "depart origine", "champ": "homingStart", "cpp": "Uint16OutputNode" },
+          { "id": 7, "nom": "acquittement", "champ": "alarmReset", "cpp": "Uint16OutputNode" } ]
+      }
+    },
+
+    "StepperOnlineT6": {
+      "nomParDefaut": "Servo",
+      "libelle": "Servo StepperOnline T6 RS485 (Modbus)",
+      "description": "Servo StepperOnline T6 RS485 (paramètres Prx.yy, mode PR Leadshine) piloté en Modbus RTU. Adresses en partie supposées : mise en service et vérifications dans docs/axes/stepperonline-servo.md.",
+      "fichierMateriel": "StepperOnline_T6",
+      "adresseParDefaut": 1,
+      "pilote": "stepperonline-servo",
+      "famille": "T6",
+      "couple": true,
+      "rampeMaxMs": 32767,                   // borne du firmware (StepperOnlineOptions)
+      "ihm": { "numeriques": ["displayPosition", "alarmCode"] },
+      "aideRampe": "0 = réglage du variateur conservé. T6 : ms pour 1000 tr/min (Pr9.04 / Pr9.05).",
+      "noeuds": {
+        "registres lus": [
+          { "id": 2, "nom": "code alarme", "champ": "alarmCode", "cpp": "Uint16InputNode", "rafraichissement": 500, "libelle": "Code d’alarme" },
+          { "id": 4, "nom": "etat pr", "champ": "prStatus", "cpp": "Uint16InputNode", "rafraichissement": 200, "libelle": "État PR" },
+          { "id": 5, "nom": "servo relu", "champ": "servoOnReadback", "cpp": "Uint16InputNode", "rafraichissement": 1000 } ],
+        "registres ecrits": [
+          { "id": 1, "nom": "servo on", "champ": "servoOn", "cpp": "Uint16OutputNode" },
+          { "id": 2, "nom": "vitesse", "champ": "moveSpeed", "cpp": "Uint16OutputNode" },
+          { "id": 3, "nom": "acceleration", "champ": "accelTime", "cpp": "Uint16OutputNode" },
+          { "id": 4, "nom": "deceleration", "champ": "decelTime", "cpp": "Uint16OutputNode" },
+          { "id": 7, "nom": "mot de commande", "champ": "alarmReset", "cpp": "Uint16OutputNode" },
+          { "id": 8, "nom": "commande pr", "champ": "command", "cpp": "Uint16OutputNode" },
+          { "id": 9, "nom": "mode pr0", "champ": "pathMode", "cpp": "Uint16OutputNode" },
+          { "id": 10, "nom": "couple max", "champ": "torqueLimit", "cpp": "Uint16OutputNode" } ]
+      }
+    },
+
+    "Stepper": {
+      "nomParDefaut": "Axe",
+      "libelle": "Moteur pas-à-pas (STEP/DIR)",
+      "description": "Driver pas-à-pas ou servo à entrée impulsions piloté par l'ESP32 (FastAccelStepper). STEP et DIR se câblent sur des GPIO directs de l'automate ; ENABLE, capteur d'origine, fins de course et alarme driver sont facultatifs.",
+      "fichierMateriel": null,
+      "pilote": "stepper",
+      "options": [
+        { "cle": "stepsPerUnit", "libelle": "Pas par unité", "type": "number", "defaut": 1, "aide": "1 = travail direct en pas (positions et course en pas)." },
+        { "gabarit": "maxRange", "aide": "Butée logicielle après la prise d’origine ; 0 = pas de butée haute." },
+        { "cle": "acceleration", "libelle": "Accélération (pas/s²)", "type": "number", "defaut": 5000 },
+        { "cle": "homingDirection", "libelle": "Sens de la prise d’origine", "type": "select", "defaut": "-1",
+          "choix": [{ "valeur": "-1", "libelle": "Vers le négatif" }, { "valeur": "1", "libelle": "Vers le positif" }],
+          "aide": "Sans capteur d’origine câblé, la position courante devient l’origine." },
+        { "cle": "homingSpeed", "libelle": "Vitesse de prise d’origine (pas/s)", "type": "number", "defaut": 1000 },
+        { "cle": "homingBackoff", "libelle": "Dégagement après origine (pas)", "type": "number", "defaut": 200 },
+        { "cle": "invertDirection", "libelle": "Inverser le sens (DIR)", "type": "bool", "defaut": false },
+        { "cle": "enableActiveLow", "libelle": "ENABLE actif à l’état bas", "type": "bool", "defaut": true,
+          "aide": "Coché : le driver est activé quand la sortie ENABLE est au repos (cas des drivers TB6600, DM542…)." }
+      ]
+    }
+  },
+
+  // ===========================================================================
+  // 7. COMPILATION — environnements de platformio.ini (vérité : platformio.ini).
+  //    « infra verifier » contrôle board, flash, partitions (casse comprise) et
+  //    cœur Arduino. « plc check » affiche la commande de compilation de l'automate.
+  // ===========================================================================
+  "compilation": {
+    "envParDefaut": "esp32dev",                       // = default_envs de platformio.ini
+    "envsIgnores": ["test_esp32", "test_native"],     // tests du firmware : non contrôlés
+    // arduino : 3 = plateforme pioarduino (URL), 2 = « espressif32 » non figé.
+    "envs": {
+      "quatre_mb_huge":  { "mcu": "ESP32",    "carte": "esp32dev",           "flash": "4MB",  "arduino": 3, "partitions": "partitions_4MB_no_ota.csv" },
+      "esp32dev":        { "mcu": "ESP32",    "carte": "esp32dev",           "flash": "16MB", "arduino": 2, "partitions": "partitions_16MB.csv" },   // écart connu E14
+      "esp32s3_n16r8":   { "mcu": "ESP32-S3", "carte": "esp32-s3-devkitc-1", "flash": "16MB", "arduino": 3, "partitions": "partitions_16Mb.csv" },
+      "m5stack_stamplc": { "mcu": "ESP32-S3", "carte": "esp32-s3-devkitc-1", "flash": "8MB",  "arduino": 3, "partitions": "partitions_8MB_no_ota.csv" }
+    },
+    // L'Ethernet (W5500 / LAN8720) n'est compilé qu'avec le cœur Arduino 3 (EthernetManager.cpp).
+    "arduinoMinPourEthernet": 3
+  },
+
+  // ===========================================================================
+  // 8. FIRMWARE — ce que le firmware sait faire.
+  //    "valeur" : maximum appliqué par PLC Studio (validation, découpage des sections).
+  //    "verite" : où le firmware le définit ; « infra verifier » compare la valeur.
+  //    Format : "fichier#SYMBOLE" ou "fichier#SYMBOLE-2" (valeur = symbole - 2) ; une
+  //    liste quand le symbole est défini à plusieurs endroits (toutes doivent concorder).
+  // ===========================================================================
+  "firmware": {
+    "version": "2.2.2",          // = BORNE_UNIVERSELLE_VERSION (borneUniverselle.h), contrôlé
+    "limites": {
+      "octetsNomNoeud":         { "valeur": 78,    "verite": ["src/Node/Node.h#NAME_LENGHT-2", "src/BorneUniverselle/borneUniverselle.h#NAME_LENGHT-2"], "aide": "section + « / » + nœud + zéro final < 80" },
+      "octetsNomEcran":         { "valeur": 77,    "aide": "section + libellé d'un élément d'écran (interface.json)" },
+      "octetsNomSection":       { "valeur": 69,    "aide": "contrôle « < 70 » de borneUniverselle.cpp (lecture de config.json)" },
+      "noeudsParSection":       { "valeur": 255,   "aide": "id de nœud tronqué en uint8" },
+      "noeudsAvantAlerte":      { "valeur": 300,   "aide": "au-delà, l'état complet envoyé à l'écran risque de dépasser octetsMessageEtat" },
+      "octetsMessageEtat":      { "valeur": 20000, "verite": "src/BorneUniverselle/borneUniverselle.h#SOCKET_MESSAGE_MAX_SIZE" },
+      "octetsMessageMSG":       { "valeur": 360,   "verite": "src/BorneUniverselle/borneUniverselle.h#MAX_MESSAGE_LENGTH" },
+      "octetsTexte":            { "valeur": 512,   "verite": "src/Node/Node.h#MAX_TEXT_SIZE" },
+      "octetsUrlOta":           { "valeur": 79,    "verite": "src/BorneUniverselle/borneUniverselle.h#OTA_URL_SIZE-1" },
+      "caracteresNomProjet":    { "valeur": 24,    "aide": "nom de classe C++ ; « /<Nom>.json » doit faire moins de 32 octets" },
+      "octetsCheminParametres": { "valeur": 31,    "aide": "« /<Nom>.json » < 32 octets (PLC_Persistence.h)" },
+      "reseauxWifi":            { "valeur": 10,    "verite": "src/WifiManagement/wifimanagment.h#NB_MAX_WIFI" },
+      "octetsChaineWifi":       { "valeur": 79,    "aide": "SSID, mot de passe et nom : tampons de 80 octets (wifimanagment.h)" },
+      "esclavesModbusSuivis":   { "valeur": 16,    "verite": "src/MyModbus/MyModbus.h#MAX_SLAVES", "aide": "RTU et TCP confondus : au-delà, plus de détection d'esclave mort" },
+      "equipementsModbusTcp":   { "valeur": 16,    "verite": "src/MyModbus/MyModbus.h#MAX_TCP_DEVICES" },
+      "adressesIpModbusTcp":    { "valeur": 8,     "aide": "MODBUSIP_MAX_CLIENTS de la bibliothèque modbus-esp8266 (hors dépôt)" },
+      "axesPasAPas":            { "valeur": 24,    "verite": "src/StepperMotor/StepperMotor.h#MAX_STEPPERS" }
+    },
+
+    // Type de section de config.json -> classe C++ du nœud (Node.h). Les fautes
+    // « Dobble », « PF8574 », « Coilsl » sont celles du FIRMWARE : NE PAS les corriger ici.
+    // "classeMateriel" : classe quand le type désigne une broche directe (pas virtuelle).
+    "typesSection": {
+      "PF8574_rx-bool":                   { "classe": "BooleanInputNode" },
+      "PF8574_tx-bool":                   { "classe": "BooleanOutputNode" },
+      "PCA9554_tx-bool":                  { "classe": "BooleanOutputNode", "nonUtilise": true },
+      "EXP_rx-bool":                      { "classe": "BooleanInputNode" },
+      "EXP_tx-bool":                      { "classe": "BooleanOutputNode" },
+      "ModbusReadMultipleInputsStatus":   { "classe": "ModbusReadMultipleInputsRegistersNode" },
+      "ModbusWriteMultipleCoils":         { "classe": "ModbusWriteMultipleCoilslNode" },
+      "ModbusReadInputRegister":          { "classe": "Uint16InputNode" },
+      "ModbusReadHoldingRegister":        { "classe": "Uint16InputNode" },
+      "ModbusWriteHoldingRegister":       { "classe": "Uint16OutputNode" },
+      "ModbusReadDobbleHoldingRegister":  { "classe": "Uint32InputNode" },
+      "ModbusWriteDobbleHoldingRegister": { "classe": "Uint32OutputNode" },
+      "ModbusReadCoil":                   { "classe": "BooleanInputNode", "inversionParNoeud": false },   // « inverse » par nœud ignoré par le firmware
+      "ModbusWriteCoil":                  { "classe": "BooleanOutputNode" },
+      "rx-bool":   { "classe": "VirtualBooleanInputNode", "classeMateriel": "BooleanInputNode" },
+      "tx-bool":   { "classe": "BooleanOutputNode",       "classeMateriel": "BooleanOutputNode" },
+      "rx-uint32": { "classe": "VirtualUint32InputNode" },
+      "tx-uint32": { "classe": "Uint32OutputNode" },
+      "rx-float":  { "classe": "VirtualFloatInputNode" },
+      "tx-float":  { "classe": "FloatOutputNode" },
+      "rx-text":   { "classe": "VirtualTextInputNode" },
+      "tx-text":   { "classe": "VirtualTextOutputNode" }
+    },
+
+    "pucesExtension": ["PCF8574", "PCF8575", "TCA9554", "PCA9554", "TCA9534", "PCA9534", "AW9523"],
+    "pucesHorloge":   { "DS3231": { "autoDetectee": true }, "PCF85063": { "autoDetectee": true }, "RX8130": { "autoDetectee": true }, "PCF8563": { "autoDetectee": false } },
+
+    // Noms interdits pour un projet (classe C++) et pour les symboles des variables.
+    // Les classes et structures de nœuds des pilotes (section 9) sont ajoutées d'office.
+    "classesReservees": ["BusinessLogic", "BorneUniverselle", "Node", "State", "AxisController", "ServoDrive", "MyModbus", "EthernetManager", "RessortRoyal2"],
+    // Noms de projet qui écraseraient un fichier de data/ (comparés en minuscules).
+    "nomsProjetReserves": ["config", "interface", "renderers", "component-manifest", "index", "styles", "diagnostic", "main"]
+  },
+
+  // ===========================================================================
+  // 9. PILOTES — un pilote = une classe C++ de src/ et son « case » dans le
+  //    générateur (cpp.js) et le simulateur (sim.js). On ne peut PAS en créer un
+  //    ici seul : le chargeur refuse un pilote que le code ne connaît pas.
+  //    Ici : unités, bornes, écran, alias, signaux câblés et nœuds (registres).
+  //    "champ" = membre de la structure de nœuds C++ (contrôlé par infra verifier).
+  //    "verite" = fichiers du firmware où « infra verifier » lit structures et bornes.
+  // ===========================================================================
+  "pilotes": {
+    "sureservo": {
+      "classeCpp": "SureServo", "entete": "SureServo/SureServo.h", "structureNoeuds": "ServoNodes",
+      "verite": { "entete": "src/SureServo/SureServo.h" },
+      "unitePosition": "impulsions (PUU)",
+      "uniteVitesse": "index 0-15 de la table de vitesses", "vitesseMin": 0, "vitesseMax": 15, "vitesseParDefaut": 5,
+      "uniteVitesseJog": "tr/min", "vitesseJogMin": 1, "vitesseJogMax": 3000, "vitesseJogParDefaut": 500,
+      "couple": true,
+      "signaux": [
+        { "cle": "servoOn", "libelle": "Servo ON", "champ": "servoOn" },
+        { "cle": "immediateStop", "libelle": "Arrêt immédiat", "champ": "immediateStop" },
+        { "cle": "alarmsReset", "libelle": "Reset alarmes", "champ": "alarmsReset" }
+      ],
+      "sections": [
+        { "suffixe": "registres lus", "type": "ModbusReadHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "status", "champ": "status", "cpp": "Uint16InputNode", "rafraichissement": 200, "libelle": "Mot d’état servo" },
+          { "id": 2, "nom": "abs coord status", "champ": "absoluteCoordonateSystemStatus", "cpp": "Uint16InputNode", "rafraichissement": 1000 },
+          { "id": 3, "nom": "alarms", "champ": "alarms", "cpp": "Uint16InputNode", "rafraichissement": 1000, "libelle": "Code d’alarme servo" } ] },
+        { "suffixe": "registres ecrits", "type": "ModbusWriteHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "aux function", "champ": "auxFunctions", "cpp": "Uint16OutputNode" },
+          { "id": 2, "nom": "trigger", "champ": "trigger", "cpp": "Uint16OutputNode" },
+          { "id": 4, "nom": "jog speed", "champ": "jogSpeed", "cpp": "Uint16OutputNode" },
+          { "id": 5, "nom": "max torque", "champ": "maxTorque", "cpp": "Uint16OutputNode" } ] },
+        { "suffixe": "position", "type": "ModbusReadDobbleHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "position", "champ": "position", "cpp": "Uint32InputNode", "rafraichissement": 250, "libelle": "Position actuelle" } ] },
+        { "suffixe": "consignes", "type": "ModbusWriteDobbleHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "target A", "champ": "targetA", "cpp": "Uint32OutputNode" },
+          { "id": 2, "nom": "target B", "champ": "targetB", "cpp": "Uint32OutputNode" },
+          { "id": 3, "nom": "PR1 speed", "champ": "pr1Speed", "cpp": "Uint32OutputNode" },
+          { "id": 4, "nom": "PR2 speed", "champ": "pr2Speed", "cpp": "Uint32OutputNode" },
+          { "id": 5, "nom": "PR3 speed", "champ": "pr3Speed", "cpp": "Uint32OutputNode" },
+          { "id": 6, "nom": "PR3 data", "champ": "targetC", "cpp": "Uint32OutputNode" } ] },
+        { "suffixe": "etat", "type": "tx-bool", "virtuel": true, "noeuds": [
+          { "id": 1, "nom": "pret", "champ": "servoReady", "cpp": "BooleanOutputNode", "libelle": "Servo prêt" },
+          { "id": 2, "nom": "active", "champ": "servoActivated", "cpp": "BooleanOutputNode", "libelle": "Servo activé" },
+          { "id": 3, "nom": "vitesse nulle", "champ": "zeroSpeed", "cpp": "BooleanOutputNode", "libelle": "Vitesse nulle" },
+          { "id": 4, "nom": "vitesse atteinte", "champ": "targetSpeedRated", "cpp": "BooleanOutputNode", "libelle": "Vitesse atteinte" },
+          { "id": 5, "nom": "en position", "champ": "targetPositionReached", "cpp": "BooleanOutputNode", "libelle": "En position" },
+          { "id": 7, "nom": "alarme", "champ": "servoAlarm", "cpp": "BooleanOutputNode", "libelle": "Alarme servo" },
+          { "id": 9, "nom": "position absolue perdue", "champ": "absolutePositionLost", "cpp": "BooleanOutputNode", "libelle": "Position absolue perdue" },
+          { "id": 10, "nom": "alarme batterie", "champ": "batteryAlarm", "cpp": "BooleanOutputNode", "libelle": "Alarme batterie" },
+          { "id": 11, "nom": "depassement tours", "champ": "multipleTurnsOverflow", "cpp": "BooleanOutputNode", "libelle": "Dépassement multi-tours" },
+          { "id": 12, "nom": "depassement PUU", "champ": "puuOverflow", "cpp": "BooleanOutputNode", "libelle": "Dépassement PUU" },
+          { "id": 13, "nom": "coordonnees non definies", "champ": "absoluteCoordonateNotSet", "cpp": "BooleanOutputNode", "libelle": "Coordonnées non définies" },
+          { "id": 14, "nom": "origine faite", "champ": "homeDone", "cpp": "BooleanOutputNode", "libelle": "Origine faite" },
+          { "id": 15, "nom": "erreur modbus", "champ": "modbusError", "cpp": "BooleanOutputNode", "libelle": "Erreur Modbus" },
+          { "id": 16, "nom": "initialise", "champ": "driveInitialised", "cpp": "BooleanOutputNode", "libelle": "Variateur initialisé" } ] }
+      ]
+    },
+
+    "lichuan": {
+      "classeCpp": "LichuanServo", "entete": "LichuanServo/LichuanServo.h", "structureNoeuds": "LichuanNodes",
+      // Où « infra verifier » lit les bornes du firmware (rampeMaxMs = maxAccelMs, vitesseMax = maxSpeedRpm).
+      "verite": { "entete": "src/LichuanServo/LichuanServo.h", "source": "src/LichuanServo/LichuanServo.cpp", "options": "LichuanOptions", "enum": "LichuanFamily" },
+      "familles": ["A6", "A5"],              // enum LichuanFamily
+      "unitePosition": "unités de commande (impulsions)",
+      "uniteVitesse": "tr/min", "vitesseMin": 1, "vitesseParDefaut": 100,
+      "uniteVitesseJog": "tr/min", "vitesseJogMin": 1, "vitesseJogParDefaut": 60,
+      "couple": true,
+      "ihm": { "numeriques": ["position", "alarmCode", "actualSpeed"],
+               "voyants": ["servoReady", "driveInitialised", "homeDone", "inPosition", "servoAlarm", "modbusError"],
+               "alarmes": ["servoAlarm", "modbusError"] },
+      "aliasEcran": { "pret": "servoReady", "initialise": "driveInitialised", "origineFaite": "homeDone", "enPosition": "inPosition",
+                      "alarme": "servoAlarm", "erreurModbus": "modbusError", "position": "position", "codeAlarme": "alarmCode",
+                      "vitesse": "actualSpeed", "etat": "status" },
+      "options": [
+        { "gabarit": "pulsesPerUnit", "aide": "1 = travail direct en unités de commande du variateur (PA_04A / P05-02)." },
+        "maxRange",
+        { "gabarit": "accelTime", "aide": "{aideRampe}" }
+      ],
+      "sections": [
+        { "suffixe": "registres lus", "type": "ModbusReadHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "etat", "champ": "status", "cpp": "Uint16InputNode", "rafraichissement": 200, "libelle": "Mot d’état" },
+          { "id": 2, "nom": "code alarme", "champ": "alarmCode", "cpp": "Uint16InputNode", "rafraichissement": 500, "libelle": "Code d’alarme" },
+          { "id": 3, "nom": "vitesse", "champ": "actualSpeed", "cpp": "Uint16InputNode", "rafraichissement": 500, "libelle": "Vitesse (tr/min)" },
+          { "id": 4, "nom": "entrees relues", "champ": "virtualInputsReadback", "cpp": "Uint16InputNode", "rafraichissement": 1000 } ] },
+        { "suffixe": "registres ecrits", "type": "ModbusWriteHoldingRegister", "noeuds": "par modèle" },
+        { "suffixe": "position", "type": "ModbusReadDobbleHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "position", "champ": "position", "cpp": "Uint32InputNode", "rafraichissement": 250, "libelle": "Position actuelle" } ] },
+        { "suffixe": "consignes", "type": "ModbusWriteDobbleHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "cible", "champ": "targetPosition", "cpp": "Uint32OutputNode" } ] },
+        { "gabarit": "etatVariateur", "libelleAlarme": "Alarme servo", "libellePret": "Servo prêt", "libelleArret": "Vitesse nulle" }
+      ]
+    },
+
+    "stepperonline-rs": {
+      "classeCpp": "StepperOnlineRS", "entete": "StepperOnlineRS/StepperOnlineRS.h", "structureNoeuds": "StepperOnlineRSNodes",
+      "verite": { "entete": "src/StepperOnlineRS/StepperOnlineRS.h", "source": "src/StepperOnlineRS/StepperOnlineRS.cpp", "options": "StepperOnlineRSOptions", "enum": "StepperOnlineRSModel" },
+      "rampeMaxMs": 10000, "rampeParDefautMs": 300,   // ms pour 0 -> 1000 tr/min (StepperOnlineRSOptions)
+      "unitePosition": "pas (impulsions Pr0.00)",
+      "uniteVitesse": "tr/min", "vitesseMin": 1, "vitesseMax": 3000, "vitesseParDefaut": 120,
+      "uniteVitesseJog": "tr/min", "vitesseJogMin": 1, "vitesseJogMax": 3000, "vitesseJogParDefaut": 60,
+      "couple": true,                       // abaisse le courant crête ; effectif si le courant de référence est réglé
+      "ihm": { "numeriques": ["displayPosition", "alarmCode"],
+               "voyants": ["servoReady", "driveInitialised", "homeDone", "inPosition", "servoAlarm", "modbusError"],
+               "alarmes": ["servoAlarm", "modbusError"] },
+      "aliasEcran": { "pret": "servoReady", "initialise": "driveInitialised", "origineFaite": "homeDone", "enPosition": "inPosition",
+                      "alarme": "servoAlarm", "erreurModbus": "modbusError", "position": "displayPosition", "codeAlarme": "alarmCode",
+                      "vitesse": "actualSpeed", "etat": "status" },
+      // Options communes aux modèles de ce pilote. "modelesVariateur" du modèle crée l'option « Modèle ».
+      "options": [
+        { "gabarit": "pulsesPerUnit", "libelle": "Pas par unité", "aide": "1 = travail direct en pas (Pr0.00 impulsions par tour)." },
+        "maxRange",
+        { "gabarit": "accelTime", "libelle": "Rampe (ms pour 1000 tr/min)", "defaut": 300, "aide": "0 = rampe du variateur conservée." },
+        "torqueRefCurrent"
+      ],
+      "sections": [
+        { "suffixe": "registres lus", "type": "ModbusReadHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "etat", "champ": "status", "cpp": "Uint16InputNode", "rafraichissement": 200, "libelle": "Mot d’état" },
+          { "id": 2, "nom": "code alarme", "champ": "alarmCode", "cpp": "Uint16InputNode", "rafraichissement": 500, "libelle": "Code d’alarme" },
+          { "id": 3, "nom": "declenchement lu", "champ": "triggerStatus", "cpp": "Uint16InputNode", "rafraichissement": 200 },
+          { "id": 4, "nom": "avertissement pr", "champ": "prWarning", "cpp": "Uint16InputNode", "rafraichissement": 500 },
+          { "id": 5, "nom": "alimentation relue", "champ": "softwareEnableReadback", "cpp": "Uint16InputNode", "rafraichissement": 1000, "seulementSi": "boucleFermee" },
+          { "id": 6, "nom": "vitesse", "champ": "actualSpeed", "cpp": "Uint16InputNode", "rafraichissement": 500, "libelle": "Vitesse (tr/min)" } ] },
+        { "suffixe": "registres ecrits", "type": "ModbusWriteHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "mode pr0", "champ": "prMode", "cpp": "Uint16OutputNode" },
+          { "id": 2, "nom": "vitesse", "champ": "moveSpeed", "cpp": "Uint16OutputNode" },
+          { "id": 3, "nom": "acceleration", "champ": "accelTime", "cpp": "Uint16OutputNode" },
+          { "id": 4, "nom": "deceleration", "champ": "decelTime", "cpp": "Uint16OutputNode" },
+          { "id": 5, "nom": "declenchement", "champ": "trigger", "cpp": "Uint16OutputNode" },
+          { "id": 6, "nom": "mot de commande", "champ": "controlWord", "cpp": "Uint16OutputNode" },
+          { "id": 7, "nom": "alimentation", "champ": "softwareEnable", "cpp": "Uint16OutputNode", "seulementSi": "boucleFermee" },
+          { "id": 9, "nom": "courant crete", "champ": "peakCurrent", "cpp": "Uint16OutputNode" } ] },
+        { "suffixe": "position lue", "type": "ModbusReadDobbleHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "position brute", "champ": "position", "cpp": "Uint32InputNode", "rafraichissement": 250 },
+          { "id": 2, "nom": "position codeur", "champ": "feedbackPosition", "cpp": "Uint32InputNode", "rafraichissement": 1000, "seulementSi": "boucleFermee" } ] },
+        { "suffixe": "consignes", "type": "ModbusWriteDobbleHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "cible", "champ": "targetPosition", "cpp": "Uint32OutputNode" } ] },
+        { "suffixe": "position", "type": "tx-uint32", "virtuel": true, "noeuds": [
+          { "id": 1, "nom": "position", "champ": "displayPosition", "cpp": "Uint32OutputNode", "libelle": "Position (pas)", "affichage": "position" } ] },
+        { "gabarit": "etatVariateur", "libelleAlarme": "Alarme variateur", "libellePret": "Variateur prêt", "libelleArret": "Moteur à l’arrêt" }
+      ]
+    },
+
+    "stepperonline-servo": {
+      "classeCpp": "StepperOnlineServo", "entete": "StepperOnlineServo/StepperOnlineServo.h", "structureNoeuds": "StepperOnlineServoNodes",
+      "verite": { "entete": "src/StepperOnlineServo/StepperOnlineServo.h", "source": "src/StepperOnlineServo/StepperOnlineServo.cpp", "options": "StepperOnlineOptions", "enum": "StepperOnlineFamily" },
+      "familles": ["A6RS", "T6"],            // enum StepperOnlineFamily
+      "unitePosition": "unités de commande (impulsions)",
+      "uniteVitesse": "tr/min", "vitesseMin": 1, "vitesseMax": 3000, "vitesseParDefaut": 100,
+      "uniteVitesseJog": "tr/min", "vitesseJogMin": 1, "vitesseJogMax": 3000, "vitesseJogParDefaut": 60,
+      "ihm": { "numeriques": ["displayPosition"],
+               "voyants": ["servoReady", "driveInitialised", "homeDone", "inPosition", "servoAlarm", "modbusError"],
+               "alarmes": ["servoAlarm", "modbusError"] },
+      "aliasEcran": { "pret": "servoReady", "initialise": "driveInitialised", "origineFaite": "homeDone", "enPosition": "inPosition",
+                      "alarme": "servoAlarm", "erreurModbus": "modbusError", "position": "displayPosition", "codeAlarme": "alarmCode",
+                      "etat": "status" },
+      "options": [
+        { "gabarit": "pulsesPerUnit", "aide": "1 = travail direct en unités de commande du variateur." },
+        "maxRange",
+        { "gabarit": "accelTime", "aide": "{aideRampe}" }
+      ],
+      "sections": [
+        { "suffixe": "registres lus", "type": "ModbusReadHoldingRegister", "noeuds": "par modèle" },
+        { "suffixe": "registres ecrits", "type": "ModbusWriteHoldingRegister", "noeuds": "par modèle" },
+        { "suffixe": "position lue", "type": "ModbusReadDobbleHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "position brute", "champ": "position", "cpp": "Uint32InputNode", "rafraichissement": 250 } ] },
+        { "suffixe": "consignes", "type": "ModbusWriteDobbleHoldingRegister", "noeuds": [
+          { "id": 1, "nom": "cible", "champ": "targetPosition", "cpp": "Uint32OutputNode" } ] },
+        { "suffixe": "position", "type": "tx-uint32", "virtuel": true, "noeuds": [
+          { "id": 1, "nom": "position", "champ": "displayPosition", "cpp": "Uint32OutputNode", "libelle": "Position", "affichage": "position" } ] },
+        { "gabarit": "etatVariateur", "libelleAlarme": "Alarme servo", "libellePret": "Servo prêt", "libelleArret": "Vitesse nulle" }
+      ]
+    },
+
+    "stepper": {
+      "classeCpp": "StepperMotor", "entete": "StepperMotor/StepperMotor.h", "structureNoeuds": "StepperNodes",
+      "verite": { "entete": "src/StepperMotor/StepperMotor.h" },
+      "modbus": false,                      // impulsions STEP/DIR générées par l'ESP32
+      "unitePosition": "pas",
+      "uniteVitesse": "pas/s", "vitesseMin": 1, "vitesseMax": 200000, "vitesseParDefaut": 2000,
+      "uniteVitesseJog": "pas/s", "vitesseJogMin": 1, "vitesseJogMax": 200000, "vitesseJogParDefaut": 1000,
+      "couple": false,
+      "ihm": { "numeriques": ["position"],
+               "voyants": ["stepperReady", "stepperActivated", "driveInitialised", "homeDone", "targetPositionReached", "stepperAlarm", "limitError"],
+               "alarmes": ["stepperAlarm", "limitError"] },
+      "aliasEcran": { "pret": "stepperReady", "active": "stepperActivated", "initialise": "driveInitialised", "origineFaite": "homeDone",
+                      "enPosition": "targetPositionReached", "alarme": "stepperAlarm", "finDeCourse": "limitError", "position": "position" },
+      // "gpio": sortie GPIO directe obligatoire (impulsions) ; "sens": "entree" = entrée de l'automate.
+      "signaux": [
+        { "cle": "step", "libelle": "STEP (impulsions)", "champ": "stepPin", "gpio": true, "typeCpp": "HardwareBooleanOutputNode", "classeId": "CLASS_HW_BOOLEAN_OUTPUT_NODE" },
+        { "cle": "dir", "libelle": "DIR (sens)", "champ": "dirPin", "gpio": true, "typeCpp": "HardwareBooleanOutputNode", "classeId": "CLASS_HW_BOOLEAN_OUTPUT_NODE" },
+        { "cle": "enable", "libelle": "ENABLE", "champ": "enable", "facultatif": true },
+        { "cle": "alarmsReset", "libelle": "Reset alarme driver", "champ": "alarmsReset", "facultatif": true },
+        { "cle": "home", "libelle": "Capteur d'origine", "champ": "homeSwitch", "sens": "entree", "facultatif": true },
+        { "cle": "limitPlus", "libelle": "Fin de course +", "champ": "limitSwitchPositive", "sens": "entree", "facultatif": true },
+        { "cle": "limitMinus", "libelle": "Fin de course -", "champ": "limitSwitchNegative", "sens": "entree", "facultatif": true },
+        { "cle": "driverAlarm", "libelle": "Alarme driver (ALM)", "champ": "hardwareStepperAlarm", "sens": "entree", "facultatif": true }
+      ],
+      "sections": [
+        { "suffixe": "etat", "type": "tx-bool", "virtuel": true, "noeuds": [
+          { "id": 1, "nom": "pret", "champ": "stepperReady", "cpp": "BooleanOutputNode", "libelle": "Axe prêt" },
+          { "id": 2, "nom": "active", "champ": "stepperActivated", "cpp": "BooleanOutputNode", "libelle": "Driver activé" },
+          { "id": 3, "nom": "initialise", "champ": "driveInitialised", "cpp": "BooleanOutputNode", "libelle": "Axe initialisé" },
+          { "id": 4, "nom": "origine faite", "champ": "homeDone", "cpp": "BooleanOutputNode", "libelle": "Origine faite" },
+          { "id": 5, "nom": "en position", "champ": "targetPositionReached", "cpp": "BooleanOutputNode", "libelle": "En position" },
+          { "id": 6, "nom": "alarme", "champ": "stepperAlarm", "cpp": "BooleanOutputNode", "libelle": "Alarme axe" },
+          { "id": 7, "nom": "fin de course", "champ": "limitError", "cpp": "BooleanOutputNode", "libelle": "Fin de course atteinte" },
+          { "id": 8, "nom": "arret", "champ": "zeroSpeed", "cpp": "BooleanOutputNode", "libelle": "Moteur à l’arrêt" } ] },
+        { "suffixe": "position", "type": "tx-uint32", "virtuel": true, "noeuds": [
+          { "id": 1, "nom": "position", "champ": "position", "cpp": "Uint32OutputNode", "libelle": "Position (pas)" } ] }
+      ]
+    }
+  },
+
+  // ===========================================================================
+  // 10. GABARITS — morceaux réutilisables.
+  // ===========================================================================
+  "gabarits": {
+    // Commun à toutes les entrées de la section « automates » (appliqué d'office).
+    "automate": { "nomParDefaut": "Automate", "maxParProjet": 1, "options": ["rs485Speed", "rs485Config"] },
+
+    "voies": {
+      "entrees": { "cle": "di", "libelle": "Entrées TOR", "suffixeSection": "Entrees", "sens": "entree", "donnee": "bool", "prefixe": "X", "inversable": true },
+      "sorties": { "cle": "do", "libelle": "Sorties relais", "suffixeSection": "Relais", "sens": "sortie", "donnee": "bool", "prefixe": "Y" },
+      // Sorties directes de l'ESP32 : seules utilisables pour les impulsions d'un pas-à-pas.
+      "gpio":    { "cle": "gpio", "libelle": "Sorties directes GPIO", "suffixeSection": "GPIO", "type": "tx-bool", "sens": "sortie", "donnee": "bool", "broches": "<obligatoire>", "prefixe": "GPIO", "gpio": true },
+      // Convention : buzzer = tx-bool id 9 du fichier matériel (et board.buzzer.pin).
+      "buzzer":  { "cle": "buzzer", "libelle": "Buzzer (GPIO{broche})", "suffixeSection": "Buzzer", "type": "tx-bool", "sens": "sortie", "donnee": "bool", "ids": "9", "prefixe": "BUZZER", "noms": { "9": "BUZZER" }, "broche": "<obligatoire>" }
+    },
+
+    "options": {
+      // --- automates ---
+      "rtc": { "libelle": "Horloge {horloge} installée", "type": "bool", "defaut": true,
+               "aide": "Si décoché, l'outil génère une variante du fichier matériel sans horloge (l'heure part alors de la mise sous tension)." },
+      // Le firmware accepte tout entier : ajouter ici une vitesse (4800, 230400...) la propose partout.
+      "rs485Speed": { "libelle": "Vitesse RS485 (bauds)", "type": "select", "defaut": "",
+                      "choix": [{ "valeur": "", "libelle": "Celle du fichier matériel" }, "9600", "19200", "38400", "57600", "115200"],
+                      "aide": "Tous les équipements Modbus du bus doivent être réglés à cette vitesse." },
+      // Le firmware accepte SERIAL_8N1, 8N2, 8E1, 8E2, 8O1, 8O2 (borneUniverselle.cpp).
+      "rs485Config": { "libelle": "Format RS485", "type": "select", "defaut": "",
+                       "choix": [{ "valeur": "", "libelle": "Celui du fichier matériel" },
+                                 { "valeur": "SERIAL_8N1", "libelle": "8N1 (sans parité)" },
+                                 { "valeur": "SERIAL_8E1", "libelle": "8E1 (parité paire)" },
+                                 { "valeur": "SERIAL_8O1", "libelle": "8O1 (parité impaire)" },
+                                 { "valeur": "SERIAL_8N2", "libelle": "8N2 (2 bits de stop)" }] },
+
+      // --- liaison Modbus : ajoutées en tête des options de tout équipement Modbus ---
+      "transport": { "libelle": "Liaison Modbus", "type": "select", "defaut": "rtu",
+                     "choix": [{ "valeur": "rtu", "libelle": "RS485 (Modbus RTU)" }, { "valeur": "tcp", "libelle": "Réseau (Modbus TCP)" }],
+                     "aide": "TCP : équipement Modbus TCP, ou passerelle TCP → RTU (l’adresse devient le n° d’unité)." },
+      "ip":   { "libelle": "Adresse IP (TCP)", "type": "text", "defaut": "", "aide": "Modbus TCP seulement, ex. 192.168.1.50." },
+      "port": { "libelle": "Port (TCP)", "type": "number", "defaut": 502, "aide": "Modbus TCP seulement (502 par défaut)." },
+
+      // --- axes ---
+      "pulsesPerUnit": { "libelle": "Impulsions par unité", "type": "number", "defaut": 1, "aide": "<obligatoire>" },
+      "maxRange":      { "libelle": "Course maximale (unités)", "type": "number", "defaut": 0, "aide": "Butée logicielle haute ; 0 = pas de butée haute." },
+      "accelTime":     { "libelle": "Temps de rampe (ms)", "type": "number", "defaut": 0, "aide": "<obligatoire>" },
+      "torqueRefCurrent": { "libelle": "Courant crête du moteur (0,1 A)", "type": "number", "defaut": 0,
+                            "aide": "100 % du couple de l’axe ; 0 = couple non géré. Maximum {courantCreteMaxA} A." }
+    },
+
+    // Sections réutilisables par les pilotes (section 9).
+    "sections": {
+      "etatVariateur": { "suffixe": "etat", "type": "tx-bool", "virtuel": true,
+        "libelleAlarme": "<obligatoire>", "libellePret": "<obligatoire>", "libelleArret": "<obligatoire>",
+        "noeuds": [
+          { "id": 1, "nom": "pret", "champ": "servoReady", "cpp": "BooleanOutputNode", "libelle": "{libellePret}" },
+          { "id": 2, "nom": "en position", "champ": "inPosition", "cpp": "BooleanOutputNode", "libelle": "En position" },
+          { "id": 3, "nom": "vitesse nulle", "champ": "zeroSpeed", "cpp": "BooleanOutputNode", "libelle": "{libelleArret}" },
+          { "id": 4, "nom": "origine faite", "champ": "homeDone", "cpp": "BooleanOutputNode", "libelle": "Origine faite" },
+          { "id": 5, "nom": "alarme", "champ": "servoAlarm", "cpp": "BooleanOutputNode", "libelle": "{libelleAlarme}" },
+          { "id": 6, "nom": "initialise", "champ": "driveInitialised", "cpp": "BooleanOutputNode", "libelle": "Variateur initialisé" },
+          { "id": 7, "nom": "erreur modbus", "champ": "modbusError", "cpp": "BooleanOutputNode", "libelle": "Erreur Modbus" } ] }
+    },
+
+    // Écran et alias d'un axe, appliqués SOUS ceux du pilote (« ihm » et « aliasEcran »
+    // du pilote l'emportent). C'est l'écran du SureServo, historiquement le seul axe.
+    "ecranAxe": {
+      "ihm": { "numeriques": ["position", "alarms", "status"],
+               "voyants": ["servoReady", "servoActivated", "driveInitialised", "homeDone", "targetPositionReached", "servoAlarm", "modbusError"],
+               "alarmes": ["servoAlarm", "modbusError"] },
+      "aliasEcran": { "pret": "servoReady", "active": "servoActivated", "initialise": "driveInitialised", "origineFaite": "homeDone",
+                      "enPosition": "targetPositionReached", "alarme": "servoAlarm", "erreurModbus": "modbusError", "position": "position",
+                      "codeAlarme": "alarms", "etat": "status" }
+    }
+  },
+
+  // ===========================================================================
+  // 11. ALIAS — anciens noms acceptés à l'ouverture d'un projet ou d'une spec ;
+  //     le projet est réécrit avec le nouveau nom à l'enregistrement.
+  //     "types"     : { "<ancienne clé d'équipement>": "<nouvelle>" }
+  //     "voies"     : { "<clé d'équipement ou *>": { "<ancien nom de voie>": "<nouveau>" } }
+  //     "groupes"   : { "<clé d'équipement>": { "<ancienne cle de voie>": "<nouvelle>" } }
+  //     "options"   : { "<clé d'équipement>": { "<ancienne cle d'option>": "<nouvelle>" } }
+  //     "sites"     : { "<ancien nom de site>": "<nouveau>" }
+  //     "appareils" : { "<site>": { "<ancien nom d'appareil>": "<nouveau>" } }
+  //     Les "suffixeSection", "suffixe", ids, noms et champs de nœuds ne s'aliasent
+  //     pas (ils entrent dans le hash : réinstaller après un renommage).
+  // ===========================================================================
+  "alias": {
+    "types": {},
+    "voies": {
+      "*": { "GPIO2_1": "GPIO2" }      // ancien nom de la sortie GPIO2 (A8S, WLED...)
+    },
+    "groupes": {},
+    "options": {},
+    "sites": {},
+    "appareils": {}
+  },
+
+  // ===========================================================================
+  // 12. ÉCARTS CONNUS — signalés en avertissement par « infra verifier » au lieu
+  //     d'une erreur. Un écart corrigé doit être retiré (le vérificateur le dit).
+  //     "controle": null = simple note, jamais contrôlée.
+  // ===========================================================================
+  "ecartsConnus": {
+    "E02": { "controle": "axes.LichuanA5.vitesseMax", "texte": "A5 annoncé à 6000 tr/min ; LichuanServo borne à 3000 (maxSpeedRpm non relevé pour l'A5 dans LichuanOptions::defaultsFor)." },
+    "E07": { "controle": "automates.Kincony_KC868_A8S.rs485.vitesse", "texte": "Fichier matériel A8S à 115000 bauds (115200 ailleurs) : faute de frappe probable." },
+    "E14": { "controle": "compilation.envs.esp32dev.partitions", "texte": "platformio.ini cite partitions_16MB.csv ; le fichier s'appelle partitions_16Mb.csv (échoue sous Linux)." },
+    "E15": { "controle": null, "texte": "A8S : esp32dev ici, quatre_mb_huge en déploiement réel (AUDIT MA-31). Décision à prendre." }
+  }
+}

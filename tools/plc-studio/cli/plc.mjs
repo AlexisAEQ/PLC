@@ -16,6 +16,7 @@
 // <projet> : chemin d'un .plc.json ou simple nom (projets/<Nom>.plc.json).
 // Options communes : --root <dépôt> (défaut : dépôt qui contient l'outil), --json.
 
+import './erreur-fatale.mjs'; // en premier : message lisible si infrastructure.jsonc est invalide
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -324,4 +325,5 @@ if (!COMMANDS[cmd]) {
   console.log(lines.slice(0, lines.findIndex((l) => !l.startsWith('//'))).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(cmd ? 2 : 0);
 }
-process.exit(COMMANDS[cmd]());
+// exitCode plutôt que exit() : une sortie redirigée dans un tube n'est pas tronquée.
+process.exitCode = COMMANDS[cmd]();

@@ -4,6 +4,9 @@ import { newProject, normalizeProject } from '/shared/model.js';
 import { buildLayout } from '/shared/layout.js';
 import { validateProject } from '/shared/validate.js';
 import { effectivePages } from '/shared/generate.js';
+import { REFERENTIEL, limite } from '/shared/catalog.js';
+
+const nomProjetValide = (n) => new RegExp(`^[A-Za-z][A-Za-z0-9_]{0,${limite('caracteresNomProjet') - 1}}$`).test(n || '');
 import { h, clear, toast, modal, button, field, issueBadge } from './ui.js';
 import { api } from './api.js';
 import { renderProject } from './views/project.js';
@@ -128,7 +131,7 @@ function scheduleSave() {
 export async function save({ silent = false } = {}) {
   clearTimeout(store.saveTimer);
   const p = store.project;
-  if (!/^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(p.name)) {
+  if (!nomProjetValide(p.name)) {
     if (!silent) toast('Nom de projet invalide : corrigez-le à l’étape Projet avant d’enregistrer.', 'error');
     return false;
   }
@@ -164,7 +167,7 @@ function askNewProject() {
     const nameInput = h('input', { type: 'text', value: model.name, class: 'mono' });
     const create = async () => {
       const name = nameInput.value.trim();
-      if (!/^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(name)) {
+      if (!nomProjetValide(name)) {
         nameInput.classList.add('invalid');
         return;
       }
@@ -271,6 +274,7 @@ async function start() {
 
   try {
     store.info = await api.info();
+    bandeauReferentiel(store.info.referentiel);
   } catch (e) {
     toast(`Serveur injoignable : ${e.message}`, 'error');
   }
@@ -293,6 +297,17 @@ async function start() {
     if (list.length) askOpenProject();
     else askNewProject();
   }
+}
+
+// Référentiel d'infrastructure modifié depuis le démarrage du serveur, ou page chargée avant un
+// redémarrage : le générateur et la page ne travailleraient plus sur la même version.
+function bandeauReferentiel(info) {
+  if (!info) return;
+  let message = '';
+  if (info.modifieSurDisque) message = 'infrastructure.jsonc a été modifié : redémarrez PLC Studio (serveur), puis rechargez la page.';
+  else if (info.empreinte !== REFERENTIEL.empreinte) message = 'Le référentiel d’infrastructure du serveur a changé : rechargez la page.';
+  if (!message) return;
+  document.body.append(h('div', { class: 'bandeau-referentiel', role: 'alert' }, message));
 }
 
 start();

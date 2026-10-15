@@ -6,14 +6,16 @@
 // Sert l'interface (public/), les modules partagés (shared/) et une petite API
 // pour lire/écrire les projets (projets/*.plc.json) et générer les fichiers firmware.
 
+import '../cli/erreur-fatale.mjs'; // en premier : message lisible si infrastructure.jsonc est invalide
 import http from 'node:http';
 import { readFile, writeFile, mkdir, readdir, stat, copyFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generateFiles } from '../shared/generate.js';
 import { normalizeProject } from '../shared/model.js';
 import { parseJsonc } from '../shared/jsonc.js';
+import { REFERENTIEL, empreinteReferentiel, limite } from '../shared/catalog.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const toolDir = path.resolve(here, '..');
@@ -64,7 +66,7 @@ function safeJoin(base, rel) {
   return target;
 }
 
-const PROJECT_NAME = /^[A-Za-z][A-Za-z0-9_]{0,23}$/;
+const PROJECT_NAME = new RegExp(`^[A-Za-z][A-Za-z0-9_]{0,${limite('caracteresNomProjet') - 1}}$`);
 
 async function readHardwareFiles() {
   const dir = path.join(ROOT, 'data', 'hardware');
@@ -189,6 +191,24 @@ async function apply(project, only, target = 'export') {
   return { ok: true, written, backup: written.length ? path.relative(ROOT, backupRoot) : null, issues, target };
 }
 
+// Référentiel d'infrastructure chargé au démarrage ; « modifieSurDisque » : le fichier a changé
+// depuis (redémarrer le serveur pour le prendre en compte).
+function referentielInfo() {
+  let modifieSurDisque = false;
+  try {
+    modifieSurDisque = empreinteReferentiel(readFileSync(REFERENTIEL.chemin, 'utf8')) !== REFERENTIEL.empreinte;
+  } catch {
+    modifieSurDisque = true;
+  }
+  return {
+    chemin: REFERENTIEL.chemin,
+    revision: REFERENTIEL.revision,
+    empreinte: REFERENTIEL.empreinte,
+    modifieSurDisque,
+    avertissements: REFERENTIEL.avertissements.length,
+  };
+}
+
 async function listProjects() {
   if (!existsSync(PROJECTS_DIR)) return [];
   const out = [];
@@ -211,6 +231,7 @@ async function handleApi(req, res, url) {
       currentApp: await detectCurrentApp(),
       hardware: Object.keys(hw),
       projectsDir: path.relative(ROOT, PROJECTS_DIR),
+      referentiel: referentielInfo(),
     });
   }
   if (parts[0] === 'hardware' && method === 'GET') return send(res, 200, await readHardwareFiles());
@@ -247,6 +268,9 @@ async function handleApi(req, res, url) {
 
 async function handleStatic(req, res, url) {
   let rel = decodeURIComponent(url.pathname);
+  // Référentiel d'infrastructure : le texte chargé par le serveur (pas le fichier du disque),
+  // pour que le navigateur travaille sur la même version que le générateur.
+  if (rel === '/infrastructure.jsonc') return send(res, 200, REFERENTIEL.texte, 'text/plain; charset=utf-8');
   let base = path.join(toolDir, 'public');
   if (rel.startsWith('/hmi/')) {
     // Interface web réelle du firmware (data/) pour l'aperçu de l'éditeur d'écrans ;
@@ -282,4 +306,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`PLC Studio : http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`Dépôt PLC  : ${ROOT}`);
+  console.log(`Référentiel : ${REFERENTIEL.chemin} (${REFERENTIEL.revision || 'sans révision'})`);
 });
