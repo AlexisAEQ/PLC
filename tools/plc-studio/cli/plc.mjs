@@ -16,18 +16,17 @@
 //                                   platformio.ini et le firmware (à lancer après chaque modification)
 //   infra liste                     automates, équipements, environnements, sites
 //   infra montrer <type|site[.app]> entrée développée du référentiel
-//   infra impact <site>[.<app>]     projets concernés par un changement du site
+//   infra impact <site>[.<app>] [--ip <ancienne>]  projets concernés par un changement du site
 //   infra figer                     met à jour test/snapshots/identifiants.json (renommage voulu)
 //
 // <projet> : chemin d'un .plc.json ou simple nom (projets/<Nom>.plc.json).
 // Options communes : --root <dépôt> (défaut : dépôt qui contient l'outil), --json.
 
-import './erreur-fatale.mjs'; // en premier : message lisible si infrastructure.jsonc est invalide
+import './demarrage.mjs'; // en premier : référentiel de --root, message lisible s'il est invalide
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CATALOG, REFERENTIEL } from '../shared/catalog.js';
-import { texteIdentifiants, verifierIdentifiants } from '../shared/identifiants.js';
 import { normalizeProject, listChannels, channelName } from '../shared/model.js';
 import { parseJsonc } from '../shared/jsonc.js';
 import { buildFromSpec, specFromProject } from '../shared/spec.js';
@@ -50,7 +49,7 @@ for (let i = 0; i < argv.length; i++) {
   if (a.startsWith('--')) {
     const key = a.slice(2);
     const next = argv[i + 1];
-    if (['root', 'out', 'scenarios'].includes(key) && next !== undefined) {
+    if (['root', 'out', 'scenarios', 'ip'].includes(key) && next !== undefined) {
       flags[key] = next;
       i++;
     } else flags[key] = true;
@@ -116,7 +115,7 @@ function checkProject(project, { cpp = false, quiet = false } = {}) {
     console.log(r.installable ? 'Installable : oui.' : 'Installable : non (corriger les erreurs).');
     const ctrl = project.equipment.find((e) => CATALOG[e.type]?.role === 'controller');
     if (ctrl) console.log(`Compilation (${CATALOG[ctrl.type].label}) : pio run -e ${CATALOG[ctrl.type].pioEnv} -t upload, puis -t uploadfs pour data/`);
-    console.log(`Référentiel : ${REFERENTIEL.revision || 'sans révision'} (${REFERENTIEL.empreinte})`);
+    console.log(`Référentiel : ${REFERENTIEL.chemin} — ${REFERENTIEL.revision || 'sans révision'} (${REFERENTIEL.empreinte})`);
   }
   let cppOk = true;
   if (cpp && !errors) {
@@ -328,22 +327,10 @@ function cmdDescribe() {
   return 0;
 }
 
-// Référentiel d'infrastructure : « figer » ici, le reste dans cli/infra.mjs.
+// Référentiel d'infrastructure : cli/infra.mjs.
 async function cmdInfraCli() {
-  if (args[0] === 'figer') return cmdFiger();
   const { cmdInfra } = await import('./infra.mjs');
   return cmdInfra(args, flags, { ROOT });
-}
-
-// Après un renommage VOULU d'un identifiant gelé (voir shared/identifiants.js) : nouvelle copie.
-function cmdFiger() {
-  const fichier = path.join(toolDir, 'test', 'snapshots', 'identifiants.json');
-  const avant = existsSync(fichier) ? JSON.parse(readFileSync(fichier, 'utf8')) : {};
-  const pbs = verifierIdentifiants(avant, CATALOG, REFERENTIEL.alias);
-  for (const m of pbs) console.log(`  ${m}`);
-  writeFileSync(fichier, texteIdentifiants(CATALOG));
-  console.log(`${rel(fichier)} mis à jour${pbs.length ? ` (${pbs.length} identifiant(s) retiré(s) ou changé(s) ci-dessus : projets à réinstaller)` : ' (ajouts seulement)'}.`);
-  return 0;
 }
 
 // ---------------------------------------------------------------------------

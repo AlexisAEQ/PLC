@@ -9,24 +9,29 @@
 //   liste                           automates (compilation, Ethernet, horloge, GPIO libres),
 //                                   robots, modules, axes, environnements, sites et appareils
 //   montrer <type|site|site.app>    entrée développée (CATALOG + annexes, JSON) et sa ligne
-//   impact <site>[.<appareil>]      projets liés au site (ou à l'appareil), et projets non liés
-//                                   qui contiennent une de ses IP
+//   impact <site>[.<appareil>] [--ip <ancienne IP>]
+//                                   projets liés au site (ou à l'appareil), et projets non liés
+//                                   qui contiennent une de ses IP (ou l'ancienne IP donnée)
+//   figer                           met à jour test/snapshots/identifiants.json après un
+//                                   renommage voulu (voir shared/identifiants.js)
 //
-// Option commune : --root <dépôt> (défaut : dépôt qui contient l'outil). Le référentiel lu est
-// <dépôt>/infrastructure.jsonc (ou PLC_REFERENTIEL=<fichier>, comme pour le reste de l'outil).
+// Option commune : --root <dépôt> (défaut : dépôt qui contient l'outil). Comme pour tout l'outil
+// (cli/demarrage.mjs), le référentiel lu est <dépôt>/infrastructure.jsonc s'il existe, sinon
+// celui de l'outil ; PLC_REFERENTIEL=<fichier> l'emporte.
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { REFERENTIEL, ErreurReferentiel, empreinteReferentiel } from '../shared/catalog.js';
-import { chargerReferentiel, formaterErreurs, suggestion } from '../shared/referentiel.js';
+import { CATALOG, REFERENTIEL } from '../shared/catalog.js';
+import { suggestion } from '../shared/referentiel.js';
+import { texteIdentifiants, verifierIdentifiants } from '../shared/identifiants.js';
 import { verifierReferentiel } from '../shared/referentiel-verif.js';
 import { parseJsonc } from '../shared/jsonc.js';
 import { ligneDe } from '../shared/jsonc-pos.js';
 
 const ICI = fileURLToPath(import.meta.url);
 const RACINE_OUTIL = path.resolve(path.dirname(ICI), '..', '..', '..');
-const SOUS_COMMANDES = { verifier, liste, montrer, impact };
+const SOUS_COMMANDES = { verifier, liste, montrer, impact, figer };
 
 export async function cmdInfra(args = [], flags = {}, { ROOT } = {}) {
   const racine = path.resolve(ROOT || RACINE_OUTIL);
@@ -36,15 +41,7 @@ export async function cmdInfra(args = [], flags = {}, { ROOT } = {}) {
     console.log(usage());
     return sous ? 2 : 0;
   }
-  let ref;
-  try {
-    ref = referentielPour(racine);
-  } catch (e) {
-    if (e?.name !== 'ErreurReferentiel') throw e;
-    console.error(e.message);
-    return 3;
-  }
-  return SOUS_COMMANDES[sous](ref, reste, flags, racine);
+  return SOUS_COMMANDES[sous](REFERENTIEL, reste, flags, racine);
 }
 
 function usage() {
@@ -52,15 +49,15 @@ function usage() {
   return lignes.slice(0, lignes.findIndex((l) => !l.startsWith('//'))).map((l) => l.replace(/^\/\/ ?/, '')).join('\n');
 }
 
-// Référentiel de la racine demandée : celui déjà chargé par catalog.js s'il s'agit du même
-// fichier (ou de PLC_REFERENTIEL), sinon <racine>/infrastructure.jsonc chargé ici.
-function referentielPour(racine) {
-  const fichier = path.join(racine, 'infrastructure.jsonc');
-  if (process.env.PLC_REFERENTIEL || path.resolve(REFERENTIEL.chemin) === fichier || !existsSync(fichier)) return REFERENTIEL;
-  const texte = readFileSync(fichier, 'utf8');
-  const r = chargerReferentiel(texte);
-  if (r.erreurs.length) throw new ErreurReferentiel(formaterErreurs(r, fichier));
-  return { ...r, chemin: fichier, texte, empreinte: empreinteReferentiel(texte) };
+// Après un renommage VOULU d'un identifiant gelé (voir shared/identifiants.js) : nouvelle copie.
+function figer(ref) {
+  const fichier = path.join(path.dirname(ICI), '..', 'test', 'snapshots', 'identifiants.json');
+  const avant = existsSync(fichier) ? JSON.parse(readFileSync(fichier, 'utf8')) : {};
+  const pbs = verifierIdentifiants(avant, CATALOG, ref.alias, ref.sites);
+  for (const m of pbs) console.log(`  ${m}`);
+  writeFileSync(fichier, texteIdentifiants(CATALOG, ref.sites));
+  console.log(`${path.relative(process.cwd(), fichier) || fichier} mis à jour${pbs.length ? ` (${pbs.length} identifiant(s) retiré(s) ou changé(s) ci-dessus : projets à réinstaller)` : ' (ajouts seulement)'}.`);
+  return 0;
 }
 
 // Nom du référentiel dans les messages : relatif à la racine quand il y est.
@@ -268,14 +265,23 @@ function impact(ref, [nom], flags, racine) {
 
   const ips = Object.entries(ref.sites[site].appareils || {})
     .filter(([app]) => !appareil || app === appareil)
-    .flatMap(([app, a]) => [a.ip, a.ethernet?.ip].filter(Boolean).map((ip) => ({ app, ip })));
+    .flatMap(([app, a]) => [a.ip, a.ethernet?.ip].filter((x) => typeof x === 'string').map((ip) => ({ app, ip })));
+  // --ip <ancienne> : l'IP d'avant une modification du référentiel, encore écrite dans des projets.
+  if (typeof flags.ip === 'string') ips.push({ app: 'ancienne IP', ip: flags.ip });
   const aLier = projets
     .filter((p) => !lies.some((l) => l.rel === p.rel))
     .map((p) => ({ ...p, trouvees: ips.filter(({ ip }) => contientIp(p.texte, ip)) }))
     .filter((p) => p.trouvees.length);
-  if (aLier.length) {
-    console.log(`\nProjets non liés qui contiennent une IP ${de} (liez-les au site pour suivre ses changements) :`);
-    for (const p of aLier) console.log(`  ${p.rel}  (${p.trouvees.map(({ ip, app }) => `${ip} = ${app}`).join(', ')})`);
+  const surLeSite = aLier.filter((p) => nomsSite.includes(p.projet?.site));
+  const horsSite = aLier.filter((p) => !nomsSite.includes(p.projet?.site));
+  const lignes = (liste) => liste.forEach((p) => console.log(`  ${p.rel}  (${p.trouvees.map(({ ip, app }) => `${ip} = ${app}`).join(', ')})`));
+  if (surLeSite.length) {
+    console.log(`\nProjets du site « ${site} » dont un équipement porte une IP ${de} sans y être lié (étape Équipements : « Appareil du site ») :`);
+    lignes(surLeSite);
+  }
+  if (horsSite.length) {
+    console.log(`\nProjets sans ce site qui contiennent une IP ${de} (choisissez le site et liez l'équipement pour suivre ses changements) :`);
+    lignes(horsSite);
   }
   return 0;
 }

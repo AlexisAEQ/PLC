@@ -12,7 +12,7 @@
 // Ce module ne doit importer que referentiel.js, jsonc-pos.js et hash.js (feuille du graphe
 // d'imports : un cycle avec un module à await de premier niveau bloquerait le chargement).
 
-import { chargerReferentiel, formaterErreurs } from './referentiel.js';
+import { chargerReferentiel, formaterErreurs, possede } from './referentiel.js';
 import { crc32 } from './hash.js';
 
 // Erreur de lecture ou de contenu du référentiel : le message se suffit (fichier:ligne).
@@ -63,14 +63,13 @@ export const MODBUS_TRANSPORT_OPTIONS = charge.transportOptions;
 
 // Valeur d'une limite du firmware (firmware.limites.<nom>.valeur). Nom inconnu = bogue de code.
 export function limite(nom) {
-  const l = charge.firmware.limites[nom];
-  if (!l) throw new Error(`Limite « ${nom} » absente de firmware.limites (infrastructure.jsonc).`);
-  return l.valeur;
+  if (!possede(charge.firmware.limites, nom)) throw new ErreurReferentiel(`Limite « ${nom} » absente de firmware.limites (${CHEMIN}).`);
+  return charge.firmware.limites[nom].valeur;
 }
 
 // Annexes d'un type d'équipement (marque, logicielRequis, formatSerie, adresses, bornes, voies).
 export function infoEquipement(type) {
-  return charge.equipements[type] || null;
+  return possede(charge.equipements, type) ? charge.equipements[type] : null;
 }
 
 // Marques des automates, dans l'ordre du référentiel, sans doublon (messages d'aide).
@@ -80,15 +79,16 @@ export function marquesAutomates() {
 
 // Anciens noms encore acceptés (section « alias » du référentiel) ; sans alias, le nom est rendu tel quel.
 export function aliasType(type) {
-  return charge.alias.types[type] || type;
+  return possede(charge.alias.types, type) ? charge.alias.types[type] : type;
 }
 export function aliasGroupe(type, cle) {
-  return charge.alias.groupes[type]?.[cle] || cle;
+  const table = possede(charge.alias.groupes, type) ? charge.alias.groupes[type] : null;
+  return possede(table, cle) ? table[cle] : cle;
 }
 // Options renommées : la valeur passe sur la nouvelle clé (si elle n'est pas déjà réglée).
 export function aliasOptions(type, options) {
-  const table = charge.alias.options[type];
-  if (!table || !options) return options;
+  const table = possede(charge.alias.options, type) ? charge.alias.options[type] : null;
+  if (!table || !options || typeof options !== 'object') return options;
   const out = { ...options };
   for (const [ancien, nouveau] of Object.entries(table)) {
     if (ancien in out) {
@@ -101,7 +101,7 @@ export function aliasOptions(type, options) {
 // Nom de voie (en majuscules) : alias propres au type, puis alias communs « * ».
 export function aliasVoie(type, nom) {
   const N = String(nom).toUpperCase();
-  for (const table of [charge.alias.voies[type], charge.alias.voies['*']]) {
+  for (const table of [possede(charge.alias.voies, type) ? charge.alias.voies[type] : null, charge.alias.voies['*']]) {
     for (const [ancien, nouveau] of Object.entries(table || {})) if (ancien.toUpperCase() === N) return String(nouveau).toUpperCase();
   }
   return N;

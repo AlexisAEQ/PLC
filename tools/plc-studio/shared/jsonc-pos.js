@@ -61,6 +61,7 @@ export function lireJsonc(texte) {
     avance(); // "
     while (i < texte.length && texte[i] !== '"') {
       if (texte[i] === '\n') throw new ErreurLecture('guillemet fermant manquant (la chaîne continue sur la ligne suivante)', l0, c0);
+      if (texte.charCodeAt(i) < 0x20) erreur('caractère de contrôle (tabulation…) dans un texte : écrire \\t ou une espace');
       if (texte[i] === '\\') avance();
       avance();
     }
@@ -72,14 +73,18 @@ export function lireJsonc(texte) {
       throw new ErreurLecture('séquence d’échappement invalide dans la chaîne (\\n, \\", \\\\, \\uXXXX)', l0, c0);
     }
   };
+  const NOMBRE = /-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?(?![\w.])|true(?!\w)|false(?!\w)|null(?!\w)/y;
   const valeur = () => {
     blancs();
     const c = texte[i];
+    if (i >= texte.length) erreur('fin du fichier inattendue : valeur manquante, ou accolade / crochet jamais fermé');
     if (c === '{') return objet();
     if (c === '[') return tableau();
     if (c === '"') return chaine();
     if (c === "'") erreur('les textes s’écrivent entre guillemets doubles "…", pas entre apostrophes');
-    const m = /^(-?\d+(\.\d+)?([eE][+-]?\d+)?|true|false|null)(?![A-Za-z0-9_])/.exec(texte.slice(i, i + 40));
+    if (/^-?0\d/.test(texte.slice(i, i + 3))) erreur('nombre avec un zéro en tête : écrire 127 (ou "0127" entre guillemets pour un texte)');
+    NOMBRE.lastIndex = i;
+    const m = NOMBRE.exec(texte);
     if (!m) {
       const mot = /^[^\s,:\]}]+/.exec(texte.slice(i, i + 40))?.[0] || (i < texte.length ? texte[i] : 'fin du fichier');
       erreur(
@@ -88,7 +93,9 @@ export function lireJsonc(texte) {
       );
     }
     for (let k = 0; k < m[0].length; k++) avance();
-    return JSON.parse(m[0]);
+    const v = JSON.parse(m[0]);
+    if (typeof v === 'number' && !Number.isFinite(v)) erreur(`nombre hors limites « ${m[0]} »`);
+    return v;
   };
   const objet = () => {
     const pos = { ligne, cles: {} };

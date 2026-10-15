@@ -70,15 +70,21 @@ function equipmentCard(store, eq) {
     field('Nom', input(eq, 'label', { onInput: () => store.changed(), onChange: () => store.changed({ render: true }) }), 'Sert à nommer les sections de config.json.')
   );
   // Appareil du site (référentiel d'infrastructure) : ses adresses remplacent celles du projet.
+  // Affiché aussi pour un équipement encore lié sans site (site retiré du référentiel) : on peut le délier.
   const site = siteDuProjet(p);
-  if (site) {
-    const appareils = Object.entries(site.appareils || {}).filter(([, a]) => !a.type || a.type === eq.type);
+  if (site || eq.appareil) {
+    // Automate : appareils de son type, ou appareils sans type qui ne décrivent pas un équipement Modbus.
+    const convient = (a) =>
+      entry?.role === 'controller'
+        ? a.type === eq.type || (!a.type && !a.ip && !a.modbusTcp && !a.rs485 && !a.logiciel)
+        : !a.type || a.type === eq.type;
+    const appareils = Object.entries(site?.appareils || {}).filter(([, a]) => convient(a));
     const choix = [{ value: '', label: '— non lié : adresses saisies ici —' }, ...appareils.map(([nom, a]) => ({ value: nom, label: `${nom}${a.ip ? ` (${a.ip})` : a.ethernet ? ` (${a.ethernet.ip})` : a.rs485 ? ` (RS485 n° ${a.rs485.adresse})` : ''}` }))];
     if (eq.appareil && !appareils.some(([nom]) => nom === eq.appareil)) choix.push({ value: eq.appareil, label: `${eq.appareil} (absent du site ou d’un autre type)` });
     const etat = { appareil: eq.appareil || '' };
     fields.append(
       field(
-        `Appareil du site ${p.site}`,
+        site ? `Appareil du site ${p.site}` : 'Appareil (aucun site choisi)',
         select(etat, 'appareil', choix, {
           onChange: (v) => {
             if (v) eq.appareil = v;

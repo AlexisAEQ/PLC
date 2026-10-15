@@ -18,6 +18,8 @@ import { parseJsonc } from './jsonc.js';
 import { ligneDe } from './jsonc-pos.js';
 import { FORMATS_SERIE } from './referentiel.js';
 
+import { nouveauxIdentifiants } from './identifiants.js';
+
 const MATERIEL = 'data/hardware';
 const BORNE_H = 'src/BorneUniverselle/borneUniverselle.h';
 const BORNE_CPP = 'src/BorneUniverselle/borneUniverselle.cpp'; // jamais le .ws_backup voisin
@@ -38,6 +40,7 @@ export function verifierReferentiel(ref, { lire, lister }) {
   controlesFirmware(v);
   controlesPilotes(v);
   controleSites(v);
+  controleIdentifiants(v);
   appliquerEcarts(v);
   const compte = (n) => v.constats.filter((c) => c.niveau === n).length;
   return { constats: v.constats, resume: { erreurs: compte('erreur'), attentions: compte('attention'), infos: compte('info') } };
@@ -193,31 +196,43 @@ export function lireIni(texte) {
   let cle = null;
   for (const brut of String(texte).split(/\r?\n/)) {
     if (!brut.trim() || /^\s*[;#]/.test(brut)) continue;
-    const titre = /^\[([^\]]+)\]\s*$/.exec(brut);
+    const titre = /^\[([^\]]+)\]\s*(?:[;#].*)?$/.exec(brut);
     if (titre) {
       sec = sections[titre[1].trim()] ??= {};
       cle = null;
     } else if (/^\s/.test(brut) && sec && cle) {
-      sec[cle] += `\n${brut.trim()}`;
+      sec[cle] += `\n${brut.replace(/\s[;#].*$/, '').trim()}`;
     } else {
       const kv = /^([^=]+?)\s*=\s*(.*)$/.exec(brut);
       if (kv && sec) {
         cle = kv[1].trim();
-        sec[cle] = kv[2].replace(/\s+;.*$/, '').trim();
+        sec[cle] = kv[2].replace(/\s[;#].*$/, '').trim();
       }
     }
   }
   return sections;
 }
 
-// Valeur d'une clé dans une section, en suivant « extends » puis [env] pour les [env:x].
+// Valeur d'une clé dans une section, en suivant « extends » puis [env] pour les [env:x] ;
+// les références ${section.cle} et ${env:x.cle} sont remplacées (pas ${PROJECT_DIR}...).
 function valeurIni(ini, nom, cle, vus = new Set()) {
+  const brute = valeurIniBrute(ini, nom, cle, vus);
+  return brute === undefined ? undefined : developperIni(ini, brute);
+}
+function developperIni(ini, valeur, profondeur = 0) {
+  if (profondeur > 8) return valeur;
+  return valeur.replace(/\$\{([^}.]+(?::[^}.]+)?)\.([^}]+)\}/g, (tout, sec, cle) => {
+    const x = valeurIniBrute(ini, sec, cle, new Set());
+    return x === undefined ? tout : developperIni(ini, x, profondeur + 1);
+  });
+}
+function valeurIniBrute(ini, nom, cle, vus = new Set()) {
   const sec = ini[nom];
   if (!sec || vus.has(nom)) return undefined;
   vus.add(nom);
   if (cle in sec) return sec[cle];
   for (const parent of (sec.extends || '').split(',').map((s) => s.trim()).filter(Boolean)) {
-    const x = valeurIni(ini, parent, cle, vus);
+    const x = valeurIniBrute(ini, parent, cle, vus);
     if (x !== undefined) return x;
   }
   return nom.startsWith('env:') ? ini.env?.[cle] : undefined;
@@ -464,12 +479,18 @@ function partitionsEnv(v, chemin, nom, fichier, attendu) {
     return;
   }
   if (fichier !== attendu) v.erreur('P2', chemin, `[env:${nom}] : platformio.ini cite ${fichier}, le référentiel ${attendu} : alignez les deux.`);
+  if (fichier.includes('/')) {
+    if (v.lire(fichier) === null) v.erreur('P2', chemin, `[env:${nom}] : ${fichier} (board_build.partitions) introuvable dans le dépôt.`);
+    return;
+  }
   const noms = v.lister('.');
   if (noms ? noms.includes(fichier) : v.lire(fichier) !== null) return;
   const autre = noms?.find((n) => n.toLowerCase() === fichier.toLowerCase());
-  v.erreur('P2', chemin, autre
+  if (autre) v.erreur('P2', chemin, autre
     ? `[env:${nom}] : platformio.ini cite ${fichier}, mais le fichier s'appelle ${autre} : la compilation échoue sous Linux (Windows et macOS ignorent la casse). Renommez le fichier ou corrigez board_build.partitions.`
-    : `[env:${nom}] : ${fichier} (board_build.partitions) introuvable à la racine du dépôt.`);
+    : null);
+  // Absent du dépôt et sans homonyme : table fournie par le framework (huge_app.csv...) ?
+  if (!autre) v.info('P2', chemin, `[env:${nom}] : ${fichier} absent de la racine du dépôt : table de partitions du framework ? (non vérifiable ici)`);
 }
 
 // P3 : MCU du fichier matériel = MCU de l'environnement ; Ethernet => cœur Arduino suffisant.
@@ -480,6 +501,9 @@ function automatesCompilation(v) {
     const env = a.section === 'automates' ? compilation.envs?.[a.envPlatformIO] : null;
     if (!env) continue;
     const mcu = a.fichierMateriel ? v.materiel(a.fichierMateriel)?.board?.mcu : undefined;
+    if (a.fichierMateriel && v.materiel(a.fichierMateriel) && !mcu) {
+      v.info('P3', `automates.${type}.envPlatformIO`, `${MATERIEL}/${a.fichierMateriel}.json sans board.mcu : MCU de l'environnement ${a.envPlatformIO} (${env.mcu}) non vérifiable ; ajoutez "board": { "mcu": … } au fichier.`);
+    }
     if (mcu && mcu !== env.mcu) {
       v.erreur('P3', `automates.${type}.envPlatformIO`, `${MATERIEL}/${a.fichierMateriel}.json : board.mcu = ${mcu}, mais l'environnement ${a.envPlatformIO} compile pour ${env.mcu} : corrigez « envPlatformIO » ou le fichier matériel.`);
     }
@@ -636,6 +660,8 @@ function controlesPilotes(v) {
       v.erreur('F5', `${base}.verite`, `${entete} introuvable : corrigez verite.entete.`);
       continue;
     }
+    if (`src/${p.entete}` !== entete) v.erreur('F5', `${base}.entete`, `« entete » (${p.entete}, inclus par le C++ généré) et verite.entete (${entete}) diffèrent : le #include généré doit être src/<entete>.`);
+    else if (v.lire(`src/${p.entete}`) === null) v.erreur('F5', `${base}.entete`, `src/${p.entete} introuvable : le #include généré échouerait.`);
     const entrees = Object.entries(v.ref.catalog).filter(([, e]) => e.axis?.kind === kind);
     if (!chercherBloc(v, entete, 'class', p.classeCpp)) v.erreur('F5', `${base}.classeCpp`, `classe ${p.classeCpp} absente de ${entete} (et des autres .h du dossier) : corrigez « classeCpp ».`);
     champsPilote(v, kind, p, entrees);
@@ -664,6 +690,12 @@ function champsPilote(v, kind, p, entrees) {
     return;
   }
   const membre = (champ) => new RegExp(`\\b${echapper(champ)}\\s*(?:;|=(?!=)|\\[|\\{)`).test(struct.corps);
+  // Type déclaré du membre « Type* champ » (null si la déclaration n'a pas cette forme).
+  const typeDe = (champ) => new RegExp(`\\b(\\w+)\\s*\\*\\s*${echapper(champ)}\\s*(?:;|=(?!=))`).exec(struct.corps)?.[1] ?? null;
+  const verifierType = (chemin, champ, attendu, quoi) => {
+    const t = typeDe(champ);
+    if (t && attendu && t !== attendu) v.erreur('F5', chemin, `${quoi} : « ${champ} » est déclaré ${t}* dans struct ${p.structureNoeuds} (${struct.fichier}), le référentiel dit ${attendu} : le firmware refuserait le nœud au démarrage (type incompatible).`);
+  };
   const signales = new Set();
   const signaler = (chemin, champ, quoi) => {
     if (signales.has(`${chemin}|${champ}`)) return;
@@ -673,11 +705,17 @@ function champsPilote(v, kind, p, entrees) {
   // Les nœuds d'affichage (« affichage ») sont des variables de la classe générée (axDisp_…, cpp.js).
   for (const [type, e] of entrees) {
     (e.sections || []).forEach((s, j) => {
-      for (const n of s.nodes) if (!n.display && !membre(n.field)) signaler(cheminNoeud(v.ref, type, kind, s, j, n.field), n.field, `nœud « ${n.name} » (section « ${s.suffix} »)`);
+      for (const n of s.nodes) {
+        if (n.display) continue;
+        const chemin = cheminNoeud(v.ref, type, kind, s, j, n.field);
+        if (!membre(n.field)) signaler(chemin, n.field, `nœud « ${n.name} » (section « ${s.suffix} »)`);
+        else verifierType(chemin, n.field, n.cpp, `nœud « ${n.name} » (section « ${s.suffix} »)`);
+      }
     });
   }
   (p.signaux || []).forEach((s, i) => {
     if (!membre(s.champ)) signaler(`pilotes.${kind}.signaux[${i}]`, s.champ, `signal « ${s.cle} »`);
+    else verifierType(`pilotes.${kind}.signaux[${i}]`, s.champ, s.typeCpp || (s.sens === 'entree' ? 'BooleanInputNode' : 'BooleanOutputNode'), `signal « ${s.cle} »`);
   });
 }
 
@@ -726,13 +764,11 @@ function initialiseurs(corps) {
   return out;
 }
 
-// Affectations « o.membre = <entier>; » d'un morceau de code.
+// Affectations « o.membre = <valeur>; » d'un morceau de code, dans l'ordre : entier, ou null si
+// la valeur n'est pas un entier littéral (constante, calcul : non vérifiable, signalé).
 function affectations(code) {
   const out = {};
-  for (const m of code.matchAll(/\b\w+\s*\.\s*(\w+)\s*=(?!=)\s*([^;]+);/g)) {
-    const x = entierCpp(m[2]);
-    if (x !== null) out[m[1]] = x;
-  }
+  for (const m of code.matchAll(/\b\w+\s*\.\s*(\w+)\s*=(?!=)\s*([^;]+);/g)) out[m[1]] = entierCpp(m[2]);
   return out;
 }
 
@@ -750,22 +786,27 @@ function blocSuivant(code, p) {
 // Corps de defaultsFor -> { "<énumérateur>": { membre: valeur }, "": communes } ; null si la
 // structure n'est pas une chaîne if/else ou un switch sur l'enum.
 export function defautsParValeur(corps, nomEnum, valeurs) {
-  const branches = Object.fromEntries(valeurs.map((x) => [x, {}]));
-  const appliquer = (cibles, code) => cibles.forEach((x) => Object.assign(branches[x], affectations(code)));
-  let horsBranches = '';
+  // Exécution dans l'ordre du source : une affectation après la chaîne l'emporte sur la branche.
+  const parValeur = Object.fromEntries(valeurs.map((x) => [x, {}]));
+  const communes = {};
+  const tous = (code) => {
+    const a = affectations(code);
+    Object.assign(communes, a);
+    for (const x of valeurs) Object.assign(parValeur[x], a);
+  };
+  const appliquer = (cibles, code) => cibles.forEach((x) => Object.assign(parValeur[x], affectations(code)));
   let i = 0;
   for (;;) {
     const re = /\b(if|switch)\s*\(/g;
     re.lastIndex = i;
     const m = re.exec(corps);
     if (!m) break;
-    horsBranches += corps.slice(i, m.index);
+    tous(corps.slice(i, m.index));
     i = (m[1] === 'if' ? chaineIf : blocSwitch)(corps, m.index, nomEnum, valeurs, appliquer);
     if (i < 0) return null;
   }
-  horsBranches += corps.slice(i);
-  const communes = affectations(horsBranches);
-  return Object.fromEntries([['', communes], ...valeurs.map((x) => [x, { ...communes, ...branches[x] }])]);
+  tous(corps.slice(i));
+  return Object.fromEntries([['', communes], ...valeurs.map((x) => [x, parValeur[x]])]);
 }
 
 // if (x == Enum::A) { … } else if (…) { … } else { … } : renvoie la position de fin (-1 si illisible).
@@ -830,13 +871,17 @@ function bornesPilote(v, kind, p, entrees, valeurs) {
   }
   const parValeur = defautsParValeur(corps, nomEnum, valeurs);
   if (!parValeur) {
-    v.attention('F6', base, `${options}::defaultsFor (${source}) : structure non reconnue (if/else ou switch sur ${nomEnum || "l'enum"}) : bornes non vérifiées.`);
+    v.erreur('F6', base, `${options}::defaultsFor (${source}) : structure non reconnue (attendu : chaîne if/else ou switch sur ${nomEnum || "l'enum"}, sans autre condition) : bornes non vérifiées ; simplifiez defaultsFor ou vérifiez les bornes à la main.`);
     return;
   }
   const initiales = initialiseurs(struct.corps);
-  const defaut = (variante, membre) => (parValeur[variante] ?? parValeur[''])[membre] ?? initiales[membre];
+  const defaut = (variante, membre) => {
+    const t = parValeur[variante] ?? parValeur[''];
+    return Object.prototype.hasOwnProperty.call(t, membre) ? t[membre] : initiales[membre];
+  };
   const lieu = { struct, source, options, nomEnum, valeurs };
-  for (const [type, e] of entrees) comparerBornes(v, kind, type, e, defaut, 'maxSpeedRpm' in initiales, lieu);
+  const avecVitesse = /\bmaxSpeedRpm\s*(?:=|;|\{)/.test(struct.corps);
+  for (const [type, e] of entrees) comparerBornes(v, kind, type, e, defaut, avecVitesse, lieu);
 }
 
 function comparerBornes(v, kind, type, e, defaut, avecVitesse, lieu) {
@@ -848,6 +893,7 @@ function comparerBornes(v, kind, type, e, defaut, avecVitesse, lieu) {
     const qui = `${type}${variante ? ` (${variante})` : ''}`;
     const ou = `${lieu.options}${variante && lieu.nomEnum ? `, ${lieu.nomEnum}::${variante}` : ''} : ${lieu.source}`;
     if (reel === undefined) v.erreur('F6', chemin, `${qui} : ${membre} introuvable dans struct ${lieu.options} (${lieu.struct.fichier}) et dans defaultsFor (${lieu.source}) : « ${cle} » non vérifiable.`);
+    else if (reel === null) v.erreur('F6', chemin, `${qui} : ${membre} n'est pas un entier littéral dans defaultsFor (${lieu.source}) : « ${cle} » non vérifiable ; écrivez la valeur en clair.`);
     else if (reel !== attendu) v.erreur('F6', chemin, `${qui} : « ${cle} » = ${attendu} ici, ${membre} = ${reel} dans le firmware (${ou}) : corrigez le référentiel (ou le firmware).`);
   };
   // Une famille ou un modèle absent de l'enum est déjà signalé (F5) : pas de comparaison.
@@ -860,6 +906,8 @@ function comparerBornes(v, kind, type, e, defaut, avecVitesse, lieu) {
       comparer(`${section}.${type}.modelesVariateur.${variante}.courantCreteMax`, 'courantCreteMax', bornes.courantCreteMax[variante], 'maxPeakCurrent', variante);
     }
     if (avecVitesse && Number.isInteger(e.axis.speedMax)) comparer(cheminBorne('vitesseMax'), 'vitesseMax', e.axis.speedMax, 'maxSpeedRpm', variante);
+    // Le firmware borne aussi le jog à maxSpeedRpm (setJogSpeed).
+    if (avecVitesse && Number.isInteger(e.axis.jogSpeedMax)) comparer(cheminBorne('vitesseJogMax'), 'vitesseJogMax', e.axis.jogSpeedMax, 'maxSpeedRpm', variante);
   }
 }
 
@@ -872,24 +920,48 @@ function controleSites(v) {
   v.info('S1', 'sites', sites.length ? `${sites.length} site(s) : ${detail.join(', ')} ; IP, adresses et logiciels contrôlés au chargement.` : 'aucun site décrit.');
 }
 
+// I1 : types et sites pas encore dans la copie figée des identifiants (test/snapshots) : leurs
+// identifiants ne sont pas protégés contre un renommage tant qu'on n'a pas lancé « plc infra figer ».
+function controleIdentifiants(v) {
+  const texte = v.lire('tools/plc-studio/test/snapshots/identifiants.json');
+  if (texte === null) return;
+  let fige;
+  try {
+    fige = JSON.parse(texte);
+  } catch {
+    v.attention('I1', '', 'tools/plc-studio/test/snapshots/identifiants.json illisible : relancez « plc infra figer ».');
+    return;
+  }
+  const nouveaux = nouveauxIdentifiants(fige, v.ref.catalog, v.ref.sites);
+  if (nouveaux.length) v.info('I1', '', `pas encore protégés contre un renommage (copie figée des identifiants) : ${nouveaux.join(', ')} ; lancez « plc infra figer » une fois l'ajout relu.`);
+}
+
 // Le chemin « controle » couvre-t-il ce constat (égalité ou préfixe suivi de « . » ou « [ ») ?
 const couvre = (controle, chemin) => chemin === controle || (chemin.startsWith(controle) && /^[.[]/.test(chemin.slice(controle.length)));
 
+// Un écart ne couvre que les constats de ses chemins « controle » (un chemin ou une liste) dont le
+// message contient son « motif » s'il en a un : un autre problème au même endroit reste une erreur.
+// Plusieurs écarts couvrent le même constat : le plus précis (chemin le plus long) l'emporte.
 function appliquerEcarts(v) {
   const ecarts = Object.entries(v.ref.ecartsConnus || {});
+  const controles = (x) => (x?.controle == null ? [] : Array.isArray(x.controle) ? x.controle : [x.controle]).filter((c) => typeof c === 'string');
   for (const c of v.constats) {
     if (c.niveau === 'info') continue;
-    const e = ecarts.find(([, x]) => typeof x?.controle === 'string' && couvre(x.controle, c.chemin));
-    if (!e) continue;
+    let meilleur = null;
+    for (const [id, x] of ecarts) {
+      if (typeof x?.motif === 'string' && !c.message.includes(x.motif)) continue;
+      for (const ct of controles(x)) if (couvre(ct, c.chemin) && (!meilleur || ct.length > meilleur.longueur)) meilleur = { id, longueur: ct.length };
+    }
+    if (!meilleur) continue;
     c.niveau = 'attention';
-    c.ecart = e[0];
-    c.message = `[écart connu ${e[0]}] ${c.message}`;
+    c.ecart = meilleur.id;
+    c.message = `[écart connu ${meilleur.id}] ${c.message}`;
   }
   for (const [id, x] of ecarts) {
     const chemin = `ecartsConnus.${id}`;
     const n = v.constats.length;
-    if (x?.controle == null) v.info('EC', chemin, `note ${id} : ${x?.texte ?? ''}`);
-    else if (!v.constats.some((c) => c.ecart === id)) v.attention('EC', chemin, `écart ${id} corrigé ? Plus aucun constat sous « ${x.controle} » : retirez-le de ecartsConnus.`);
+    if (!controles(x).length) v.info('EC', chemin, `note ${id} : ${x?.texte ?? ''}`);
+    else if (!v.constats.some((c) => c.ecart === id)) v.attention('EC', chemin, `écart ${id} corrigé ? Plus aucun constat${x.motif ? ` « ${x.motif} »` : ''} sous « ${controles(x).join(' », « ')} » : retirez-le de ecartsConnus.`);
     if (v.constats.length > n) v.constats[n].ecart = id;
   }
 }

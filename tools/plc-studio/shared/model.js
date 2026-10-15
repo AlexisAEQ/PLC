@@ -84,9 +84,9 @@ export function normalizeProject(p) {
   project.editorPassword = project.editorPassword || '';
   project.equipment = Array.isArray(project.equipment) ? project.equipment.map(normalizeEquipment) : [];
   project.variables = Array.isArray(project.variables) ? project.variables.map(normalizeVariable) : [];
-  renommerGroupes(project);
   project.hmi = project.hmi && Array.isArray(project.hmi.pages) ? project.hmi : { auto: true, pages: [] };
   if (project.hmi.auto === undefined) project.hmi.auto = true;
+  renommerGroupes(project);
   project.logic = project.logic || { steps: [], transitions: [], blocks: {} };
   migrateSingleServo(project);
   if (project.logic.blocks?.axes) {
@@ -106,11 +106,14 @@ function renommerGroupes(project) {
       if (g !== v.binding.group) v.binding = { ...v.binding, group: g };
     }
   }
-  for (const page of project.hmi?.pages || []) {
-    for (const sec of page.sections || []) {
-      for (const it of sec.items || []) {
-        const m = typeof it.ref === 'string' && /^bank:([^:]+):(.+)$/.exec(it.ref);
-        if (m && typeOf.has(m[1])) it.ref = `bank:${m[1]}:${aliasGroupe(typeOf.get(m[1]), m[2])}`;
+  // Références d'écran « bank:<eq>:<voie> » et « chan:<eq>:<voie>:<n°> ».
+  for (const page of project.hmi.pages) {
+    if (!page || !Array.isArray(page.sections)) continue;
+    for (const sec of page.sections) {
+      if (!sec || !Array.isArray(sec.items)) continue;
+      for (const it of sec.items) {
+        const m = it && typeof it.ref === 'string' && /^(bank|chan):([^:]+):([^:]+)(:\d+)?$/.exec(it.ref);
+        if (m && typeOf.has(m[2])) it.ref = `${m[1]}:${m[2]}:${aliasGroupe(typeOf.get(m[2]), m[3])}${m[4] || ''}`;
       }
     }
   }

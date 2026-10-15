@@ -15,7 +15,7 @@ import { axisList } from './axes.js';
 import { buildLayout } from './layout.js';
 import { effectivePages } from './generate.js';
 import { validateProject } from './validate.js';
-import { champsImposes } from './site.js';
+import { champsImposes, nomSite } from './site.js';
 
 export const SPEC_FORMAT = 'plc-studio-spec';
 
@@ -310,12 +310,13 @@ export function buildFromSpec(spec, { previous = null } = {}) {
   if (spec.editorPassword) project.editorPassword = spec.editorPassword;
   // Site du référentiel d'infrastructure : les équipements liés (« appareil ») en tirent IP,
   // port, n° d'unité, adresse RS485, Ethernet et bus.
-  if (spec.site) project.site = String(spec.site);
+  if (spec.site) project.site = nomSite(String(spec.site));
 
   // Équipements (l'automate est toujours placé en premier).
   const eqById = new Map();
-  const eqSpecs = asList(spec.equipment).slice();
-  eqSpecs.sort((a, b) => (CATALOG[a.type]?.role === 'controller' ? -1 : 0) - (CATALOG[b.type]?.role === 'controller' ? -1 : 0));
+  // Types renommés dans le référentiel (alias.types) : l'ancien nom reste accepté.
+  const eqSpecs = asList(spec.equipment).map((e) => (e && typeof e === 'object' && typeof e.type === 'string' ? { ...e, type: aliasType(e.type) } : e));
+  eqSpecs.sort((a, b) => (CATALOG[a?.type]?.role === 'controller' ? -1 : 0) - (CATALOG[b?.type]?.role === 'controller' ? -1 : 0));
   for (const e of eqSpecs) {
     if (!e.id) fail(`équipement ${e.type || '?'} : « id » obligatoire (ex. "plc").`);
     if (!CATALOG[e.type]) {
@@ -329,7 +330,11 @@ export function buildFromSpec(spec, { previous = null } = {}) {
     if (e.appareil) {
       eq.appareil = String(e.appareil);
       const imposes = champsImposes(project, eq);
-      const doublons = Object.keys(imposes).filter((k) => (k === 'address' ? e.address !== undefined : k === 'ethernet' ? !!spec.ethernet : e.options?.[k] !== undefined));
+      // Une valeur égale au défaut de l'option (ip "", port 502...) n'est pas une seconde source.
+      const defaut = (k) => entry.options?.find((o) => o.key === k)?.default;
+      const doublons = Object.keys(imposes).filter((k) =>
+        k === 'address' ? e.address !== undefined : k === 'ethernet' ? !!spec.ethernet : e.options?.[k] !== undefined && e.options[k] !== defaut(k)
+      );
       if (doublons.length) fail(`équipement « ${e.id} » : ${doublons.join(', ')} vien${doublons.length > 1 ? 'nent' : 't'} de l'appareil « ${e.appareil} » du site ${project.site} (infrastructure.jsonc) : retirez-les de la spec.`);
     }
     project.equipment.push(eq);
@@ -682,11 +687,13 @@ export function specFromProject(input) {
     ...(project.site ? { site: project.site } : {}),
     equipment: project.equipment.map((eq) => {
       const e = { id: idOf.get(eq.uid), type: eq.type, label: eq.label };
-      // Équipement lié à un appareil du site : ce qui vient du référentiel n'est pas recopié.
+      // Équipement lié à un appareil du site : ce que le site impose ou pourrait imposer (adresse,
+      // liaison, bus) n'est pas recopié ; il vient du référentiel à la reconstruction.
       const imposes = eq.appareil ? champsImposes(project, eq) : {};
+      const imposables = eq.appareil ? ['transport', 'ip', 'port', ...(CATALOG[eq.type]?.role === 'controller' ? ['rs485Speed', 'rs485Config'] : [])] : [];
       if (eq.appareil) e.appareil = eq.appareil;
       if (CATALOG[eq.type]?.modbus && !('address' in imposes)) e.address = eq.address;
-      const options = Object.fromEntries(Object.entries(eq.options || {}).filter(([k]) => !(k in imposes)));
+      const options = Object.fromEntries(Object.entries(eq.options || {}).filter(([k]) => !(k in imposes) && !imposables.includes(k)));
       if (Object.keys(options).length) e.options = options;
       const signals = {};
       for (const v of project.variables.filter((x) => x.system?.eq === eq.uid)) if (v.binding) signals[v.system.signal] = chName(v.binding);

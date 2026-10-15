@@ -42,26 +42,51 @@ const materiel = (f) => (t) => {
   return JSON.stringify(h, null, 2);
 };
 
-test('référentiel : le dépôt est conforme, seuls les écarts connus E02, E07, E14 restent (cliquet)', () => {
+// Le dépôt réel : aucune erreur, et les avertissements sont exactement les écarts connus déclarés
+// (un écart qui apparaît sans être déclaré, ou un écart déclaré qui disparaît, fait échouer).
+test('référentiel : le dépôt est conforme, seuls les écarts connus déclarés restent (cliquet)', () => {
   const r = verifier();
   assert.deepEqual(erreurs(r), [], lister(erreurs(r)));
-  // Un écart qui apparaît ou disparaît fait échouer ce test : mettre à jour ecartsConnus ET ce test.
-  assert.deepEqual(attentions(r).map((c) => c.ecart).sort(), ['E02', 'E07', 'E14'], lister(attentions(r)));
-  assert.ok(attentions(r).every((c) => c.message.startsWith(`[écart connu ${c.ecart}] `)));
-  const parEcart = Object.fromEntries(attentions(r).map((c) => [c.ecart, c]));
-  assert.equal(parEcart.E02.chemin, 'axes.LichuanA5.vitesseMax');
-  assert.equal(parEcart.E02.ligne, ligneDe(REFERENTIEL.source.axes.LichuanA5, 'vitesseMax'));
-  assert.equal(parEcart.E07.code, 'H7');
-  assert.equal(parEcart.E14.code, 'P2');
-  const infos = r.constats.filter((c) => c.niveau === 'info');
-  assert.deepEqual(infos.filter((c) => c.code === 'H8').map((c) => c.chemin).sort(), [
-    'automates.Kincony_KC868_A16v3.horloge',
-    'automates.Kincony_KC868_A8S.horloge',
-    'automates.Kincony_KC868_A8v3.horloge',
-  ]);
-  assert.ok(infos.some((c) => c.ecart === 'E15'), 'note E15 listée');
-  assert.ok(infos.some((c) => c.code === 'S1'));
-  assert.deepEqual(r.resume, { erreurs: 0, attentions: 3, infos: infos.length });
+  const declares = Object.entries(REFERENTIEL.ecartsConnus).filter(([, x]) => x.controle != null).map(([id]) => id).sort();
+  assert.deepEqual([...new Set(attentions(r).map((c) => c.ecart))].sort(), declares, lister(attentions(r)));
+  assert.ok(attentions(r).every((c) => c.message.startsWith(`[écart connu ${c.ecart}] `)), lister(attentions(r)));
+  assert.ok(r.constats.some((c) => c.code === 'S1'));
+});
+
+// Les tests suivants partent de la copie figée du référentiel (test/donnees) : ils ne dépendent
+// pas des écarts présents aujourd'hui dans le dépôt.
+const ESSAI = chargerReferentiel(readFileSync(path.join(RACINE, 'tools/plc-studio/test/donnees/infrastructure-essai.jsonc'), 'utf8'));
+const A8S = 'data/hardware/Kincony_KC868_A8S.json';
+const vitesseA8S = (bauds) => materiel((h) => (h.RS485.speed = bauds));
+
+test('écarts connus : constat accepté seulement s’il correspond au motif ; écart corrigé signalé', () => {
+  const r1 = verifier({ modifs: { [A8S]: vitesseA8S(115000) } }, ESSAI);
+  const e07 = attentions(r1).find((c) => c.ecart === 'E07');
+  assert.ok(e07 && e07.chemin === 'automates.Kincony_KC868_A8S.rs485.vitesse', lister(r1.constats));
+  // Autre vitesse hors des choix au même endroit : pas l'écart E07, donc une erreur.
+  const r2 = verifier({ modifs: { [A8S]: vitesseA8S(9601) } }, ESSAI);
+  assert.ok(erreurs(r2).some((c) => c.code === 'H7' && c.chemin === 'automates.Kincony_KC868_A8S.rs485.vitesse'), lister(r2.constats));
+  // Vitesse corrigée : l'écart demande à être retiré.
+  const r3 = verifier({ modifs: { [A8S]: vitesseA8S(115200) } }, ESSAI);
+  assert.match(attentions(r3).find((c) => c.chemin === 'ecartsConnus.E07')?.message || '', /E07 corrigé \? .*retirez-le de ecartsConnus/);
+  // Écart retiré du référentiel : redevient une erreur.
+  const sansE07 = chargerReferentiel(readFileSync(path.join(RACINE, 'tools/plc-studio/test/donnees/infrastructure-essai.jsonc'), 'utf8').replace(/^\s*"E07": .*\n.*\n/m, ''));
+  assert.deepEqual(sansE07.erreurs, []);
+  assert.ok(erreurs(verifier({ modifs: { [A8S]: vitesseA8S(115000) } }, sansE07)).some((c) => c.code === 'H7'));
+});
+
+test('écarts connus : un autre problème de partitions sous E14 reste une erreur', () => {
+  const r = verifier({ modifs: { 'platformio.ini': remplacer('board_build.partitions = partitions_16MB.csv', 'board_build.partitions = partitions_XYZ.csv') } }, ESSAI);
+  assert.ok(erreurs(r).some((c) => c.code === 'P2' && c.chemin === 'compilation.envs.esp32dev.partitions'), lister(r.constats));
+});
+
+test('écarts connus : le plus précis l’emporte quand deux écarts couvrent un constat', () => {
+  const texte = readFileSync(path.join(RACINE, 'tools/plc-studio/test/donnees/infrastructure-essai.jsonc'), 'utf8').replace('"ecartsConnus": {', '"ecartsConnus": {\n    "E01": { "controle": "axes", "texte": "large" },');
+  const ref = chargerReferentiel(texte);
+  assert.deepEqual(ref.erreurs, []);
+  const r = verifier({}, ref);
+  assert.ok(attentions(r).some((c) => c.ecart === 'E02' && c.chemin === 'axes.LichuanA5.vitesseMax'), lister(r.constats));
+  assert.ok(!attentions(r).some((c) => c.chemin === 'ecartsConnus.E02'), 'E02 ne doit pas être déclaré corrigé');
 });
 
 // Chaque modification de la vérité du firmware doit produire l'erreur indiquée.
@@ -114,30 +139,26 @@ const MUTATIONS = [
   // Échec fermé : un symbole ou un fichier introuvable est une erreur, jamais un contrôle sauté.
   { nom: 'symbole de limite introuvable', modifs: { 'src/Node/Node.h': remplacer(/#define MAX_TEXT_SIZE\b/, '#define MAX_TEXT_LEN') }, code: 'F2', chemin: 'firmware.limites.octetsTexte', motif: /MAX_TEXT_SIZE introuvable dans src\/Node\/Node\.h/ },
   { nom: 'fichier de limite introuvable', modifs: { 'src/MyModbus/MyModbus.h': () => null }, code: 'F2', chemin: 'firmware.limites.esclavesModbusSuivis', motif: /src\/MyModbus\/MyModbus\.h introuvable/ },
+  { nom: 'type d’un champ changé dans ServoNodes', modifs: { 'src/SureServo/SureServo.h': remplacer('Uint16OutputNode* maxTorque = nullptr;', 'Uint32OutputNode* maxTorque = nullptr;') }, code: 'F5', chemin: 'pilotes.sureservo.sections[1].noeuds[3]', motif: /déclaré Uint32OutputNode\*/ },
+  { nom: 'vitesse de jog bornée par le firmware', modifs: { 'src/LichuanServo/LichuanServo.h': remplacer(/uint16_t maxSpeedRpm\s*=\s*3000;/, 'uint16_t maxSpeedRpm = 2000;') }, code: 'F6', chemin: 'axes.LichuanA6.vitesseJogMax' },
+  { nom: 'borne non littérale dans defaultsFor', modifs: { 'src/LichuanServo/LichuanServo.cpp': remplacer('o.maxAccelMs = 2500;', 'o.maxAccelMs = A6_MAX_ACCEL;') }, code: 'F6', chemin: 'axes.LichuanA6.rampeMaxMs', motif: /pas un entier littéral/ },
+  { nom: 'affectation après la chaîne if/else', modifs: { 'src/LichuanServo/LichuanServo.cpp': remplacer(/return o;/, 'o.maxAccelMs = 1000; return o;') }, code: 'F6', chemin: 'axes.LichuanA6.rampeMaxMs', motif: /maxAccelMs = 1000/ },
+  { nom: 'condition sans l’enum dans defaultsFor', modifs: { 'src/LichuanServo/LichuanServo.cpp': remplacer(/return o;/, 'if (o.maxAccelMs > 60000) o.maxAccelMs = 60000; return o;') }, code: 'F6', chemin: 'pilotes.lichuan.verite', motif: /structure non reconnue/ },
+  { nom: 'en-tête inclus par le C++ généré introuvable', ref: 'entete', code: 'F5', chemin: 'pilotes.sureservo.entete' },
 ];
+
+// Référentiel d'essai dont l'« entete » du pilote SureServo est faux.
+const ENTETE_FAUX = chargerReferentiel(readFileSync(path.join(RACINE, 'tools/plc-studio/test/donnees/infrastructure-essai.jsonc'), 'utf8').replace('"entete": "SureServo/SureServo.h"', '"entete": "SureServo/SureServ.h"'));
 
 for (const m of MUTATIONS) {
   test(`référentiel : ${m.nom} -> erreur ${m.code}`, () => {
-    const r = verifier(m);
+    const r = verifier(m, m.ref === 'entete' ? ENTETE_FAUX : ESSAI);
     const e = erreurs(r).find((c) => c.code === m.code && c.chemin === m.chemin);
     assert.ok(e, `erreur ${m.code} ${m.chemin} attendue ; constats :\n${lister(r.constats)}`);
     if (m.motif) assert.match(e.message, m.motif);
     assert.ok(Number.isInteger(e.ligne), 'ligne du référentiel donnée');
   });
 }
-
-test('référentiel : écart connu retiré -> erreur ; écart corrigé -> avertissement « retirez-le »', () => {
-  const sansE07 = chargerReferentiel(REFERENTIEL.texte.replace(/^\s*"E07": .*\n/m, ''));
-  assert.deepEqual(sansE07.erreurs, []);
-  const r1 = verifier({}, sansE07);
-  assert.ok(erreurs(r1).some((c) => c.code === 'H7' && c.chemin === 'automates.Kincony_KC868_A8S.rs485.vitesse'), lister(erreurs(r1)));
-
-  const r2 = verifier({ modifs: { 'data/hardware/Kincony_KC868_A8S.json': remplacer('"speed": 115000', '"speed": 115200') } });
-  const corrige = attentions(r2).find((c) => c.chemin === 'ecartsConnus.E07');
-  assert.ok(corrige, lister(attentions(r2)));
-  assert.match(corrige.message, /E07 corrigé \? .*retirez-le de ecartsConnus/);
-  assert.equal(erreurs(r2).length, 0);
-});
 
 test('référentiel : lecture C++ et INI (commentaires, constexpr, extends, defaultsFor en switch)', () => {
   const cpp = sansCommentaires('// #define A 1\n#define B 0x10 // seize\n/* #define C 3 */\nstatic constexpr uint8_t D = 7;\nconst char* s = "// pas un commentaire";\n');

@@ -4,7 +4,8 @@
 // chaque fichier de test dans son propre processus, PLC_REFERENTIEL ne touche donc que lui.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { after } from 'node:test';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,13 +25,22 @@ const SITE_ESSAI = `
         "io": { "type": "Waveshare_8DIO", "rs485": { "adresse": 4 } },
         "aubo": { "materiel": "AUBO i10", "logiciel": { "nom": "AUBOPE", "version": "4.5.13", "releveLe": "2026-10-11" }, "ip": "192.168.20.60", "modbusTcp": null },
         "cobot": { "type": "Robot_Aubo", "logiciel": { "nom": "ARCS", "version": "1.5" }, "ip": "192.168.20.61", "modbusTcp": { "port": 502, "unite": 1 } },
-        "fr5": { "logiciel": { "nom": "FAIRINO", "version": "3.6.0" }, "ip": "192.168.20.62", "modbusTcp": { "port": 502, "unite": 1 } }
+        "fr5": { "logiciel": { "nom": "FAIRINO", "version": "3.6.0" }, "ip": "192.168.20.62", "modbusTcp": { "port": 502, "unite": 1 } },
+        "fr6": { "logiciel": { "nom": "FAIRINO" }, "ip": "192.168.20.63", "modbusTcp": { "port": 502, "unite": 1 } },
+        "automate2": { "type": "Waveshare_ESP32S3_POE_8DI8DO", "bus": { "vitesse": null, "format": null } },
+        "automate3": { "type": "Waveshare_ESP32S3_POE_8DI8DO" }
       }
     },`;
-const texte = readFileSync(repo + 'infrastructure.jsonc', 'utf8')
+// Copie figée du référentiel (test/donnees), complétée d'un site d'essai.
+const texte = readFileSync(new URL('./donnees/infrastructure-essai.jsonc', import.meta.url), 'utf8')
   .replace('"sites": {', `"sites": {${SITE_ESSAI}`)
-  .replace('"sites": {},', '"sites": { "ancien-banc": "essai" },');
+  .replace('"sites": {},', '"sites": { "ancien-banc": "essai" },')
+  .replace('"types": {},', '"types": { "Waveshare_IO8": "Waveshare_8DIO" },')
+  // Voie « di » de la carte POE renommée « entrees » (alias.groupes) : câblages et écrans suivent.
+  .replace('{ "gabarit": "entrees", "type": "rx-bool", "ids": "1-8", "prefixe": "DI" }', '{ "gabarit": "entrees", "cle": "entrees", "type": "rx-bool", "ids": "1-8", "prefixe": "DI" }')
+  .replace('"groupes": {},', '"groupes": { "Waveshare_ESP32S3_POE_8DI8DO": { "di": "entrees" } },');
 const dir = mkdtempSync(path.join(tmpdir(), 'plc-ref-'));
+after(() => rmSync(dir, { recursive: true, force: true }));
 process.env.PLC_REFERENTIEL = path.join(dir, 'infrastructure.jsonc');
 writeFileSync(process.env.PLC_REFERENTIEL, texte);
 
@@ -160,4 +170,71 @@ test('variateur à format série imposé (Lichuan A6, 8E1) sur un bus 8N1 : erre
   assert.match(messages(validateProject(normalizeProject(p))), /format série imposé 8E1 par le variateur ; le bus RS485 est réglé en 8N1/);
   ax.address = 40;
   assert.match(messages(validateProject(normalizeProject(p))), /adresse 40 hors de la plage du variateur \(1 à 32\)/);
+});
+
+test('bus du site : null = fichier matériel imposé ; sans « bus », le projet garde son réglage', () => {
+  const p = cellule();
+  p.equipment[0].appareil = 'automate2';
+  const q = normalizeProject(p);
+  assert.deepEqual([q.equipment[0].options.rs485Speed, q.equipment[0].options.rs485Config], ['', '']);
+});
+
+test('valeurs que le site n’impose plus : retour au défaut (pas de valeur figée en silence)', () => {
+  const p = cellule(); // automate lié à « automate » : bus 19200 8N1, Ethernet 192.168.20.20
+  p.equipment[0].appareil = 'automate3'; // même carte, ni bus ni Ethernet
+  const q = normalizeProject(p);
+  assert.deepEqual([q.equipment[0].options.rs485Speed, q.equipment[0].options.rs485Config], ['', '']);
+  assert.equal(q.ethernet.enabled, false);
+  assert.equal(generateFiles(q, ctx).files.some((f) => /_19200_8N1\.json$/.test(f.path)), false);
+  // Délier garde les valeurs actuelles.
+  const r = cellule();
+  delete r.equipment[1].appareil;
+  const s2 = normalizeProject(r);
+  assert.equal(s2.equipment[1].options.ip, '192.168.20.50');
+  assert.equal(s2.equipment[1].imposeParSite, undefined);
+});
+
+test('robot lié dont la version du logiciel n’est pas relevée : avertissement', () => {
+  const p = cellule();
+  addEquipment(p, 'Robot_Fairino').appareil = 'fr6';
+  assert.match(messages(validateProject(normalizeProject(p)), 'warning'), /version de FAIRINO non relevée sur « fr6 »/);
+});
+
+test('ancien nom de type (alias.types) accepté dans une spec ; ancien nom de site canonisé', () => {
+  const spec = specFromProject(cellule());
+  spec.site = 'ancien-banc';
+  spec.equipment.find((e) => e.type === 'Waveshare_8DIO').type = 'Waveshare_IO8';
+  const r = buildFromSpec(spec);
+  assert.deepEqual(r.errors, []);
+  assert.equal(r.project.site, 'essai');
+  assert.ok(r.project.equipment.some((e) => e.type === 'Waveshare_8DIO'));
+  spec.equipment.find((e) => e.appareil === 'passerelle').options = { ip: '10.0.0.1' };
+  assert.match(buildFromSpec(spec).errors.join('\n'), /ip vient de l'appareil « passerelle » du site essai/);
+});
+
+test('passerelle TCP → RTU : l’unité d’un variateur respecte sa plage d’adresses', () => {
+  const p = cellule();
+  const ax = addEquipment(p, 'LichuanA6');
+  Object.assign(ax.options, { transport: 'tcp', ip: '192.168.20.70' });
+  ax.address = 40;
+  assert.match(messages(validateProject(normalizeProject(p))), /unité 40 hors de la plage du variateur \(1 à 32\)/);
+});
+
+test('équipement Modbus lié à un robot sans liaison Modbus : une seule erreur, pas « IP invalide »', () => {
+  const p = cellule();
+  const rob = addEquipment(p, 'ModbusGeneric', 'Robot');
+  rob.appareil = 'aubo';
+  const m = messages(validateProject(normalizeProject(p)));
+  assert.match(m, /« aubo » du site essai n'a pas de liaison Modbus déclarée/);
+  assert.doesNotMatch(m, /Robot : adresse IP Modbus TCP invalide/);
+});
+
+test('voie renommée : câblage, références d’écran bank:/chan: suivent ; pages mal formées tolérées', () => {
+  const p = cellule();
+  const plc = p.equipment[0];
+  p.hmi = { auto: false, pages: [null, { name: 'Main', sections: [null, { name: 'Sec', items: [null, { ref: `chan:${plc.uid}:di:2`, label: 'DI2' }] }] }] };
+  const q = normalizeProject(JSON.parse(JSON.stringify(p)));
+  assert.equal(q.variables.find((v) => v.symbol === 'Depart').binding.group, 'entrees');
+  assert.equal(q.hmi.pages[1].sections[1].items[1].ref, `chan:${plc.uid}:entrees:2`);
+  assert.doesNotThrow(() => normalizeProject({ ...cellule(), hmi: { auto: false, pages: {} } }));
 });

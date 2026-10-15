@@ -1,7 +1,7 @@
 // Étape 1 : réglages généraux du projet.
 
 import { toHostname } from '/shared/model.js';
-import { CATALOG, REFERENTIEL } from '/shared/catalog.js';
+import { CATALOG, REFERENTIEL, limite } from '/shared/catalog.js';
 import { listeSites, siteDuProjet, champsImposes, appliquerSite } from '/shared/site.js';
 import { h, input, checkbox, select, field, card, pageHead, button, issueList } from '../ui.js';
 
@@ -63,7 +63,7 @@ export function renderProject(root, store) {
         'div',
         { class: 'grid', style: { marginTop: '12px' } },
         field('Mot de passe de l’éditeur de fichiers', input(p, 'editorPassword', { onInput: changed }), 'Vérifié uniquement par le navigateur.'),
-        field('URL de mise à jour (OTA)', input(p, 'otaUrl', { onInput: changed }), '79 caractères maximum.')
+        field('URL de mise à jour (OTA)', input(p, 'otaUrl', { onInput: changed }), `${limite('octetsUrlOta')} octets maximum.`)
       )
     ),
     wifiCard(store),
@@ -83,6 +83,10 @@ function siteCard(store) {
     onChange: (v) => {
       if (v) p.site = v;
       else delete p.site;
+      // Liens devenus sans objet (plus de site, ou appareil absent du nouveau site) : retirés ;
+      // les équipements gardent leurs valeurs actuelles.
+      const nouveau = siteDuProjet(p);
+      for (const eq of p.equipment) if (eq.appareil && !nouveau?.appareils?.[eq.appareil]) delete eq.appareil;
       appliquerSite(p); // recopie les adresses du site dans les équipements liés
       store.changed({ render: true });
     },

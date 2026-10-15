@@ -6,7 +6,7 @@
 // Sert l'interface (public/), les modules partagés (shared/) et une petite API
 // pour lire/écrire les projets (projets/*.plc.json) et générer les fichiers firmware.
 
-import '../cli/erreur-fatale.mjs'; // en premier : message lisible si infrastructure.jsonc est invalide
+import '../cli/demarrage.mjs'; // en premier : référentiel de --root, message lisible s'il est invalide
 import http from 'node:http';
 import { readFile, writeFile, mkdir, readdir, stat, copyFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
@@ -152,6 +152,10 @@ function exportDir(project) {
 // target = "export" : copie dans projets/<Nom>/generation/ (sans toucher au firmware)
 // target = "install" : écriture dans le dépôt, avec sauvegarde des fichiers remplacés
 async function apply(project, only, target = 'export') {
+  // Référentiel modifié depuis le démarrage : on n'installe pas avec l'ancienne version.
+  if (target === 'install' && referentielInfo().modifieSurDisque) {
+    return { ok: false, issues: [], message: `${REFERENTIEL.chemin} a été modifié depuis le démarrage de PLC Studio : redémarrez le serveur puis rechargez la page avant d'installer.` };
+  }
   const { files, issues, installable } = await preview(project);
   if (issues.some((i) => i.level === 'error')) {
     return { ok: false, issues, message: 'Le projet contient des erreurs : génération annulée.' };

@@ -68,7 +68,9 @@
   //      "ip"         IP de l'appareil ; "modbusTcp": { "port": 502, "unite": 1 } ou null ;
   //      "rs485"      { "adresse": 1..247 } (équipement sur le bus de l'automate) ;
   //      "ethernet"   (automate) { "ip", "masque", "passerelle", "dns" } ;
-  //      "bus"        (automate) { "vitesse": 19200, "format": "SERIAL_8N1" }, null = fichier matériel ;
+  //      "bus"        (automate) { "vitesse": 19200, "format": "SERIAL_8N1" } : imposés au projet ;
+  //                   "vitesse"/"format" à null (ou "bus": null) = valeur du fichier matériel ;
+  //                   sans "bus", le projet garde son propre réglage ;
   //      "remarque"   texte libre.
   // ===========================================================================
   "sites": {
@@ -911,6 +913,10 @@
   //     "appareils" : { "<site>": { "<ancien nom d'appareil>": "<nouveau>" } }
   //     Les "suffixeSection", "suffixe", ids, noms et champs de nœuds ne s'aliasent
   //     pas (ils entrent dans le hash : réinstaller après un renommage).
+  //     Les clés d'options et de voies que le CODE lit par leur nom (transport, ip, port,
+  //     rtc, rs485Speed, rs485Config, pulsesPerUnit, maxRange, accelTime, model, homePolicy...,
+  //     voies q/i/w/r/ir et buzzer : liste CLES_LUES_PAR_LE_CODE de shared/referentiel.js) ne
+  //     se renomment pas avec un alias : il faut modifier le code (le chargeur le refuse).
   // ===========================================================================
   "alias": {
     "types": {},
@@ -926,12 +932,16 @@
   // ===========================================================================
   // 12. ÉCARTS CONNUS — signalés en avertissement par « infra verifier » au lieu
   //     d'une erreur. Un écart corrigé doit être retiré (le vérificateur le dit).
-  //     "controle": null = simple note, jamais contrôlée.
+  //     "controle" : chemin (ou liste de chemins) du référentiel concerné ; null = simple note.
+  //     "motif" : texte du constat accepté ; un AUTRE problème au même endroit reste une erreur.
   // ===========================================================================
   "ecartsConnus": {
-    "E02": { "controle": "axes.LichuanA5.vitesseMax", "texte": "A5 annoncé à 6000 tr/min ; LichuanServo borne à 3000 (maxSpeedRpm non relevé pour l'A5 dans LichuanOptions::defaultsFor)." },
-    "E07": { "controle": "automates.Kincony_KC868_A8S.rs485.vitesse", "texte": "Fichier matériel A8S à 115000 bauds (115200 ailleurs) : faute de frappe probable." },
-    "E14": { "controle": "compilation.envs.esp32dev.partitions", "texte": "platformio.ini cite partitions_16MB.csv ; le fichier s'appelle partitions_16Mb.csv (échoue sous Linux)." },
+    "E02": { "controle": ["axes.LichuanA5.vitesseMax", "axes.LichuanA5.vitesseJogMax"], "motif": "= 6000 ici, maxSpeedRpm = 3000",
+             "texte": "A5 annoncé à 6000 tr/min (déplacement et jog) ; LichuanServo borne à 3000 (maxSpeedRpm non relevé pour l'A5 dans LichuanOptions::defaultsFor)." },
+    "E07": { "controle": "automates.Kincony_KC868_A8S.rs485.vitesse", "motif": "RS485 à 115000 bauds",
+             "texte": "Fichier matériel A8S à 115000 bauds (115200 ailleurs) : faute de frappe probable." },
+    "E14": { "controle": "compilation.envs.esp32dev.partitions", "motif": "cite partitions_16MB.csv, mais le fichier s'appelle partitions_16Mb.csv",
+             "texte": "platformio.ini cite partitions_16MB.csv ; le fichier s'appelle partitions_16Mb.csv (échoue sous Linux)." },
     "E15": { "controle": null, "texte": "A8S : esp32dev ici, quatre_mb_huge en déploiement réel (AUDIT MA-31). Décision à prendre." }
   }
 }

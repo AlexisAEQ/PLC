@@ -181,7 +181,7 @@ function askNewProject() {
       'div',
       {},
       h('h2', {}, 'Nouveau projet'),
-      field('Nom du projet', nameInput, 'Sert de nom de classe C++ (src/<Nom>/) et de fichier de paramètres. Lettres, chiffres et _ ; 24 caractères maximum.'),
+      field('Nom du projet', nameInput, `Sert de nom de classe C++ (src/<Nom>/) et de fichier de paramètres. Lettres, chiffres et _ ; ${limite('caracteresNomProjet')} caractères maximum.`),
       h('div', { class: 'actions' }, button('Annuler', close), button('Créer', create, 'primary'))
     );
   });
@@ -275,6 +275,11 @@ async function start() {
   try {
     store.info = await api.info();
     bandeauReferentiel(store.info.referentiel);
+    // Le fichier peut changer pendant que la page est ouverte : nouvelle vérification au retour
+    // sur l'onglet et toutes les 30 s.
+    const reverifier = () => api.info().then((i) => bandeauReferentiel(i.referentiel)).catch(() => {});
+    window.addEventListener('focus', reverifier);
+    setInterval(reverifier, 30000);
   } catch (e) {
     toast(`Serveur injoignable : ${e.message}`, 'error');
   }
@@ -304,10 +309,15 @@ async function start() {
 function bandeauReferentiel(info) {
   if (!info) return;
   let message = '';
-  if (info.modifieSurDisque) message = 'infrastructure.jsonc a été modifié : redémarrez PLC Studio (serveur), puis rechargez la page.';
+  if (info.modifieSurDisque) message = 'infrastructure.jsonc a été modifié : redémarrez PLC Studio (serveur), puis rechargez la page. L’installation est refusée d’ici là.';
   else if (info.empreinte !== REFERENTIEL.empreinte) message = 'Le référentiel d’infrastructure du serveur a changé : rechargez la page.';
-  if (!message) return;
-  document.body.append(h('div', { class: 'bandeau-referentiel', role: 'alert' }, message));
+  const ancien = document.querySelector('.bandeau-referentiel');
+  if (!message) return ancien?.remove();
+  if (ancien?.dataset.message === message) return;
+  ancien?.remove();
+  const bandeau = h('div', { class: 'bandeau-referentiel', role: 'alert', dataset: { message } }, h('span', {}, message));
+  bandeau.append(button('Fermer', () => bandeau.remove(), 'small'));
+  document.body.append(bandeau);
 }
 
 start();

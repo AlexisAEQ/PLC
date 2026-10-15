@@ -7,7 +7,7 @@ import { buildLayout, modbusTcpOf, genericStartAddress, PORT_MODBUS_TCP } from '
 import { compileLogic } from './grafcet.js';
 import { signalDef } from './model.js';
 import { axisList } from './axes.js';
-import { controlerSite } from './site.js';
+import { controlerSite, champsImposes, appareilDe } from './site.js';
 
 const CPP_RESERVED = new Set(
   (
@@ -121,12 +121,17 @@ export function validateProject(project, layout = buildLayout(project)) {
       const a = Number(eq.address);
       const tcp = modbusTcpOf(eq, entry);
       if (!['rtu', 'tcp'].includes(eq.options?.transport || 'rtu')) err('equipment', `${eq.label} : liaison Modbus inconnue « ${eq.options.transport} ».`, eq.uid);
-      if (tcp) {
+      // Lié à un appareil du site sans liaison Modbus : controlerSite le dit déjà, sans « IP invalide ».
+      const lienSansModbus = eq.appareil && appareilDe(project, eq) && !('transport' in champsImposes(project, eq));
+      if (tcp && !lienSansModbus) {
         const port = Number(eq.options?.port ?? PORT_MODBUS_TCP);
         if (!IPV4.test(tcp.ip)) err('equipment', `${eq.label} : adresse IP Modbus TCP invalide (ex. 192.168.1.50).`, eq.uid);
         if (!Number.isInteger(port) || port < 1 || port > 65535) err('equipment', `${eq.label} : port Modbus TCP entre 1 et 65535.`, eq.uid);
+        const plageTcp = infoEquipement(eq.type)?.adresses;
         if (!Number.isInteger(a) || a < 0 || a > 255) err('equipment', `${eq.label} : n° d'unité Modbus TCP entre 0 et 255.`, eq.uid);
-        else if (IPV4.test(tcp.ip)) {
+        else if (plageTcp && !plageTcp.includes(a)) {
+          err('equipment', `${eq.label} : unité ${a} hors de la plage du variateur (${plageTcp[0]} à ${plageTcp[plageTcp.length - 1]}) : derrière une passerelle, l'unité est l'adresse RS485 du variateur.`, eq.uid);
+        } else if (IPV4.test(tcp.ip)) {
           const key = `${tcp.ip}:${tcp.port}/${a}`;
           if (tcpUnits.has(key)) err('equipment', `${eq.label} et ${tcpUnits.get(key)} ont la même adresse Modbus TCP (${tcp.ip}:${tcp.port}, unité ${a}).`, eq.uid);
           else tcpUnits.set(key, eq.label);
@@ -135,6 +140,8 @@ export function validateProject(project, layout = buildLayout(project)) {
           if (other && other.port !== tcp.port) err('equipment', `${eq.label} et ${other.label} : même adresse IP ${tcp.ip} sur deux ports différents, non pris en charge.`, eq.uid);
           else tcpPorts.set(tcp.ip, { port: tcp.port, label: eq.label });
         }
+      } else if (tcp) {
+        // lié à un appareil sans liaison Modbus : rien de plus à contrôler ici
       } else if (!Number.isInteger(a) || a < 1 || a > 247) err('equipment', `${eq.label} : adresse Modbus entre 1 et 247.`, eq.uid);
       else if (addresses.has(a)) err('equipment', `${eq.label} et ${addresses.get(a)} ont la même adresse Modbus ${a} sur le bus RS485.`, eq.uid);
       else {
@@ -172,12 +179,15 @@ export function validateProject(project, layout = buildLayout(project)) {
 
   // Format série imposé par un variateur (référentiel : "formatSerie") contre le format choisi pour
   // le bus. Le format par défaut du fichier matériel est contrôlé à la génération (generate.js).
-  const busConfig = project.equipment.find((e) => CATALOG[e.type]?.role === 'controller')?.options?.rs485Config;
+  const ctrlBus = project.equipment.find((e) => CATALOG[e.type]?.role === 'controller');
+  const busConfig = ctrlBus?.options?.rs485Config;
   if (busConfig) {
+    const parSite = 'rs485Config' in champsImposes(project, ctrlBus);
+    const ou = parSite ? `fixé par le site ${project.site} : "bus" de l'appareil « ${ctrlBus.appareil} » dans infrastructure.jsonc` : "option « Format RS485 » de l'automate";
     for (const eq of project.equipment) {
       const impose = infoEquipement(eq.type)?.formatSerie?.impose;
       if (impose && CATALOG[eq.type]?.modbus && eq.options?.transport !== 'tcp' && impose !== busConfig) {
-        err('equipment', `${eq.label} : format série imposé ${impose.replace('SERIAL_', '')} par le variateur ; le bus RS485 est réglé en ${busConfig.replace('SERIAL_', '')} (option « Format RS485 » de l'automate).`, eq.uid);
+        err('equipment', `${eq.label} : format série imposé ${impose.replace('SERIAL_', '')} par le variateur ; le bus RS485 est réglé en ${busConfig.replace('SERIAL_', '')} (${ou}).`, eq.uid);
       }
     }
   }
