@@ -21,6 +21,7 @@ Sommaire : [Projet](#projet) · [Équipements](#équipements) · [E/S câblées]
 | `options` | non | `{ "stateDisplay": true, "clockDisplay": false, "logDiagnostic": true, "logHistory": false, "showInfoMessages": true, "showSuccessMessages": false, "deleteDiagnosticAtStartup": false }` (valeurs par défaut). `stateDisplay` affiche l'état machine à l'écran, `clockDisplay` l'horloge (nécessite l'horloge DS3231). |
 | `ethernet` | non | Port Ethernet de l'automate (cartes à Ethernet seulement, voir `docs/cartes.md`), en plus du WiFi : `{ "enabled": true, "dhcp": true }` ou `{ "enabled": true, "dhcp": false, "ip": "192.168.10.20", "gateway": "192.168.10.1", "mask": "255.255.255.0", "dns": "" }`. Défaut : désactivé. |
 | `otaUrl`, `editorPassword` | non | URL de mise à jour, mot de passe de l'éditeur de fichiers de l'interface web. |
+| `site` | non | Site du référentiel d'infrastructure (`infrastructure.jsonc`, section `sites` ; liste : `plc.mjs infra liste`). Les équipements liés par `"appareil"` en tirent IP, port, n° d'unité, adresse RS485, Ethernet et bus de l'automate : ne recopiez alors ni `address`, ni `options.ip` / `port` / `transport`, ni `ethernet` (refusé). Le logiciel relevé sur l'appareil est comparé au profil (`Robot_Aubo` exige ARCS). Voir `docs/referentiel-infrastructure.md`. |
 
 ## Équipements
 
@@ -48,6 +49,8 @@ Modbus et ses `signals` (voies de l'automate) :
 ]
 ```
 
+- `appareil` (avec `site`) : nom de l'appareil du site auquel l'équipement est lié, ex.
+  `{ "id": "robot", "type": "ModbusGeneric", "label": "Robot", "appareil": "robot" }`.
 - `id` : nom court, local à la spec, utilisé dans les voies (`plc.X1`). `type` : voir
   `plc.mjs catalog`. `label` : nom affiché et préfixe des sections du firmware — court,
   unique, sans `/`, ne commence pas par un chiffre.

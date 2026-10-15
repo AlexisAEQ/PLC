@@ -44,7 +44,9 @@ L'enregistrement est automatique après le premier enregistrement (Ctrl+S).
    réelle (glisser-déposer), réglez couleurs, bornes, unités… dans le panneau de droite.
 6. **Simulation** : forcez les entrées et vérifiez le comportement.
 7. **Génération** : « Prévisualiser », puis « Installer », puis compilez et téléversez
-   avec PlatformIO (`pio run -e quatre_mb_huge -t upload` et `-t uploadfs` pour `data/`).
+   avec PlatformIO dans l'environnement de l'automate (`pio run -e <env> -t upload` et
+   `-t uploadfs` pour `data/` ; `<env>` est indiqué sur la carte de l'automate et par
+   `plc.mjs check`).
 
 Vous pouvez revenir à n'importe quelle étape : tout est recalculé et revérifié en direct
 (la barre latérale indique le nombre d'erreurs par étape).
@@ -228,17 +230,26 @@ npm run check:cpp
 Vérifie la syntaxe du C++ généré pour deux projets d'exemple (avec et sans servo) avec
 `g++ -fsyntax-only`, contre les vrais en-têtes du dépôt et des en-têtes Arduino
 simplifiés (`test/cpp-stubs/`). Ce n'est pas une compilation ESP32 complète : après
-installation, compilez avec PlatformIO (`pio run -e quatre_mb_huge`).
+installation, compilez avec PlatformIO (`pio run -e <env>` de l'automate du projet).
 
-## Ajouter un équipement au catalogue
+## Référentiel d'infrastructure : ajouter ou modifier un équipement
+
+Cartes, modules, robots, variateurs, limites du firmware, environnements de compilation et
+sites installés (IP, adresses, logiciel relevé) sont décrits dans **un seul fichier**,
+`infrastructure.jsonc` à la racine du dépôt. `shared/catalog.js` n'en est plus que la façade.
+Procédures (changer une IP, remplacer ou ajouter une carte, nouveau variateur, limite du
+firmware…) : [`docs/referentiel-infrastructure.md`](../../docs/referentiel-infrastructure.md).
 
 1. Créez (ou réutilisez) le fichier `data/hardware/<Nom>.json` lu par le firmware
    (format des cartes : `docs/cartes.md`).
-2. Ajoutez une entrée dans `tools/plc-studio/shared/catalog.js` : `hardware` (nom du
-   fichier), `role`, `modbus`/`defaultAddress` et des `groups` dont `type` est le type
-   de section `config.json` et `ids` les identifiants du tableau correspondant dans le
-   fichier matériel (ou `bank` pour un nœud qui regroupe plusieurs voies).
-3. `npm test` vérifie que chaque id généré existe dans le fichier matériel.
+2. Ajoutez l'entrée dans `infrastructure.jsonc` (section `automates`, `robots`, `modules`
+   ou `axes`) ; l'en-tête du fichier explique les notations.
+3. `node cli/plc.mjs infra verifier` contrôle le référentiel contre `data/hardware`,
+   `platformio.ini` et le firmware ; `npm test` génère chaque équipement avec les vrais
+   fichiers matériels et protège les identifiants enregistrés dans les projets.
+4. Redémarrez PLC Studio s'il tourne (un bandeau le rappelle).
+
+Commandes : `plc.mjs infra verifier | liste | montrer <type> | impact <site> | figer`.
 
 ## Limites connues
 

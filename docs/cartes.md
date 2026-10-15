@@ -3,7 +3,9 @@
 Le firmware (BorneUniverselle) ne contient plus de code propre à une carte : tout ce qui
 la décrit (E/S, bus I2C, horloge, RS485, buzzer) est dans son fichier matériel
 `data/hardware/<carte>.json`. PLC Studio propose ces cartes dans son catalogue et indique
-l'environnement PlatformIO à compiler.
+l'environnement PlatformIO à compiler. Le catalogue est décrit dans `infrastructure.jsonc`
+(racine du dépôt, voir `docs/referentiel-infrastructure.md`) : `plc.mjs infra liste` en
+donne l'état à jour, `plc.mjs infra verifier` le contrôle contre les fichiers matériels.
 
 | Carte | Fichier matériel | Environnement PlatformIO | E/S | Horloge |
 |---|---|---|---|---|
@@ -90,15 +92,17 @@ le format RS485 est changé dans les options de l'automate.
 ## Ajouter une carte
 
 1. Écrire `data/hardware/<Carte>.json` avec les clés ci-dessus.
-2. Ajouter l'entrée de la carte dans `tools/plc-studio/shared/catalog.js` (rôle
-   `controller`, `pioEnv`, groupes de voies dont `type` = nom de la section du fichier
-   matériel et `ids` = ses identifiants ; `names` pour nommer les GPIO, `gpio: true` pour
-   les sorties directes utilisables en STEP/DIR, `ethernet: true` si le fichier a un bloc
-   `ETH`).
+2. Ajouter l'entrée de la carte dans la section `automates` de `infrastructure.jsonc`
+   (racine du dépôt) : `marque`, `libelle`, `description`, `fichierMateriel`,
+   `envPlatformIO`, `ethernet: true` si le fichier a un bloc `ETH`, `horloge`, et les voies
+   avec les gabarits `entrees` / `sorties` (`type` = nom de la section du fichier matériel,
+   `ids` = ses identifiants), `gpio` (`broches` : sorties directes utilisables en STEP/DIR)
+   et `buzzer` (`broche`).
 3. Si la carte demande un autre microcontrôleur ou une autre taille de flash, ajouter un
-   environnement dans `platformio.ini`.
-4. `npm test` dans `tools/plc-studio` vérifie que chaque identifiant généré existe dans le
-   fichier matériel.
+   environnement dans `platformio.ini` et dans `compilation.envs` du référentiel.
+4. `node tools/plc-studio/cli/plc.mjs infra verifier` (ids, broches, buzzer, ETH, horloge,
+   environnement), puis `npm test` dans `tools/plc-studio` (génération de la carte, toutes
+   voies câblées). Procédure complète : `docs/referentiel-infrastructure.md`.
 
 ## Axes
 

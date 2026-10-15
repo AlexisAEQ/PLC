@@ -124,7 +124,8 @@ Rapport à l'utilisateur, court :
 - pour l'ouvrir : `node tools/plc-studio/server/server.js`, `http://localhost:8090`,
   **Ouvrir… → <Nom>** ; étape 5 « Écrans opérateur » pour peaufiner l'IHM, étape 6
   « Simulation » pour rejouer la logique, étape 7 « Génération » → Installer, puis
-  `pio run -e quatre_mb_huge -t upload` et `-t uploadfs`.
+  `pio run -e <env> -t upload` et `-t uploadfs` (`<env>` : ligne « Compilation » de
+  `plc.mjs check`, propre à l'automate).
 
 ## Modifier un projet existant
 

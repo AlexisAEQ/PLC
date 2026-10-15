@@ -31,6 +31,14 @@ signés 16 bits (0 à 65535) ; les flottants 32 bits ne sont pas pris en charge.
 Étape **Projet**, carte « Réseau filaire (Ethernet) » : activation, DHCP ou adresse fixe.
 Seulement pour les automates qui ont un port Ethernet (voir `docs/cartes.md`).
 
+**Plan d'adressage partagé : les sites du référentiel.** Plutôt que de recopier les IP dans
+chaque projet, déclarez l'installation dans la section `sites` de `infrastructure.jsonc`
+(IP, `modbusTcp: { port, unite }`, adresse RS485, Ethernet de l'automate, logiciel relevé
+sur chaque contrôleur), puis choisissez le site à l'étape Projet et liez chaque équipement
+à son appareil à l'étape Équipements. Une IP qui change se corrige alors à un seul endroit ;
+un profil incompatible avec le logiciel relevé (ex. `Robot_Aubo` sur un robot sous AUBOPE)
+est refusé. Voir `docs/referentiel-infrastructure.md`.
+
 Exemple de poignée de main avec un robot (grafcet) :
 
 1. Étape « Programme robot » : `Programme := NumProg`, `N Depart_robot` ;

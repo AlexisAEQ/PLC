@@ -12,6 +12,12 @@
 //   sim <projet> [--scenarios f]    exécute les scénarios (défaut projets/<Nom>/scenarios.json)
 //   describe <projet> [--md]        résumé lisible (E/S, variables, grafcet, modes, écrans)
 //   export-spec <projet> [--out f]  projet -> spec (pour modifier un projet existant)
+//   infra verifier [--strict]       référentiel infrastructure.jsonc contre data/hardware,
+//                                   platformio.ini et le firmware (à lancer après chaque modification)
+//   infra liste                     automates, équipements, environnements, sites
+//   infra montrer <type|site[.app]> entrée développée du référentiel
+//   infra impact <site>[.<app>]     projets concernés par un changement du site
+//   infra figer                     met à jour test/snapshots/identifiants.json (renommage voulu)
 //
 // <projet> : chemin d'un .plc.json ou simple nom (projets/<Nom>.plc.json).
 // Options communes : --root <dépôt> (défaut : dépôt qui contient l'outil), --json.
@@ -20,7 +26,8 @@ import './erreur-fatale.mjs'; // en premier : message lisible si infrastructure.
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CATALOG } from '../shared/catalog.js';
+import { CATALOG, REFERENTIEL } from '../shared/catalog.js';
+import { texteIdentifiants, verifierIdentifiants } from '../shared/identifiants.js';
 import { normalizeProject, listChannels, channelName } from '../shared/model.js';
 import { parseJsonc } from '../shared/jsonc.js';
 import { buildFromSpec, specFromProject } from '../shared/spec.js';
@@ -107,6 +114,9 @@ function checkProject(project, { cpp = false, quiet = false } = {}) {
   if (!quiet) {
     console.log(`Fichiers que « Installer » produirait : ${r.files.map((f) => f.path).join(', ')}`);
     console.log(r.installable ? 'Installable : oui.' : 'Installable : non (corriger les erreurs).');
+    const ctrl = project.equipment.find((e) => CATALOG[e.type]?.role === 'controller');
+    if (ctrl) console.log(`Compilation (${CATALOG[ctrl.type].label}) : pio run -e ${CATALOG[ctrl.type].pioEnv} -t upload, puis -t uploadfs pour data/`);
+    console.log(`Référentiel : ${REFERENTIEL.revision || 'sans révision'} (${REFERENTIEL.empreinte})`);
   }
   let cppOk = true;
   if (cpp && !errors) {
@@ -318,12 +328,30 @@ function cmdDescribe() {
   return 0;
 }
 
+// Référentiel d'infrastructure : « figer » ici, le reste dans cli/infra.mjs.
+async function cmdInfraCli() {
+  if (args[0] === 'figer') return cmdFiger();
+  const { cmdInfra } = await import('./infra.mjs');
+  return cmdInfra(args, flags, { ROOT });
+}
+
+// Après un renommage VOULU d'un identifiant gelé (voir shared/identifiants.js) : nouvelle copie.
+function cmdFiger() {
+  const fichier = path.join(toolDir, 'test', 'snapshots', 'identifiants.json');
+  const avant = existsSync(fichier) ? JSON.parse(readFileSync(fichier, 'utf8')) : {};
+  const pbs = verifierIdentifiants(avant, CATALOG, REFERENTIEL.alias);
+  for (const m of pbs) console.log(`  ${m}`);
+  writeFileSync(fichier, texteIdentifiants(CATALOG));
+  console.log(`${rel(fichier)} mis à jour${pbs.length ? ` (${pbs.length} identifiant(s) retiré(s) ou changé(s) ci-dessus : projets à réinstaller)` : ' (ajouts seulement)'}.`);
+  return 0;
+}
+
 // ---------------------------------------------------------------------------
-const COMMANDS = { catalog: cmdCatalog, build: cmdBuild, check: cmdCheck, sim: cmdSim, describe: cmdDescribe, 'export-spec': cmdExportSpec };
+const COMMANDS = { catalog: cmdCatalog, build: cmdBuild, check: cmdCheck, sim: cmdSim, describe: cmdDescribe, 'export-spec': cmdExportSpec, infra: cmdInfraCli };
 if (!COMMANDS[cmd]) {
   const lines = readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1);
   console.log(lines.slice(0, lines.findIndex((l) => !l.startsWith('//'))).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(cmd ? 2 : 0);
 }
 // exitCode plutôt que exit() : une sortie redirigée dans un tube n'est pas tronquée.
-process.exitCode = COMMANDS[cmd]();
+Promise.resolve(COMMANDS[cmd]()).then((code) => (process.exitCode = code));
