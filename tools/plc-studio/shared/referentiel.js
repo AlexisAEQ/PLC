@@ -214,17 +214,18 @@ export function comparerVersions(a, b) {
   return 0;
 }
 
-// Le logiciel relevé sur un appareil convient-il au profil ? Renvoie null ou la raison.
+// Le logiciel relevé sur un appareil convient-il au profil ? null si oui (ou non relevé),
+// sinon { exige: « ARCS » / « FAIRINO 3.7.3 ou plus récent », sinon: conseil du profil }.
 export function incompatibiliteLogiciel(requis, logiciel) {
-  if (!requis) return null;
-  if (!logiciel?.nom) return null; // non relevé : avertissement ailleurs
-  const releve = `${logiciel.nom}${logiciel.version ? ' ' + logiciel.version : ''}`;
-  if (!requis.noms.includes(logiciel.nom)) return `exige ${requis.noms.join(' ou ')} ; logiciel relevé : ${releve}.${requis.sinon ? ' ' + requis.sinon : ''}`;
+  if (!requis || !logiciel?.nom) return null;
+  if (!requis.noms.includes(logiciel.nom)) return { exige: requis.noms.join(' ou '), sinon: requis.sinon || '' };
   if (requis.versionMin && logiciel.version && comparerVersions(logiciel.version, requis.versionMin) < 0) {
-    return `exige ${logiciel.nom} ${requis.versionMin} ou plus récent ; logiciel relevé : ${releve}.`;
+    return { exige: `${logiciel.nom} ${requis.versionMin} ou plus récent`, sinon: '' };
   }
   return null;
 }
+
+const texteLogiciel = (l) => `${l.nom}${l.version ? ' ' + l.version : ''}`;
 
 function ipVersEntier(ip) {
   return ip.split('.').reduce((n, x) => n * 256 + Number(x), 0);
@@ -482,7 +483,8 @@ export function chargerReferentiel(texte, { kinds = KINDS_GERES } = {}) {
   const options = (liste, chemin, ctx) => (Array.isArray(liste) ? liste : []).map((o, i) => option(o, `${chemin}[${i}]`, ctx)).filter(Boolean);
 
   // --- sections et nœuds -------------------------------------------------------------------------
-  function noeuds(liste, chemin, src0, entree, typeSec) {
+  // listeSource : la liste écrite dans le fichier (positions), « liste » pouvant en être une copie.
+  function noeuds(liste, chemin, src0, entree, typeSec, listeSource) {
     if (!Array.isArray(liste)) {
       err(src0, undefined, chemin, 'nœuds : liste attendue.');
       return [];
@@ -491,12 +493,13 @@ export function chargerReferentiel(texte, { kinds = KINDS_GERES } = {}) {
     let dernier = 0;
     for (const [i, n] of liste.entries()) {
       const c = `${chemin}[${i}]`;
-      if (!controler(n, SCHEMA.noeud, c, { source: liste })) continue;
-      if (n.id <= dernier) err(liste, i, c, `id ${n.id} : les ids d'une section doivent être croissants et distincts.`);
+      const n0 = Array.isArray(listeSource) ? listeSource[i] : undefined;
+      if (!controler(n, SCHEMA.noeud, c, { source: n0 ?? listeSource ?? src0 })) continue;
+      if (n.id <= dernier) err(listeSource, i, c, `id ${n.id} : les ids d'une section doivent être croissants et distincts.`, src0);
       dernier = n.id;
-      if (n.id > 255) err(liste, i, c, `id ${n.id} > 255.`);
+      if (n.id > 255) err(listeSource, i, c, `id ${n.id} > 255.`, src0);
       const attendu = typesSection[typeSec]?.classe;
-      if (attendu && n.cpp !== attendu) err(n, 'cpp', `${c}.cpp`, `classe « ${n.cpp} » : une section « ${typeSec} » crée des « ${attendu} » (firmware.typesSection).`);
+      if (attendu && n.cpp !== attendu) err(n0, 'cpp', `${c}.cpp`, `classe « ${n.cpp} » : une section « ${typeSec} » crée des « ${attendu} » (firmware.typesSection).`, src0);
       if (n.seulementSi && !entree[n.seulementSi]) continue;
       out.push(traduire(n, SCHEMA.noeud));
     }
@@ -515,6 +518,7 @@ export function chargerReferentiel(texte, { kinds = KINDS_GERES } = {}) {
       controler(r.valeur, SCHEMA.section, c, { parametres: r.params, source: s0 });
       const s = remplir(r.valeur, [r.valeur], c, s0);
       let liste = s.noeuds;
+      let listeSource = estObjet(s0) && Array.isArray(s0.noeuds) ? s0.noeuds : r.valeur.noeuds;
       if (liste === 'par modèle') {
         if (!parModele[s.suffixe]) {
           err(entree, undefined, chemin, `le pilote « ${kind} » laisse au modèle les nœuds de la section « ${s.suffixe} » : ajoutez "noeuds": { "${s.suffixe}": [ … ] }.`);
@@ -522,11 +526,12 @@ export function chargerReferentiel(texte, { kinds = KINDS_GERES } = {}) {
         }
         utilises.add(s.suffixe);
         liste = parModele[s.suffixe];
+        listeSource = liste;
       }
       const sec = { suffix: s.suffixe, type: s.type };
       if (s.virtuel) sec.virtual = true;
       else sec.modbus = true;
-      sec.nodes = noeuds(liste, utilises.has(s.suffixe) ? `${chemin}.noeuds.${s.suffixe}` : `${c}.noeuds`, s0, entree, s.type);
+      sec.nodes = noeuds(liste, utilises.has(s.suffixe) ? `${chemin}.noeuds.${s.suffixe}` : `${c}.noeuds`, s0, entree, s.type, listeSource);
       out.push(sec);
     }
     for (const k of Object.keys(parModele)) {
@@ -778,7 +783,7 @@ export function chargerReferentiel(texte, { kinds = KINDS_GERES } = {}) {
         }
       }
       const raison = entry && incompatibiliteLogiciel(equipements[a.type]?.logicielRequis, a.logiciel);
-      if (raison) err(a, 'type', `${c}.type`, `le profil ${a.type} ${raison}`);
+      if (raison) err(a, 'type', `${c}.type`, `le profil ${a.type} exige ${raison.exige} ; logiciel relevé : ${texteLogiciel(a.logiciel)}.${raison.sinon ? ' ' + raison.sinon : ''}`);
       if (a.modbusTcp) {
         controler(a.modbusTcp, SCHEMA.modbusTcp, `${c}.modbusTcp`, { source: a });
         const { port, unite } = a.modbusTcp;

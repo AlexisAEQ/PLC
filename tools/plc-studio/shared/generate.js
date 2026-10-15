@@ -7,6 +7,7 @@ import { utf8Length } from './hash.js';
 import { paramsFileName } from './model.js';
 import { compileLogic } from './grafcet.js';
 import { generateCpp, patchMainCpp } from './cpp.js';
+import { CATALOG, infoEquipement, limite } from './catalog.js';
 
 export { paramsFileName };
 export const GENERATOR_TAG = 'généré par PLC Studio';
@@ -184,6 +185,18 @@ export function generateFiles(project, ctx = {}) {
         }
       }
     }
+    // Format série imposé par un variateur contre le format par défaut du fichier matériel de
+    // l'automate (un format choisi explicitement est contrôlé par validate.js).
+    const ctrl = project.equipment.find((e) => CATALOG[e.type]?.role === 'controller');
+    const busDefaut = ctrl && !ctrl.options?.rs485Config ? ctx.hardwareFiles[CATALOG[ctrl.type].hardware]?.RS485?.config : null;
+    if (busDefaut) {
+      for (const eq of project.equipment) {
+        const impose = infoEquipement(eq.type)?.formatSerie?.impose;
+        if (impose && CATALOG[eq.type]?.modbus && eq.options?.transport !== 'tcp' && impose !== busDefaut) {
+          issues.push({ level: 'error', step: 'equipment', message: `${eq.label} : format série imposé ${impose.replace('SERIAL_', '')} par le variateur ; le bus RS485 de data/hardware/${CATALOG[ctrl.type].hardware}.json est en ${busDefaut.replace('SERIAL_', '')} (réglez l'option « Format RS485 » de l'automate).`, ref: eq.uid });
+        }
+      }
+    }
     const firstHw = layout.sections.find((s) => s.hardware !== 'virtual');
     if (firstHw) {
       const baseName = layout.hardwareVariants.find((v) => v.name === firstHw.hardware)?.base || firstHw.hardware;
@@ -208,7 +221,7 @@ export function generateFiles(project, ctx = {}) {
   }
 
   const paramsPath = `/${paramsFileName(project)}`;
-  if (utf8Length(paramsPath) >= 32) issues.push({ level: 'error', step: 'project', message: `Le chemin ${paramsPath} doit faire moins de 32 caractères.` });
+  if (utf8Length(paramsPath) > limite('octetsCheminParametres')) issues.push({ level: 'error', step: 'project', message: `Le chemin ${paramsPath} doit faire moins de ${limite('octetsCheminParametres') + 1} caractères.` });
 
   // L'installation dans le dépôt n'est possible que si la classe C++ et main.cpp sont générés :
   // sinon l'application actuelle ne trouverait plus ses nœuds et l'automate bloquerait au démarrage.

@@ -1,0 +1,581 @@
+{
+ "Kincony_KC868_A8S": {
+  "groupes": {
+   "di": {
+    "suffixe": "Entrees",
+    "prefixe": "X",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8]
+   },
+   "do": {
+    "suffixe": "Relais",
+    "prefixe": "Y",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8]
+   },
+   "gpio": {
+    "suffixe": "GPIO",
+    "prefixe": "GPIO",
+    "ids": [1],
+    "noms": {
+     "1": "GPIO2"
+    }
+   }
+  },
+  "options": ["rtc", "rs485Speed", "rs485Config"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Waveshare_ESP32S3_POE_8DI8DO": {
+  "groupes": {
+   "di": {
+    "suffixe": "Entrees",
+    "prefixe": "DI",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8]
+   },
+   "do": {
+    "suffixe": "Sorties",
+    "prefixe": "DO",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8]
+   },
+   "gpio": {
+    "suffixe": "GPIO",
+    "prefixe": "GPIO",
+    "ids": [1, 2, 3, 4],
+    "noms": {
+     "1": "GPIO40",
+     "2": "GPIO1",
+     "3": "GPIO47",
+     "4": "GPIO48"
+    }
+   },
+   "buzzer": {
+    "suffixe": "Buzzer",
+    "prefixe": "BUZZER",
+    "ids": [9],
+    "noms": {
+     "9": "BUZZER"
+    }
+   }
+  },
+  "options": ["rtc", "rs485Speed", "rs485Config"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Waveshare_ESP32S3_RS485_WLED": {
+  "groupes": {
+   "di": {
+    "suffixe": "Entrees",
+    "prefixe": "BOOT",
+    "ids": [1],
+    "noms": {
+     "1": "BOOT"
+    }
+   },
+   "gpio": {
+    "suffixe": "GPIO",
+    "prefixe": "GPIO",
+    "ids": [1, 2, 3, 4],
+    "noms": {
+     "1": "GPIO2",
+     "2": "GPIO16",
+     "3": "GPIO3",
+     "4": "GPIO4"
+    }
+   }
+  },
+  "options": ["rs485Speed", "rs485Config"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Kincony_KC868_A16": {
+  "groupes": {
+   "di": {
+    "suffixe": "Entrees",
+    "prefixe": "X",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+   },
+   "do": {
+    "suffixe": "Sorties",
+    "prefixe": "Y",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+   },
+   "gpio": {
+    "suffixe": "GPIO",
+    "prefixe": "GPIO",
+    "ids": [1, 2, 3],
+    "noms": {
+     "1": "GPIO32",
+     "2": "GPIO33",
+     "3": "GPIO14"
+    }
+   }
+  },
+  "options": ["rs485Speed", "rs485Config"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Kincony_KC868_A16v3": {
+  "groupes": {
+   "di": {
+    "suffixe": "Entrees",
+    "prefixe": "X",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+   },
+   "do": {
+    "suffixe": "Sorties",
+    "prefixe": "Y",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+   },
+   "gpio": {
+    "suffixe": "GPIO",
+    "prefixe": "GPIO",
+    "ids": [1, 2, 3, 4, 5, 6],
+    "noms": {
+     "1": "GPIO38",
+     "2": "GPIO39",
+     "3": "GPIO40",
+     "4": "GPIO41",
+     "5": "GPIO47",
+     "6": "GPIO48"
+    }
+   }
+  },
+  "options": ["rtc", "rs485Speed", "rs485Config"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Kincony_KC868_A8v3": {
+  "groupes": {
+   "di": {
+    "suffixe": "Entrees",
+    "prefixe": "X",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8]
+   },
+   "do": {
+    "suffixe": "Relais",
+    "prefixe": "Y",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8]
+   },
+   "gpio": {
+    "suffixe": "GPIO",
+    "prefixe": "GPIO",
+    "ids": [1, 2, 3, 4],
+    "noms": {
+     "1": "GPIO13",
+     "2": "GPIO14",
+     "3": "GPIO40",
+     "4": "GPIO48"
+    }
+   }
+  },
+  "options": ["rtc", "rs485Speed", "rs485Config"],
+  "signaux": [],
+  "sections": {}
+ },
+ "M5Stack_StamPLC": {
+  "groupes": {
+   "di": {
+    "suffixe": "Entrees",
+    "prefixe": "DI",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8]
+   },
+   "do": {
+    "suffixe": "Relais",
+    "prefixe": "DO",
+    "ids": [1, 2, 3, 4]
+   },
+   "gpio": {
+    "suffixe": "GPIO",
+    "prefixe": "GPIO",
+    "ids": [1, 2, 3, 4],
+    "noms": {
+     "1": "GPIO4",
+     "2": "GPIO5",
+     "3": "GPIO1",
+     "4": "GPIO2"
+    }
+   },
+   "buzzer": {
+    "suffixe": "Buzzer",
+    "prefixe": "BUZZER",
+    "ids": [9],
+    "noms": {
+     "9": "BUZZER"
+    }
+   }
+  },
+  "options": ["rtc", "rs485Speed", "rs485Config"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Homemaster_MiniPLC": {
+  "groupes": {
+   "di": {
+    "suffixe": "Entrees",
+    "prefixe": "DI",
+    "ids": [1, 2, 3, 4]
+   },
+   "btn": {
+    "suffixe": "Boutons",
+    "prefixe": "BTN",
+    "ids": [1, 2, 3, 4]
+   },
+   "do": {
+    "suffixe": "Relais",
+    "prefixe": "DO",
+    "ids": [1, 2, 3, 4, 5, 6]
+   },
+   "led": {
+    "suffixe": "LED",
+    "prefixe": "LED",
+    "ids": [7, 8],
+    "noms": {
+     "7": "LED2",
+     "8": "LED3"
+    }
+   },
+   "gpio": {
+    "suffixe": "GPIO",
+    "prefixe": "GPIO",
+    "ids": [1, 2],
+    "noms": {
+     "1": "GPIO5",
+     "2": "GPIO4"
+    }
+   },
+   "buzzer": {
+    "suffixe": "Buzzer",
+    "prefixe": "BUZZER",
+    "ids": [9],
+    "noms": {
+     "9": "BUZZER"
+    }
+   }
+  },
+  "options": ["rtc", "rs485Speed", "rs485Config"],
+  "signaux": [],
+  "sections": {}
+ },
+ "ModbusGeneric": {
+  "groupes": {
+   "q": {
+    "suffixe": "Bobines ecrites",
+    "prefixe": "Q",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+   },
+   "i": {
+    "suffixe": "Bobines lues",
+    "prefixe": "I",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+   },
+   "w": {
+    "suffixe": "Registres ecrits",
+    "prefixe": "W",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+   },
+   "r": {
+    "suffixe": "Registres lus",
+    "prefixe": "R",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+   },
+   "ir": {
+    "suffixe": "Registres entree",
+    "prefixe": "IR",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+   }
+  },
+  "options": ["transport", "ip", "port", "oneBased", "coilOutStart", "coilInStart", "regOutStart", "regInStart", "inputRegStart"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Robot_Aubo": {
+  "groupes": {
+   "cmd": {
+    "suffixe": "Consignes",
+    "prefixe": "CMD",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    "noms": {
+     "1": "PROG",
+     "2": "DEPART",
+     "3": "ABANDON",
+     "4": "ACQUIT",
+     "5": "P1",
+     "6": "P2",
+     "7": "P3",
+     "8": "P4",
+     "9": "VIE_API"
+    }
+   },
+   "sts": {
+    "suffixe": "Retours",
+    "prefixe": "STS",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    "noms": {
+     "1": "PRET",
+     "2": "EN_COURS",
+     "3": "FINI",
+     "4": "DEFAUT",
+     "5": "ECHO_PROG",
+     "6": "VIE_ROBOT",
+     "7": "V1",
+     "8": "V2",
+     "9": "V3",
+     "10": "V4"
+    }
+   },
+   "pos": {
+    "suffixe": "Positions",
+    "prefixe": "POS",
+    "ids": [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+    "noms": {
+     "11": "TCP_X",
+     "12": "TCP_Y",
+     "13": "TCP_Z",
+     "14": "TCP_RX",
+     "15": "TCP_RY",
+     "16": "TCP_RZ",
+     "17": "J1",
+     "18": "J2",
+     "19": "J3",
+     "20": "J4",
+     "21": "J5",
+     "22": "J6"
+    }
+   }
+  },
+  "options": ["transport", "ip", "port"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Robot_Fairino": {
+  "groupes": {
+   "start": {
+    "suffixe": "Depart",
+    "prefixe": "START",
+    "ids": [1],
+    "noms": {
+     "1": "DEMARRER"
+    }
+   },
+   "do": {
+    "suffixe": "Sorties robot",
+    "prefixe": "DO",
+    "ids": [2, 3, 4, 5, 6, 7, 8, 9],
+    "noms": {
+     "2": "DO0",
+     "3": "DO1",
+     "4": "DO2",
+     "5": "DO3",
+     "6": "DO4",
+     "7": "DO5",
+     "8": "DO6",
+     "9": "DO7"
+    }
+   },
+   "cmd": {
+    "suffixe": "Commandes",
+    "prefixe": "CMD",
+    "bits": 8,
+    "noms": {
+     "0": "DEPART",
+     "1": "ABANDON",
+     "2": "ACQUIT"
+    }
+   },
+   "sts": {
+    "suffixe": "Etats",
+    "prefixe": "STS",
+    "bits": 8,
+    "noms": {
+     "0": "PRET",
+     "1": "EN_COURS",
+     "2": "FINI",
+     "3": "DEFAUT"
+    }
+   },
+   "w": {
+    "suffixe": "Consignes",
+    "prefixe": "W",
+    "ids": [1, 2, 3, 4, 5],
+    "noms": {
+     "1": "PROG",
+     "2": "P1",
+     "3": "P2",
+     "4": "P3",
+     "5": "VIE_API"
+    }
+   },
+   "ir": {
+    "suffixe": "Retours",
+    "prefixe": "IR",
+    "ids": [1, 2, 3, 4, 5],
+    "noms": {
+     "1": "ECHO_PROG",
+     "2": "CODE_DEFAUT",
+     "3": "VIE_ROBOT",
+     "4": "V1",
+     "5": "V2"
+    }
+   },
+   "pos": {
+    "suffixe": "Positions",
+    "prefixe": "POS",
+    "ids": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+    "noms": {
+     "6": "TCP_X",
+     "7": "TCP_Y",
+     "8": "TCP_Z",
+     "9": "TCP_RX",
+     "10": "TCP_RY",
+     "11": "TCP_RZ",
+     "12": "J1",
+     "13": "J2",
+     "14": "J3",
+     "15": "J4",
+     "16": "J5",
+     "17": "J6"
+    }
+   }
+  },
+  "options": ["transport", "ip", "port"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Waveshare_8DIO": {
+  "groupes": {
+   "di": {
+    "suffixe": "Entrees",
+    "prefixe": "DI",
+    "bits": 8
+   },
+   "do": {
+    "suffixe": "Sorties",
+    "prefixe": "DO",
+    "bits": 8
+   }
+  },
+  "options": ["transport", "ip", "port"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Waveshare_16DO": {
+  "groupes": {
+   "do": {
+    "suffixe": "Sorties",
+    "prefixe": "DO",
+    "bits": 16
+   }
+  },
+  "options": ["transport", "ip", "port"],
+  "signaux": [],
+  "sections": {}
+ },
+ "Waveshare_8AI": {
+  "groupes": {
+   "ai": {
+    "suffixe": "Analogiques",
+    "prefixe": "AI",
+    "ids": [1, 2, 3, 4, 5, 6, 7, 8]
+   }
+  },
+  "options": ["transport", "ip", "port"],
+  "signaux": [],
+  "sections": {}
+ },
+ "SureServo": {
+  "groupes": {},
+  "options": ["transport", "ip", "port", "pulsesPerUnit", "maxRange", "homePolicy"],
+  "signaux": ["servoOn", "immediateStop", "alarmsReset"],
+  "sections": {
+   "registres lus": ["1:status:status", "2:abs coord status:absoluteCoordonateSystemStatus", "3:alarms:alarms"],
+   "registres ecrits": ["1:aux function:auxFunctions", "2:trigger:trigger", "4:jog speed:jogSpeed", "5:max torque:maxTorque"],
+   "position": ["1:position:position"],
+   "consignes": ["1:target A:targetA", "2:target B:targetB", "3:PR1 speed:pr1Speed", "4:PR2 speed:pr2Speed", "5:PR3 speed:pr3Speed", "6:PR3 data:targetC"],
+   "etat": ["1:pret:servoReady", "2:active:servoActivated", "3:vitesse nulle:zeroSpeed", "4:vitesse atteinte:targetSpeedRated", "5:en position:targetPositionReached", "7:alarme:servoAlarm", "9:position absolue perdue:absolutePositionLost", "10:alarme batterie:batteryAlarm", "11:depassement tours:multipleTurnsOverflow", "12:depassement PUU:puuOverflow", "13:coordonnees non definies:absoluteCoordonateNotSet", "14:origine faite:homeDone", "15:erreur modbus:modbusError", "16:initialise:driveInitialised"]
+  }
+ },
+ "LichuanA6": {
+  "groupes": {},
+  "options": ["transport", "ip", "port", "pulsesPerUnit", "maxRange", "accelTime"],
+  "signaux": [],
+  "sections": {
+   "registres lus": ["1:etat:status", "2:code alarme:alarmCode", "3:vitesse:actualSpeed", "4:entrees relues:virtualInputsReadback"],
+   "registres ecrits": ["1:entrees virtuelles:virtualInputs", "2:vitesse:moveSpeed", "3:acceleration:accelTime", "4:deceleration:decelTime", "6:couple max:torqueLimit"],
+   "position": ["1:position:position"],
+   "consignes": ["1:cible:targetPosition"],
+   "etat": ["1:pret:servoReady", "2:en position:inPosition", "3:vitesse nulle:zeroSpeed", "4:origine faite:homeDone", "5:alarme:servoAlarm", "6:initialise:driveInitialised", "7:erreur modbus:modbusError"]
+  }
+ },
+ "LichuanA5": {
+  "groupes": {},
+  "options": ["transport", "ip", "port", "pulsesPerUnit", "maxRange", "accelTime"],
+  "signaux": [],
+  "sections": {
+   "registres lus": ["1:etat:status", "2:code alarme:alarmCode", "3:vitesse:actualSpeed", "4:entrees relues:virtualInputsReadback"],
+   "registres ecrits": ["1:entrees virtuelles:virtualInputs", "2:vitesse:moveSpeed", "3:acceleration:accelTime", "5:vitesse jog:jogSpeed", "6:couple max:torqueLimit", "7:couple max inverse:torqueLimitReverse", "8:reset defaut:faultReset"],
+   "position": ["1:position:position"],
+   "consignes": ["1:cible:targetPosition"],
+   "etat": ["1:pret:servoReady", "2:en position:inPosition", "3:vitesse nulle:zeroSpeed", "4:origine faite:homeDone", "5:alarme:servoAlarm", "6:initialise:driveInitialised", "7:erreur modbus:modbusError"]
+  }
+ },
+ "StepperOnlineDM_RS": {
+  "groupes": {},
+  "options": ["transport", "ip", "port", "model", "pulsesPerUnit", "maxRange", "accelTime", "torqueRefCurrent"],
+  "signaux": [],
+  "sections": {
+   "registres lus": ["1:etat:status", "2:code alarme:alarmCode", "3:declenchement lu:triggerStatus", "4:avertissement pr:prWarning", "6:vitesse:actualSpeed"],
+   "registres ecrits": ["1:mode pr0:prMode", "2:vitesse:moveSpeed", "3:acceleration:accelTime", "4:deceleration:decelTime", "5:declenchement:trigger", "6:mot de commande:controlWord", "9:courant crete:peakCurrent"],
+   "position lue": ["1:position brute:position"],
+   "consignes": ["1:cible:targetPosition"],
+   "position": ["1:position:displayPosition"],
+   "etat": ["1:pret:servoReady", "2:en position:inPosition", "3:vitesse nulle:zeroSpeed", "4:origine faite:homeDone", "5:alarme:servoAlarm", "6:initialise:driveInitialised", "7:erreur modbus:modbusError"]
+  }
+ },
+ "StepperOnlineCL_RS": {
+  "groupes": {},
+  "options": ["transport", "ip", "port", "model", "pulsesPerUnit", "maxRange", "accelTime", "torqueRefCurrent"],
+  "signaux": [],
+  "sections": {
+   "registres lus": ["1:etat:status", "2:code alarme:alarmCode", "3:declenchement lu:triggerStatus", "4:avertissement pr:prWarning", "5:alimentation relue:softwareEnableReadback", "6:vitesse:actualSpeed"],
+   "registres ecrits": ["1:mode pr0:prMode", "2:vitesse:moveSpeed", "3:acceleration:accelTime", "4:deceleration:decelTime", "5:declenchement:trigger", "6:mot de commande:controlWord", "7:alimentation:softwareEnable", "9:courant crete:peakCurrent"],
+   "position lue": ["1:position brute:position", "2:position codeur:feedbackPosition"],
+   "consignes": ["1:cible:targetPosition"],
+   "position": ["1:position:displayPosition"],
+   "etat": ["1:pret:servoReady", "2:en position:inPosition", "3:vitesse nulle:zeroSpeed", "4:origine faite:homeDone", "5:alarme:servoAlarm", "6:initialise:driveInitialised", "7:erreur modbus:modbusError"]
+  }
+ },
+ "StepperOnlineA6RS": {
+  "groupes": {},
+  "options": ["transport", "ip", "port", "pulsesPerUnit", "maxRange", "accelTime"],
+  "signaux": [],
+  "sections": {
+   "registres lus": ["1:etat:status", "5:servo relu:servoOnReadback"],
+   "registres ecrits": ["1:servo on:servoOn", "2:vitesse:moveSpeed", "3:acceleration:accelTime", "4:deceleration:decelTime", "5:depart:startMove", "6:depart origine:homingStart", "7:acquittement:alarmReset"],
+   "position lue": ["1:position brute:position"],
+   "consignes": ["1:cible:targetPosition"],
+   "position": ["1:position:displayPosition"],
+   "etat": ["1:pret:servoReady", "2:en position:inPosition", "3:vitesse nulle:zeroSpeed", "4:origine faite:homeDone", "5:alarme:servoAlarm", "6:initialise:driveInitialised", "7:erreur modbus:modbusError"]
+  }
+ },
+ "StepperOnlineT6": {
+  "groupes": {},
+  "options": ["transport", "ip", "port", "pulsesPerUnit", "maxRange", "accelTime"],
+  "signaux": [],
+  "sections": {
+   "registres lus": ["2:code alarme:alarmCode", "4:etat pr:prStatus", "5:servo relu:servoOnReadback"],
+   "registres ecrits": ["1:servo on:servoOn", "2:vitesse:moveSpeed", "3:acceleration:accelTime", "4:deceleration:decelTime", "7:mot de commande:alarmReset", "8:commande pr:command", "9:mode pr0:pathMode", "10:couple max:torqueLimit"],
+   "position lue": ["1:position brute:position"],
+   "consignes": ["1:cible:targetPosition"],
+   "position": ["1:position:displayPosition"],
+   "etat": ["1:pret:servoReady", "2:en position:inPosition", "3:vitesse nulle:zeroSpeed", "4:origine faite:homeDone", "5:alarme:servoAlarm", "6:initialise:driveInitialised", "7:erreur modbus:modbusError"]
+  }
+ },
+ "Stepper": {
+  "groupes": {},
+  "options": ["stepsPerUnit", "maxRange", "acceleration", "homingDirection", "homingSpeed", "homingBackoff", "invertDirection", "enableActiveLow"],
+  "signaux": ["step", "dir", "enable", "alarmsReset", "home", "limitPlus", "limitMinus", "driverAlarm"],
+  "sections": {
+   "etat": ["1:pret:stepperReady", "2:active:stepperActivated", "3:initialise:driveInitialised", "4:origine faite:homeDone", "5:en position:targetPositionReached", "6:alarme:stepperAlarm", "7:fin de course:limitError", "8:arret:zeroSpeed"],
+   "position": ["1:position:position"]
+  }
+ }
+}

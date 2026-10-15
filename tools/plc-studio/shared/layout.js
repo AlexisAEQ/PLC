@@ -8,41 +8,16 @@
 //   sys:state          texte "état machine"
 //   sys:clock          texte "horloge"
 
-import { CATALOG } from './catalog.js';
+import { CATALOG, REFERENTIEL, MODBUS_TRANSPORT_OPTIONS, limite } from './catalog.js';
 import { nodeHash, utf8Length, truncateUtf8 } from './hash.js';
 import { toSymbol } from './model.js';
 
-// Classe C++ "pointeur" à utiliser pour chaque type de section.
-const CPP_CLASS = {
-  'PF8574_rx-bool': 'BooleanInputNode',
-  'rx-bool@hw': 'BooleanInputNode',
-  'PF8574_tx-bool': 'BooleanOutputNode',
-  'PCA9554_tx-bool': 'BooleanOutputNode',
-  'EXP_rx-bool': 'BooleanInputNode',
-  'EXP_tx-bool': 'BooleanOutputNode',
-  'tx-bool@hw': 'BooleanOutputNode',
-  ModbusReadMultipleInputsStatus: 'ModbusReadMultipleInputsRegistersNode',
-  ModbusWriteMultipleCoils: 'ModbusWriteMultipleCoilslNode',
-  ModbusReadInputRegister: 'Uint16InputNode',
-  ModbusReadHoldingRegister: 'Uint16InputNode',
-  ModbusWriteHoldingRegister: 'Uint16OutputNode',
-  ModbusReadDobbleHoldingRegister: 'Uint32InputNode',
-  ModbusWriteDobbleHoldingRegister: 'Uint32OutputNode',
-  ModbusReadCoil: 'BooleanInputNode',
-  ModbusWriteCoil: 'BooleanOutputNode',
-  'rx-bool': 'VirtualBooleanInputNode',
-  'tx-bool': 'BooleanOutputNode',
-  'rx-uint32': 'VirtualUint32InputNode',
-  'tx-uint32': 'Uint32OutputNode',
-  'rx-float': 'VirtualFloatInputNode',
-  'tx-float': 'FloatOutputNode',
-  'rx-text': 'VirtualTextInputNode',
-  'tx-text': 'VirtualTextOutputNode',
-};
-
+// Classe C++ "pointeur" de chaque type de section : firmware.typesSection du référentiel
+// (« classeMateriel » quand rx-bool / tx-bool désignent une broche directe et non un nœud virtuel).
 export function cppClassFor(sectionType, isVirtual) {
-  if (!isVirtual && (sectionType === 'rx-bool' || sectionType === 'tx-bool')) return CPP_CLASS[`${sectionType}@hw`];
-  return CPP_CLASS[sectionType];
+  const t = REFERENTIEL.firmware.typesSection[sectionType];
+  if (!t) return undefined;
+  return !isVirtual && t.classeMateriel ? t.classeMateriel : t.classe;
 }
 
 // Sections virtuelles : (nature, type de donnée) -> section.
@@ -60,7 +35,7 @@ const VIRTUAL_SECTIONS = [
   { kind: 'indicator', dataType: 'text', name: 'Messages', type: 'tx-text' },
 ];
 
-export const NODE_NAME_MAX_BYTES = 78; // strlen(section) + strlen(node) < 80, avec le '/' et le '\0'
+export const NODE_NAME_MAX_BYTES = limite('octetsNomNoeud'); // strlen(section) + strlen(node) < 80, avec le '/' et le '\0'
 
 function sectionNameFor(eq, group) {
   return `${eq.label} ${group.short}`;
@@ -90,11 +65,14 @@ export function hardwareVariantFor(eq, entry) {
   return variant;
 }
 
+// Port Modbus TCP par défaut : option « port » des gabarits du référentiel (502).
+export const PORT_MODBUS_TCP = MODBUS_TRANSPORT_OPTIONS.find((o) => o.key === 'port')?.default ?? 502;
+
 // Liaison d'un équipement Modbus : null (RS485 de l'automate) ou { ip, port } (Modbus TCP).
 export function modbusTcpOf(eq, entry = CATALOG[eq.type]) {
   if (!entry?.modbus || eq.options?.transport !== 'tcp') return null;
   const port = Number(eq.options?.port);
-  return { ip: String(eq.options?.ip || '').trim(), port: Number.isInteger(port) && port > 0 ? port : 502 };
+  return { ip: String(eq.options?.ip || '').trim(), port: Number.isInteger(port) && port > 0 ? port : PORT_MODBUS_TCP };
 }
 
 // Équipement Modbus générique : fichier matériel propre à l'équipement, généré par l'outil.
@@ -125,6 +103,9 @@ export function genericHardwareDoc(eq, entry = CATALOG[eq.type]) {
   }
   return doc;
 }
+
+const NOEUDS_PAR_SECTION = limite('noeudsParSection'); // id de nœud en uint8 dans le firmware
+const milliers = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 export function buildLayout(project) {
   const sections = [];
@@ -258,7 +239,7 @@ export function buildLayout(project) {
   // serait toujours allumé. Chaque voie a donc un nœud miroir (tx-bool) recopié par la logique.
   if (mirrorVars.length) {
     const section = addSection({ name: 'Miroirs ES', hardware: 'virtual', type: 'tx-bool', nodes: [] });
-    mirrorVars.slice(0, 255).forEach((v, k) => addNode(section, { id: k + 1, name: v.symbol, ref: `mirror:${v.uid}`, extra: {}, variable: v.uid, label: v.label }));
+    mirrorVars.slice(0, NOEUDS_PAR_SECTION).forEach((v, k) => addNode(section, { id: k + 1, name: v.symbol, ref: `mirror:${v.uid}`, extra: {}, variable: v.uid, label: v.label }));
   }
 
   // 2. Variables internes -> sections virtuelles.
@@ -266,10 +247,10 @@ export function buildLayout(project) {
     const vars = project.variables.filter((v) => effectiveKind(v) === def.kind && v.dataType === def.dataType && !v.binding);
     if (!vars.length) continue;
     let chunk = 0;
-    for (let i = 0; i < vars.length; i += 255) {
+    for (let i = 0; i < vars.length; i += NOEUDS_PAR_SECTION) {
       const name = chunk ? `${def.name} ${chunk + 1}` : def.name;
       const section = addSection({ name, hardware: 'virtual', type: def.type, nodes: [] });
-      vars.slice(i, i + 255).forEach((v, k) => addNode(section, { id: k + 1, name: v.symbol, ref: `var:${v.uid}`, extra: {}, variable: v.uid }));
+      vars.slice(i, i + NOEUDS_PAR_SECTION).forEach((v, k) => addNode(section, { id: k + 1, name: v.symbol, ref: `var:${v.uid}`, extra: {}, variable: v.uid }));
       chunk++;
     }
   }
@@ -291,7 +272,7 @@ export function buildLayout(project) {
     }
     seenSections.set(s.name, s);
     if (/^[0-9]/.test(s.name)) warnings.push({ step: 'equipment', message: `La section « ${s.name} » commence par un chiffre (risque de collision d'identifiants).` });
-    if (utf8Length(s.name) >= 70) errors.push({ step: 'equipment', message: `Nom de section trop long : « ${s.name} ».` });
+    if (utf8Length(s.name) > limite('octetsNomSection')) errors.push({ step: 'equipment', message: `Nom de section trop long : « ${s.name} ».` });
   }
   const seenHash = new Map();
   for (const s of sections) {
@@ -302,7 +283,9 @@ export function buildLayout(project) {
     }
   }
   const total = sections.reduce((acc, s) => acc + s.nodes.length, 0);
-  if (total > 300) warnings.push({ step: 'variables', message: `${total} nœuds : l'envoi de l'état complet à l'écran risque de dépasser 20 000 octets.` });
+  if (total > limite('noeudsAvantAlerte')) {
+    warnings.push({ step: 'variables', message: `${total} nœuds : l'envoi de l'état complet à l'écran risque de dépasser ${milliers(limite('octetsMessageEtat'))} octets.` });
+  }
 
   return { sections, nodes, hardwareVariants, generatedHardware, errors, warnings, nodeCount: total };
 }

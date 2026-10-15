@@ -1,6 +1,6 @@
 // Étape 2 : choix des équipements.
 
-import { CATALOG } from '/shared/catalog.js';
+import { CATALOG, marquesAutomates } from '/shared/catalog.js';
 import { addEquipment, removeEquipment } from '/shared/model.js';
 import { genericHardwareName } from '/shared/layout.js';
 import { h, input, checkbox, select, field, card, pageHead, button, confirmDialog } from '../ui.js';
@@ -46,7 +46,7 @@ export function renderEquipment(root, store) {
 
   const list = h('div', {});
   if (!p.equipment.length) {
-    list.append(h('div', { class: 'empty-state' }, 'Aucun équipement. Commencez par ajouter l’automate (KinCony, Waveshare ESP32-S3, M5Stack StamPLC, Homemaster MiniPLC…).'));
+    list.append(h('div', { class: 'empty-state' }, `Aucun équipement. Commencez par ajouter l’automate (${marquesAutomates().join(', ')}…).`));
   }
   const ordered = [...p.equipment].sort((a, b) => (CATALOG[a.type]?.rs485 ? 0 : 1) - (CATALOG[b.type]?.rs485 ? 0 : 1));
   for (const eq of ordered) list.append(equipmentCard(store, eq));

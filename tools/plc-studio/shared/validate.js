@@ -1,12 +1,13 @@
 // Règles de validation du projet. Chaque règle reflète une contrainte du firmware
 // (blocage au démarrage, dépassement de tampon, etc.) ou de l'outil.
 
-import { CATALOG, VARIABLE_KINDS, widgetsFor } from './catalog.js';
+import { CATALOG, REFERENTIEL, VARIABLE_KINDS, widgetsFor, limite, infoEquipement, marquesAutomates } from './catalog.js';
 import { utf8Length } from './hash.js';
-import { buildLayout, modbusTcpOf, genericStartAddress } from './layout.js';
+import { buildLayout, modbusTcpOf, genericStartAddress, PORT_MODBUS_TCP } from './layout.js';
 import { compileLogic } from './grafcet.js';
 import { signalDef } from './model.js';
 import { axisList } from './axes.js';
+import { controlerSite } from './site.js';
 
 const CPP_RESERVED = new Set(
   (
@@ -15,15 +16,17 @@ const CPP_RESERVED = new Set(
     'float for friend goto if inline int long mutable namespace new noexcept not not_eq nullptr operator or or_eq private ' +
     'protected public register reinterpret_cast return short signed sizeof static static_assert static_cast struct switch ' +
     'template this thread_local throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t ' +
-    'while xor xor_eq NULL INPUT OUTPUT HIGH LOW ERROR WARNING INFO SUCCESS FATAL DEBUG ' +
-    'BusinessLogic BorneUniverselle SureServo Node State String Serial millis'
-  ).split(' ')
+    'while xor xor_eq NULL INPUT OUTPUT HIGH LOW ERROR WARNING INFO SUCCESS FATAL DEBUG String Serial millis'
+  )
+    .split(' ')
+    // Classes du firmware et des pilotes d'axe : firmware.classesReservees du référentiel.
+    .concat(REFERENTIEL.firmware.classesReservees)
 );
 // Mots réservés par le langage des réceptivités.
 // (comparaison en majuscules)
 const EXPR_RESERVED = new Set(['ET', 'OU', 'NON', 'FM', 'FD', 'VRAI', 'FAUX', 'AND', 'OR', 'NOT', 'MIN', 'MAX', 'ABS', 'SERVO', 'TRUE', 'FALSE']);
-// Noms de projet qui écraseraient un fichier du firmware (data/<Nom>.json).
-const RESERVED_PROJECT_NAMES = new Set(['config', 'interface', 'renderers', 'component-manifest', 'index', 'styles', 'diagnostic', 'main']);
+// Noms de projet qui écraseraient un fichier du firmware (data/<Nom>.json) : firmware.nomsProjetReserves.
+const RESERVED_PROJECT_NAMES = new Set(REFERENTIEL.firmware.nomsProjetReserves.map((n) => n.toLowerCase()));
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 
@@ -33,8 +36,9 @@ export function validateProject(project, layout = buildLayout(project)) {
   const warn = (step, message, ref) => issues.push({ level: 'warning', step, message, ref });
 
   // --- Projet -----------------------------------------------------------
-  if (!/^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(project.name || '')) {
-    err('project', 'Nom de projet invalide : lettre en premier, puis lettres, chiffres ou _ (24 caractères maximum). Il sert de nom de classe C++ et de fichier.');
+  const maxNom = limite('caracteresNomProjet');
+  if (!new RegExp(`^[A-Za-z][A-Za-z0-9_]{0,${maxNom - 1}}$`).test(project.name || '')) {
+    err('project', `Nom de projet invalide : lettre en premier, puis lettres, chiffres ou _ (${maxNom} caractères maximum). Il sert de nom de classe C++ et de fichier.`);
   } else if (CPP_RESERVED.has(project.name) || RESERVED_PROJECT_NAMES.has(project.name.toLowerCase())) {
     err('project', `« ${project.name} » est un nom réservé.`);
   }
@@ -45,12 +49,14 @@ export function validateProject(project, layout = buildLayout(project)) {
 
   const wifi = project.wifi || [];
   if (!wifi.length) warn('project', "Aucun réseau WiFi : l'automate ne sera pas joignable.");
-  if (wifi.length > 10) err('project', 'Au plus 10 réseaux WiFi (les suivants seraient ignorés).');
+  const maxWifi = limite('reseauxWifi');
+  const maxChaine = limite('octetsChaineWifi');
+  if (wifi.length > maxWifi) err('project', `Au plus ${maxWifi} réseaux WiFi (les suivants seraient ignorés).`);
   wifi.forEach((w, i) => {
     const where = `WiFi n°${i + 1}`;
     if (!w.name) err('project', `${where} : le nom est obligatoire (sinon blocage au démarrage).`);
     for (const k of ['name', 'ssid', 'pwd', 'ap_name', 'ap_password']) {
-      if (w[k] && utf8Length(w[k]) > 79) err('project', `${where} : « ${k} » dépasse 79 octets.`);
+      if (w[k] && utf8Length(w[k]) > maxChaine) err('project', `${where} : « ${k} » dépasse ${maxChaine} octets.`);
     }
     if ((w.mode || 'station') === 'station') {
       if (!w.ssid) err('project', `${where} : SSID obligatoire.`);
@@ -68,7 +74,7 @@ export function validateProject(project, layout = buildLayout(project)) {
       err('project', `${where} : mode inconnu « ${w.mode} ».`);
     }
   });
-  if (project.otaUrl && utf8Length(project.otaUrl) > 79) err('project', "L'URL OTA dépasse 79 octets.");
+  if (project.otaUrl && utf8Length(project.otaUrl) > limite('octetsUrlOta')) err('project', `L'URL OTA dépasse ${limite('octetsUrlOta')} octets.`);
 
   const eth = project.ethernet;
   if (eth?.enabled) {
@@ -116,7 +122,7 @@ export function validateProject(project, layout = buildLayout(project)) {
       const tcp = modbusTcpOf(eq, entry);
       if (!['rtu', 'tcp'].includes(eq.options?.transport || 'rtu')) err('equipment', `${eq.label} : liaison Modbus inconnue « ${eq.options.transport} ».`, eq.uid);
       if (tcp) {
-        const port = Number(eq.options?.port ?? 502);
+        const port = Number(eq.options?.port ?? PORT_MODBUS_TCP);
         if (!IPV4.test(tcp.ip)) err('equipment', `${eq.label} : adresse IP Modbus TCP invalide (ex. 192.168.1.50).`, eq.uid);
         if (!Number.isInteger(port) || port < 1 || port > 65535) err('equipment', `${eq.label} : port Modbus TCP entre 1 et 65535.`, eq.uid);
         if (!Number.isInteger(a) || a < 0 || a > 255) err('equipment', `${eq.label} : n° d'unité Modbus TCP entre 0 et 255.`, eq.uid);
@@ -131,7 +137,12 @@ export function validateProject(project, layout = buildLayout(project)) {
         }
       } else if (!Number.isInteger(a) || a < 1 || a > 247) err('equipment', `${eq.label} : adresse Modbus entre 1 et 247.`, eq.uid);
       else if (addresses.has(a)) err('equipment', `${eq.label} et ${addresses.get(a)} ont la même adresse Modbus ${a} sur le bus RS485.`, eq.uid);
-      else addresses.set(a, eq.label);
+      else {
+        addresses.set(a, eq.label);
+        // Plage propre au variateur (référentiel : "adresses" du modèle).
+        const plage = infoEquipement(eq.type)?.adresses;
+        if (plage && !plage.includes(a)) err('equipment', `${eq.label} : adresse ${a} hors de la plage du variateur (${plage[0]} à ${plage[plage.length - 1]}).`, eq.uid);
+      }
     }
     if (entry.generic) {
       for (const g of entry.groups) {
@@ -140,8 +151,10 @@ export function validateProject(project, layout = buildLayout(project)) {
       }
     }
   }
-  if (tcpPorts.size > 8) err('equipment', `${tcpPorts.size} adresses IP Modbus TCP : 8 au maximum (connexions simultanées).`);
-  if (tcpUnits.size > 16) err('equipment', `${tcpUnits.size} équipements Modbus TCP : 16 au maximum.`);
+  const maxIp = limite('adressesIpModbusTcp');
+  const maxTcp = limite('equipementsModbusTcp');
+  if (tcpPorts.size > maxIp) err('equipment', `${tcpPorts.size} adresses IP Modbus TCP : ${maxIp} au maximum (connexions simultanées).`);
+  if (tcpUnits.size > maxTcp) err('equipment', `${tcpUnits.size} équipements Modbus TCP : ${maxTcp} au maximum.`);
   if (tcpUnits.size) {
     const hasStation = (project.wifi || []).some((w) => (w.mode || 'station') === 'station');
     if (!hasStation && !eth?.enabled) {
@@ -150,9 +163,28 @@ export function validateProject(project, layout = buildLayout(project)) {
     warn('equipment', "Modbus TCP passe par le réseau : ne l'utilisez pas pour une fonction de sécurité (arrêt d'urgence câblé obligatoire).");
   }
   if (hasHardware && !hasController) {
-    err('equipment', "Ajoutez l'automate (KinCony, Waveshare ESP32-S3, M5Stack StamPLC, Homemaster MiniPLC…) : il porte le bus RS485 et doit être déclaré en premier.");
+    err('equipment', `Ajoutez l'automate (${marquesAutomates().join(', ')}…) : il porte le bus RS485 et doit être déclaré en premier.`);
   }
-  if (modbusCount > 16) warn('equipment', 'Plus de 16 équipements Modbus : les statistiques ne suivent que les 16 premiers.');
+  const maxSuivis = limite('esclavesModbusSuivis');
+  if (modbusCount > maxSuivis) {
+    warn('equipment', `Plus de ${maxSuivis} équipements Modbus : au-delà des ${maxSuivis} premiers, le firmware ne détecte plus un équipement qui ne répond plus (ni statistiques, ni alerte « MORT »).`);
+  }
+
+  // Format série imposé par un variateur (référentiel : "formatSerie") contre le format choisi pour
+  // le bus. Le format par défaut du fichier matériel est contrôlé à la génération (generate.js).
+  const busConfig = project.equipment.find((e) => CATALOG[e.type]?.role === 'controller')?.options?.rs485Config;
+  if (busConfig) {
+    for (const eq of project.equipment) {
+      const impose = infoEquipement(eq.type)?.formatSerie?.impose;
+      if (impose && CATALOG[eq.type]?.modbus && eq.options?.transport !== 'tcp' && impose !== busConfig) {
+        err('equipment', `${eq.label} : format série imposé ${impose.replace('SERIAL_', '')} par le variateur ; le bus RS485 est réglé en ${busConfig.replace('SERIAL_', '')} (option « Format RS485 » de l'automate).`, eq.uid);
+      }
+    }
+  }
+
+  // Pas-à-pas STEP/DIR : nombre d'axes que le firmware sait enregistrer (StepperMotor::MAX_STEPPERS).
+  const steppers = project.equipment.filter((e) => CATALOG[e.type]?.axis?.kind === 'stepper').length;
+  if (steppers > limite('axesPasAPas')) err('equipment', `${steppers} moteurs pas-à-pas STEP/DIR : ${limite('axesPasAPas')} au maximum.`);
 
   // Axes : leur nom sert de préfixe dans les expressions (Axe_X.enPosition) et en C++ (ax_Axe_X).
   const axisSymbols = new Map();
@@ -192,7 +224,7 @@ export function validateProject(project, layout = buildLayout(project)) {
         const group = eq && CATALOG[eq.type]?.groups.find((g) => g.key === v.binding.group);
         if (!group) err('variables', `${where} : voie introuvable (équipement supprimé ?).`, v.uid);
         else {
-          if ((eq.type === 'Kincony_KC868_A8S' && group.key === 'gpio') || group.key === 'buzzer') {
+          if (infoEquipement(eq.type)?.voies[group.key]?.buzzerCarte || group.key === 'buzzer') {
             warn('variables', `${where} : buzzer de la carte ; main.cpp le remet au repos à chaque connexion WiFi (turnOffBuzzer).`, v.uid);
           }
           const expectedDir = v.kind === 'input' ? 'in' : 'out';
@@ -238,12 +270,15 @@ export function validateProject(project, layout = buildLayout(project)) {
         }
         const label = item.label || '';
         if (!label.trim()) err('hmi', `Page « ${page.name} » : un élément n'a pas de libellé.`);
-        if (utf8Length(label) + utf8Length(section.name) > 77) {
-          err('hmi', `« ${section.name}/${label} » dépasse 77 octets (blocage au démarrage) : raccourcissez le libellé ou la section.`);
+        if (utf8Length(label) + utf8Length(section.name) > limite('octetsNomEcran')) {
+          err('hmi', `« ${section.name}/${label} » dépasse ${limite('octetsNomEcran')} octets (blocage au démarrage) : raccourcissez le libellé ou la section.`);
         }
       }
     }
   }
+
+  // Site du référentiel : appareils liés, logiciel des contrôleurs de robot.
+  issues.push(...controlerSite(project));
 
   issues.push(...compileLogic(project).issues);
 

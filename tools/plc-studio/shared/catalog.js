@@ -78,6 +78,35 @@ export function marquesAutomates() {
   return [...new Set(Object.values(charge.equipements).filter((e) => e.section === 'automates' && e.marque).map((e) => e.marque))];
 }
 
+// Anciens noms encore acceptés (section « alias » du référentiel) ; sans alias, le nom est rendu tel quel.
+export function aliasType(type) {
+  return charge.alias.types[type] || type;
+}
+export function aliasGroupe(type, cle) {
+  return charge.alias.groupes[type]?.[cle] || cle;
+}
+// Options renommées : la valeur passe sur la nouvelle clé (si elle n'est pas déjà réglée).
+export function aliasOptions(type, options) {
+  const table = charge.alias.options[type];
+  if (!table || !options) return options;
+  const out = { ...options };
+  for (const [ancien, nouveau] of Object.entries(table)) {
+    if (ancien in out) {
+      if (!(nouveau in out)) out[nouveau] = out[ancien];
+      delete out[ancien];
+    }
+  }
+  return out;
+}
+// Nom de voie (en majuscules) : alias propres au type, puis alias communs « * ».
+export function aliasVoie(type, nom) {
+  const N = String(nom).toUpperCase();
+  for (const table of [charge.alias.voies[type], charge.alias.voies['*']]) {
+    for (const [ancien, nouveau] of Object.entries(table || {})) if (ancien.toUpperCase() === N) return String(nouveau).toUpperCase();
+  }
+  return N;
+}
+
 // Types de variables "internes" (non câblées) proposées à l'étape Variables.
 export const VARIABLE_KINDS = {
   command: { label: 'Commande',  help: "Bouton ou interrupteur à l'écran, lu par la logique.", dataTypes: ['bool', 'int', 'float'] },

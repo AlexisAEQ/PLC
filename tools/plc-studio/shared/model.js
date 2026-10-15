@@ -1,6 +1,7 @@
 // Modèle de projet PLC Studio (fichier projets/<Nom>.plc.json).
 
-import { CATALOG } from './catalog.js';
+import { CATALOG, aliasType, aliasGroupe, aliasOptions } from './catalog.js';
+import { appliquerSite } from './site.js';
 
 export const FORMAT = 'plc-studio-project';
 export const FORMAT_VERSION = 1;
@@ -83,6 +84,7 @@ export function normalizeProject(p) {
   project.editorPassword = project.editorPassword || '';
   project.equipment = Array.isArray(project.equipment) ? project.equipment.map(normalizeEquipment) : [];
   project.variables = Array.isArray(project.variables) ? project.variables.map(normalizeVariable) : [];
+  renommerGroupes(project);
   project.hmi = project.hmi && Array.isArray(project.hmi.pages) ? project.hmi : { auto: true, pages: [] };
   if (project.hmi.auto === undefined) project.hmi.auto = true;
   project.logic = project.logic || { steps: [], transitions: [], blocks: {} };
@@ -90,7 +92,28 @@ export function normalizeProject(p) {
   if (project.logic.blocks?.axes) {
     project.logic.blocks.axes = Object.fromEntries(Object.entries(project.logic.blocks.axes).map(([k, b]) => [k, { ...DEFAULT_AXIS_BLOCK, ...(b || {}) }]));
   }
+  // Site du référentiel d'infrastructure : IP, adresses, Ethernet et bus des équipements liés.
+  appliquerSite(project);
   return project;
+}
+
+// Voies renommées dans le référentiel (alias.groupes) : câblages et écrans suivent.
+function renommerGroupes(project) {
+  const typeOf = new Map(project.equipment.map((e) => [e.uid, e.type]));
+  for (const v of project.variables) {
+    if (v.binding?.eq && v.binding.group) {
+      const g = aliasGroupe(typeOf.get(v.binding.eq), v.binding.group);
+      if (g !== v.binding.group) v.binding = { ...v.binding, group: g };
+    }
+  }
+  for (const page of project.hmi?.pages || []) {
+    for (const sec of page.sections || []) {
+      for (const it of sec.items || []) {
+        const m = typeof it.ref === 'string' && /^bank:([^:]+):(.+)$/.exec(it.ref);
+        if (m && typeOf.has(m[1])) it.ref = `bank:${m[1]}:${aliasGroupe(typeOf.get(m[1]), m[2])}`;
+      }
+    }
+  }
 }
 
 // Projets d'avant les axes multiples (un seul SureServo) : bloc « servo », actions sans axe
@@ -120,9 +143,10 @@ function migrateSingleServo(project) {
 }
 
 export function normalizeEquipment(e) {
-  const entry = CATALOG[e.type];
-  const eq = { uid: e.uid || uid('eq'), type: e.type, label: e.label || entry?.label || e.type, ...e };
-  eq.options = { ...(eq.options || {}) };
+  const type = aliasType(e.type); // type renommé dans le référentiel (alias.types)
+  const entry = CATALOG[type];
+  const eq = { uid: e.uid || uid('eq'), type, label: e.label || entry?.label || type, ...e, type };
+  eq.options = { ...(aliasOptions(type, eq.options) || {}) };
   for (const opt of entry?.options || []) {
     if (eq.options[opt.key] === undefined) eq.options[opt.key] = opt.default;
   }

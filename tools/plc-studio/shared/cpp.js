@@ -3,6 +3,7 @@
 import { toCpp, AXIS_PROPS } from './expr.js';
 import { paramsFileName } from './model.js';
 import { axisList } from './axes.js';
+import { infoEquipement } from './catalog.js';
 
 const CPP_TYPE = { bool: 'bool', int: 'int32_t', float: 'float', text: 'const char*' };
 const DEFAULT_VALUE = { bool: 'false', int: '0', float: '0.0f', text: '""' };
@@ -157,6 +158,8 @@ function axisCreate(a, N) {
   const o = a.eq.options || {};
   const s = a.symbol;
   const lines = [`    if (BorneUniverselle::getInstance()->isPlcBroken()) return false;`];
+  // Bornes du firmware reprises dans le référentiel (rampe, courant crête par modèle).
+  const b = infoEquipement(a.eq.type)?.bornes || {};
   const broken = (what) => `BorneUniverselle::setPlcBroken(${cstr(`${N}: ${what}`)});`;
   switch (a.def.kind) {
     case 'sureservo':
@@ -175,7 +178,7 @@ function axisCreate(a, N) {
       );
       break;
     case 'lichuan': {
-      const accel = Math.max(0, Math.min(65535, Math.round(Number(o.accelTime) || 0)));
+      const accel = Math.max(0, Math.min(b.rampeMaxMs ?? 65535, Math.round(Number(o.accelTime) || 0)));
       lines.push(
         `    if (!axNodes_${s}.validateRequired()) { ${broken(`nœuds obligatoires de l'axe « ${a.label} » manquants`)} return false; }`,
         `    axDrive_${s}.reset(new LichuanServo(LichuanFamily::${a.def.family === 'A5' ? 'A5' : 'A6'}, axNodes_${s}, ${cstr(a.label)}));`
@@ -186,19 +189,20 @@ function axisCreate(a, N) {
     case 'stepperonline-rs': {
       const models = a.def.models || ['DM556RS'];
       const model = models.includes(o.model) ? o.model : models[0];
-      const accel = Math.max(0, Math.min(10000, Math.round(Number(o.accelTime ?? 300) || 0)));
-      const ref = Math.max(0, Math.min(82, Math.round(Number(o.torqueRefCurrent) || 0)));
+      const rampeDefaut = b.rampeParDefautMs ?? 300; // rampe écrite par le firmware si on ne la change pas
+      const accel = Math.max(0, Math.min(b.rampeMaxMs ?? 10000, Math.round(Number(o.accelTime ?? rampeDefaut) || 0)));
+      const ref = Math.max(0, Math.min(b.courantCreteMax?.[model] ?? 82, Math.round(Number(o.torqueRefCurrent) || 0)));
       lines.push(
         `    if (!axNodes_${s}.validateRequired()) { ${broken(`nœuds obligatoires de l'axe « ${a.label} » manquants`)} return false; }`,
         `    axDrive_${s}.reset(new StepperOnlineRS(StepperOnlineRSModel::${model}, axNodes_${s}, ${cstr(a.label)}));`
       );
-      if (accel !== 300) lines.push(`    axDrive_${s}->setAccelTime(${accel});`);
+      if (accel !== rampeDefaut) lines.push(`    axDrive_${s}->setAccelTime(${accel});`);
       if (ref) lines.push(`    axDrive_${s}->setTorqueReferenceCurrent(${ref});`);
       break;
     }
     case 'stepperonline-servo': {
       const fam = a.def.family === 'T6' ? 'T6' : 'A6RS';
-      const accel = Math.max(0, Math.min(fam === 'T6' ? 32767 : 65535, Math.round(Number(o.accelTime) || 0)));
+      const accel = Math.max(0, Math.min(b.rampeMaxMs ?? (fam === 'T6' ? 32767 : 65535), Math.round(Number(o.accelTime) || 0)));
       lines.push(
         `    if (!axNodes_${s}.validateRequired(StepperOnlineFamily::${fam})) { ${broken(`nœuds obligatoires de l'axe « ${a.label} » manquants`)} return false; }`,
         `    axDrive_${s}.reset(new StepperOnlineServo(StepperOnlineFamily::${fam}, axNodes_${s}, ${cstr(a.label)}));`

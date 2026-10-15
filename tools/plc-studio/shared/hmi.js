@@ -1,6 +1,6 @@
 // Disposition des écrans opérateur (pages / sections / éléments) et valeurs par défaut des widgets.
 
-import { CATALOG, widgetsFor } from './catalog.js';
+import { CATALOG, REFERENTIEL, widgetsFor } from './catalog.js';
 import { axisList } from './axes.js';
 
 let counter = 0;
@@ -51,12 +51,9 @@ export function unplacedRefs(project, layout, pages = project.hmi.pages) {
   return refs;
 }
 
-// Valeurs par défaut (SureServo) ; chaque type d'axe peut les redéfinir dans catalog.js (axis.hmi).
-const AXIS_HMI_DEFAULT = {
-  numeric: ['position', 'alarms', 'status'],
-  indicators: ['servoReady', 'servoActivated', 'driveInitialised', 'homeDone', 'targetPositionReached', 'servoAlarm', 'modbusError'],
-  alarms: ['servoAlarm', 'modbusError'],
-};
+// Valeurs par défaut (gabarits.ecranAxe du référentiel : écran du SureServo) ; chaque pilote
+// d'axe peut les redéfinir (« ihm » du pilote ou du modèle, axis.hmi du catalogue).
+const AXIS_HMI_DEFAULT = REFERENTIEL.ecranAxe.hmi;
 
 function axisHmi(entry) {
   return { ...AXIS_HMI_DEFAULT, ...(entry?.axis?.hmi || {}) };

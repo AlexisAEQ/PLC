@@ -8,30 +8,21 @@
 //
 // Format détaillé : .claude/skills/plc-projet/references/spec.md
 
-import { CATALOG } from './catalog.js';
+import { CATALOG, REFERENTIEL, aliasType, aliasVoie } from './catalog.js';
 import { newProject, normalizeProject, normalizeEquipment, normalizeVariable, systemVariablesFor, listChannels, toHostname, toSymbol, DEFAULT_AXIS_BLOCK } from './model.js';
 import { ACTION_TYPES, DEFAULT_BLOCKS, actionText } from './grafcet.js';
 import { axisList } from './axes.js';
 import { buildLayout } from './layout.js';
 import { effectivePages } from './generate.js';
 import { validateProject } from './validate.js';
+import { champsImposes } from './site.js';
 
 export const SPEC_FORMAT = 'plc-studio-spec';
 
 // Alias lisibles des nœuds d'un axe pour les écrans (<Axe>.<alias> ou <axe>:<champ> ;
-// « Servo. » / « servo: » désignent l'axe unique). Un type d'axe peut les redéfinir (axis.refAliases).
-const SERVO_REF_ALIASES = {
-  pret: 'servoReady',
-  active: 'servoActivated',
-  initialise: 'driveInitialised',
-  origineFaite: 'homeDone',
-  enPosition: 'targetPositionReached',
-  alarme: 'servoAlarm',
-  erreurModbus: 'modbusError',
-  position: 'position',
-  codeAlarme: 'alarms',
-  etat: 'status',
-};
+// « Servo. » / « servo: » désignent l'axe unique) : gabarits.ecranAxe.aliasEcran du référentiel,
+// complétés ou redéfinis par chaque pilote d'axe (aliasEcran, axis.refAliases du catalogue).
+const SERVO_REF_ALIASES = REFERENTIEL.ecranAxe.refAliases;
 
 // ---------------------------------------------------------------------------
 // Actions : forme objet (format du projet) ou texte court.
@@ -317,6 +308,9 @@ export function buildFromSpec(spec, { previous = null } = {}) {
   if (spec.ethernet) project.ethernet = { ...project.ethernet, ...spec.ethernet };
   if (spec.otaUrl) project.otaUrl = spec.otaUrl;
   if (spec.editorPassword) project.editorPassword = spec.editorPassword;
+  // Site du référentiel d'infrastructure : les équipements liés (« appareil ») en tirent IP,
+  // port, n° d'unité, adresse RS485, Ethernet et bus.
+  if (spec.site) project.site = String(spec.site);
 
   // Équipements (l'automate est toujours placé en premier).
   const eqById = new Map();
@@ -332,6 +326,12 @@ export function buildFromSpec(spec, { previous = null } = {}) {
     const entry = CATALOG[e.type];
     const eq = normalizeEquipment({ uid: prev.equipment(e) || `eq_${toSymbol(e.id)}`, type: e.type, label: e.label || entry.defaultLabel || entry.label, options: e.options || {} });
     if (entry.modbus) eq.address = e.address ?? entry.defaultAddress;
+    if (e.appareil) {
+      eq.appareil = String(e.appareil);
+      const imposes = champsImposes(project, eq);
+      const doublons = Object.keys(imposes).filter((k) => (k === 'address' ? e.address !== undefined : k === 'ethernet' ? !!spec.ethernet : e.options?.[k] !== undefined));
+      if (doublons.length) fail(`équipement « ${e.id} » : ${doublons.join(', ')} vien${doublons.length > 1 ? 'nent' : 't'} de l'appareil « ${e.appareil} » du site ${project.site} (infrastructure.jsonc) : retirez-les de la spec.`);
+    }
     project.equipment.push(eq);
     project.variables.push(...systemVariablesFor(eq));
     eqById.set(e.id, eq);
@@ -350,7 +350,7 @@ export function buildFromSpec(spec, { previous = null } = {}) {
       fail(`${what} : équipement « ${m[1]} » inconnu.`);
       return null;
     }
-    const want = m[2].toUpperCase().replace(/^GPIO2_1$/, 'GPIO2');  // ancien nom de la sortie GPIO2 de la KC868-A8S
+    const want = aliasVoie(eq.type, m[2]); // anciens noms de voie (alias.voies du référentiel, ex. GPIO2_1)
     const ch = channels.find((c) => c.eq === eq && c.name.toUpperCase() === want);
     if (!ch) {
       const names = channels.filter((c) => c.eq === eq).map((c) => c.name);
@@ -679,10 +679,15 @@ export function specFromProject(input) {
     execution: project.execution?.mode || 'hmi',
     options: project.options,
     wifi: project.wifi,
+    ...(project.site ? { site: project.site } : {}),
     equipment: project.equipment.map((eq) => {
       const e = { id: idOf.get(eq.uid), type: eq.type, label: eq.label };
-      if (CATALOG[eq.type]?.modbus) e.address = eq.address;
-      if (eq.options && Object.keys(eq.options).length) e.options = eq.options;
+      // Équipement lié à un appareil du site : ce qui vient du référentiel n'est pas recopié.
+      const imposes = eq.appareil ? champsImposes(project, eq) : {};
+      if (eq.appareil) e.appareil = eq.appareil;
+      if (CATALOG[eq.type]?.modbus && !('address' in imposes)) e.address = eq.address;
+      const options = Object.fromEntries(Object.entries(eq.options || {}).filter(([k]) => !(k in imposes)));
+      if (Object.keys(options).length) e.options = options;
       const signals = {};
       for (const v of project.variables.filter((x) => x.system?.eq === eq.uid)) if (v.binding) signals[v.system.signal] = chName(v.binding);
       if (Object.keys(signals).length) e.signals = signals;
@@ -690,7 +695,8 @@ export function specFromProject(input) {
     }),
   };
   const eth = project.ethernet;
-  if (eth && (eth.enabled || eth.ip || eth.gateway || eth.dns)) spec.ethernet = eth;
+  const ethDuSite = project.equipment.some((eq) => eq.appareil && champsImposes(project, eq).ethernet);
+  if (eth && !ethDuSite && (eth.enabled || eth.ip || eth.gateway || eth.dns)) spec.ethernet = eth;
   if (project.otaUrl) spec.otaUrl = project.otaUrl;
   if (project.editorPassword) spec.editorPassword = project.editorPassword;
   const axes = axisList(project);
