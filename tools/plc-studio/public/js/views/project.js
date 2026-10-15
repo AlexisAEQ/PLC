@@ -1,7 +1,8 @@
 // Étape 1 : réglages généraux du projet.
 
 import { toHostname } from '/shared/model.js';
-import { CATALOG } from '/shared/catalog.js';
+import { CATALOG, REFERENTIEL } from '/shared/catalog.js';
+import { listeSites, siteDuProjet, champsImposes, appliquerSite } from '/shared/site.js';
 import { h, input, checkbox, select, field, card, pageHead, button, issueList } from '../ui.js';
 
 export function renderProject(root, store) {
@@ -34,6 +35,7 @@ export function renderProject(root, store) {
         field('Description', input(p, 'description', { onInput: changed }))
       )
     ),
+    siteCard(store),
     card(
       'Mode d’exécution',
       h('p', { class: 'hint' }, 'Indique si la logique doit attendre qu’un écran (navigateur) soit connecté pour tourner.'),
@@ -69,12 +71,64 @@ export function renderProject(root, store) {
   );
 }
 
+// Site du référentiel d'infrastructure (infrastructure.jsonc) : les équipements liés à un
+// appareil du site en tirent leurs adresses (étape Équipements).
+function siteCard(store) {
+  const p = store.project;
+  const sites = listeSites();
+  const choix = [{ value: '', label: '— aucun : adresses saisies dans le projet —' }, ...sites.map((s) => ({ value: s.nom, label: `${s.nom} — ${s.libelle}` }))];
+  if (p.site && !sites.some((s) => s.nom === p.site)) choix.push({ value: p.site, label: `${p.site} (inconnu du référentiel)` });
+  const etat = { site: p.site || '' };
+  const sel = select(etat, 'site', choix, {
+    onChange: (v) => {
+      if (v) p.site = v;
+      else delete p.site;
+      appliquerSite(p); // recopie les adresses du site dans les équipements liés
+      store.changed({ render: true });
+    },
+  });
+  const site = siteDuProjet(p);
+  const lignes = Object.entries(site?.appareils || {}).map(([nom, a]) =>
+    h(
+      'tr',
+      {},
+      h('td', { class: 'mono' }, nom),
+      h('td', {}, a.type ? CATALOG[a.type]?.label || a.type : a.materiel || '—'),
+      h('td', { class: 'mono' }, a.ethernet?.ip || a.ip || (a.rs485 ? `RS485 n° ${a.rs485.adresse}` : '—')),
+      h('td', {}, a.modbusTcp ? `TCP ${a.modbusTcp.port}, unité ${a.modbusTcp.unite}` : a.rs485 ? 'RTU' : a.modbusTcp === null ? 'aucun' : '—'),
+      h('td', {}, a.logiciel ? `${a.logiciel.nom}${a.logiciel.version ? ' ' + a.logiciel.version : ''}${a.logiciel.releveLe ? ` (relevé le ${a.logiciel.releveLe})` : ''}` : '—'),
+      h('td', { class: 'muted' }, a.remarque || '')
+    )
+  );
+  return card(
+    'Site (référentiel d’infrastructure)',
+    h('p', { class: 'hint' }, `Les IP, ports, n° d’unité, adresses RS485, l’Ethernet et le bus de l’automate des équipements liés à un appareil du site viennent de infrastructure.jsonc (révision « ${REFERENTIEL.revision || '—'} ») : quand l’installation change, modifiez ce fichier puis redémarrez PLC Studio ; les projets liés suivent à leur prochaine ouverture.`),
+    h('div', { class: 'grid' }, field('Site', sel, sites.length ? 'Liez ensuite chaque équipement à un appareil (étape Équipements).' : 'Aucun site dans infrastructure.jsonc (section « sites »).')),
+    site
+      ? h(
+          'table',
+          { class: 'tbl', style: { marginTop: '12px' } },
+          h('thead', {}, h('tr', {}, ['Appareil', 'Matériel', 'Adresse', 'Modbus', 'Logiciel relevé', 'Remarque'].map((t) => h('th', {}, t)))),
+          h('tbody', {}, lignes)
+        )
+      : null
+  );
+}
+
 // Ethernet filaire (cartes W5500 / LAN8720), en plus du WiFi.
 function ethernetCard(store) {
   const p = store.project;
   const controller = p.equipment.find((e) => CATALOG[e.type]?.role === 'controller');
   const capable = !!CATALOG[controller?.type]?.ethernet;
+  const duSite = controller ? champsImposes(p, controller).ethernet : null;
   const body = h('div', {});
+  if (duSite) {
+    body.append(
+      h('p', { class: 'hint' }, `Adresse fixée par le site ${p.site} (appareil « ${controller.appareil} ») dans infrastructure.jsonc :`),
+      h('p', { class: 'mono' }, `${duSite.ip} / ${duSite.masque}, passerelle ${duSite.passerelle}${duSite.dns ? `, DNS ${duSite.dns}` : ''}`)
+    );
+    return card('Réseau filaire (Ethernet)', body);
+  }
   const draw = () => {
     const fields = h('div', { class: 'grid' });
     fields.append(

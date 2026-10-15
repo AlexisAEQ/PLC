@@ -2,6 +2,7 @@
 
 import { CATALOG, marquesAutomates } from '/shared/catalog.js';
 import { addEquipment, removeEquipment } from '/shared/model.js';
+import { siteDuProjet, champsImposes, appliquerSite } from '/shared/site.js';
 import { genericHardwareName } from '/shared/layout.js';
 import { h, input, checkbox, select, field, card, pageHead, button, confirmDialog } from '../ui.js';
 import { issueBlock } from './project.js';
@@ -68,17 +69,46 @@ function equipmentCard(store, eq) {
     { class: 'grid' },
     field('Nom', input(eq, 'label', { onInput: () => store.changed(), onChange: () => store.changed({ render: true }) }), 'Sert à nommer les sections de config.json.')
   );
+  // Appareil du site (référentiel d'infrastructure) : ses adresses remplacent celles du projet.
+  const site = siteDuProjet(p);
+  if (site) {
+    const appareils = Object.entries(site.appareils || {}).filter(([, a]) => !a.type || a.type === eq.type);
+    const choix = [{ value: '', label: '— non lié : adresses saisies ici —' }, ...appareils.map(([nom, a]) => ({ value: nom, label: `${nom}${a.ip ? ` (${a.ip})` : a.ethernet ? ` (${a.ethernet.ip})` : a.rs485 ? ` (RS485 n° ${a.rs485.adresse})` : ''}` }))];
+    if (eq.appareil && !appareils.some(([nom]) => nom === eq.appareil)) choix.push({ value: eq.appareil, label: `${eq.appareil} (absent du site ou d’un autre type)` });
+    const etat = { appareil: eq.appareil || '' };
+    fields.append(
+      field(
+        `Appareil du site ${p.site}`,
+        select(etat, 'appareil', choix, {
+          onChange: (v) => {
+            if (v) eq.appareil = v;
+            else delete eq.appareil;
+            appliquerSite(p); // recopie les adresses de l'appareil
+            store.changed({ render: true });
+          },
+        }),
+        'Lié : IP, port, n° d’unité ou adresse RS485 viennent de infrastructure.jsonc.'
+      )
+    );
+  }
+  const imposes = champsImposes(p, eq);
+  const verrou = (key) => (key in imposes ? `Fixé par le site ${p.site} (appareil « ${eq.appareil} ») dans infrastructure.jsonc.` : null);
   const tcp = entry?.modbus && eq.options?.transport === 'tcp';
   if (entry?.modbus) {
-    fields.append(
-      tcp
-        ? field('N° d’unité Modbus', input(eq, 'address', { type: 'number', min: 0, max: 255, onInput: () => store.changed() }), 'Entre 0 et 255 (souvent 1 ; adresse de l’esclave derrière une passerelle TCP → RTU).')
-        : field('Adresse Modbus', input(eq, 'address', { type: 'number', min: 1, max: 247, onInput: () => store.changed() }), 'Entre 1 et 247, unique sur le bus RS485.')
-    );
+    const adresse = tcp
+      ? field('N° d’unité Modbus', input(eq, 'address', { type: 'number', min: 0, max: 255, onInput: () => store.changed() }), verrou('address') || 'Entre 0 et 255 (souvent 1 ; adresse de l’esclave derrière une passerelle TCP → RTU).')
+      : field('Adresse Modbus', input(eq, 'address', { type: 'number', min: 1, max: 247, onInput: () => store.changed() }), verrou('address') || 'Entre 1 et 247, unique sur le bus RS485.');
+    if (verrou('address')) adresse.querySelector('input').disabled = true;
+    fields.append(adresse);
   }
   for (const opt of entry?.options || []) {
     // Adresse IP et port : seulement en Modbus TCP.
     if (entry.modbus && !tcp && (opt.key === 'ip' || opt.key === 'port')) continue;
+    if (verrou(opt.key)) {
+      const valeur = opt.choices ? opt.choices.find((c) => String(c.value) === String(eq.options[opt.key]))?.label ?? eq.options[opt.key] : eq.options[opt.key];
+      fields.append(field(opt.label, h('input', { type: 'text', value: String(valeur ?? ''), disabled: true }), verrou(opt.key)));
+      continue;
+    }
     let control;
     if (opt.type === 'bool') control = checkbox(eq.options, opt.key, opt.label, { onChange: () => store.changed() });
     else if (opt.type === 'select') control = field(opt.label, select(eq.options, opt.key, opt.choices, { onChange: () => store.changed({ render: opt.key === 'transport' }) }), opt.help);
