@@ -50,7 +50,10 @@ Modbus et ses `signals` (voies de l'automate) :
 ```
 
 - `appareil` (avec `site`) : nom de l'appareil du site auquel l'équipement est lié, ex.
-  `{ "id": "robot", "type": "ModbusGeneric", "label": "Robot", "appareil": "robot" }`.
+  `{ "id": "plc", "type": "Waveshare_ESP32S3_POE_8DI8DO", "label": "Automate", "appareil": "automate" }`
+  avec `"site": "banc-aubo"`. Seul un appareil qui déclare `modbusTcp` ou `rs485` peut porter
+  un équipement Modbus : le robot du banc AUBO (AUBOPE, `"modbusTcp": null`) ne peut pas
+  être lié à un `ModbusGeneric` ni à un `Robot_Aubo` (erreur) — il se câble en E/S.
 - `id` : nom court, local à la spec, utilisé dans les voies (`plc.X1`). `type` : voir
   `plc.mjs catalog`. `label` : nom affiché et préfixe des sections du firmware — court,
   unique, sans `/`, ne commence pas par un chiffre.
@@ -60,10 +63,12 @@ Modbus et ses `signals` (voies de l'automate) :
   `M5Stack_StamPLC`, `Homemaster_MiniPLC` (voies : `plc.mjs catalog`, qui donne aussi
   l'environnement PlatformIO à compiler).
 - `address` : adresse Modbus 1 à 247, **unique** sur le bus RS485 (défauts : 8DIO 1, 16DO 2,
-  8AI 3, SureServo 127, Lichuan 1).
+  8AI 3, SureServo 127, Lichuan 1). Certains modèles ont une plage plus étroite (Lichuan A6 :
+  1 à 32) et un format série imposé (Lichuan A6 : `SERIAL_8E1` ; un bus réglé autrement est
+  refusé) : plages et formats viennent de `infrastructure.jsonc` (`plc.mjs infra montrer <type>`).
 - Liaison de **tout équipement Modbus** : `options.transport` = `"rtu"` (défaut, bus RS485)
   ou `"tcp"` (réseau WiFi/Ethernet) avec `options.ip` (ex. `"192.168.10.50"`) et
-  `options.port` (502). En TCP, `address` est le n° d'unité 0 à 255 (souvent 1 ; adresse de
+  `options.port` (502). En TCP, `address` est le n° d'unité 0 à 255 (dans la plage d'adresses du modèle s'il en a une ; souvent 1 ; adresse de
   l'esclave derrière une passerelle TCP → RTU), unique par IP/port. Au plus 8 IP, 16
   équipements TCP, un seul port par IP. Voir `docs/modbus-tcp.md`.
 - Robots (TCP par défaut, poignée de main avec un programme robot, voir `docs/robots/`) :

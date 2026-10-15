@@ -23,7 +23,7 @@ Options :
 | Option | Défaut | Rôle |
 |---|---|---|
 | `--port <n>` | `8090` | port HTTP |
-| `--root <dossier>` | racine du dépôt | dépôt PLC à lire/écrire |
+| `--root <dossier>` | racine du dépôt | dépôt PLC à lire/écrire ; son `infrastructure.jsonc` est lu s'il existe |
 | `--host <adresse>` | `127.0.0.1` | interface d'écoute (locale uniquement par défaut) |
 
 Les projets sont enregistrés dans `projets/<Nom>.plc.json` (à la racine du dépôt).
@@ -247,7 +247,13 @@ firmware…) : [`docs/referentiel-infrastructure.md`](../../docs/referentiel-inf
 3. `node cli/plc.mjs infra verifier` contrôle le référentiel contre `data/hardware`,
    `platformio.ini` et le firmware ; `npm test` génère chaque équipement avec les vrais
    fichiers matériels et protège les identifiants enregistrés dans les projets.
-4. Redémarrez PLC Studio s'il tourne (un bandeau le rappelle).
+4. Après un ajout relu : `node cli/plc.mjs infra figer` (copie figée des identifiants).
+5. Redémarrez PLC Studio s'il tourne : un bandeau le rappelle, et l'installation est refusée
+   tant que le serveur n'a pas relu le fichier.
+
+Le serveur et `plc.mjs` chargent le référentiel au démarrage (`cli/demarrage.mjs`) : un
+fichier invalide arrête l'outil (code 3) avec la ligne et la colonne fautives.
+`PLC_REFERENTIEL=<fichier>` fait lire un autre fichier (brouillon, essai).
 
 Commandes : `plc.mjs infra verifier | liste | montrer <type> | impact <site> | figer`.
 
